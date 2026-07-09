@@ -1,0 +1,48 @@
+{
+  "place": {
+    "name": "카이센동 우니도 본점",
+    "placeId": "1720070048",
+    "category": "일식당",
+    "rating": "4.87",
+    "reviewCountObserved": "5,970",
+    "address": "서울 강남구 압구정로2길 15 1층 우니도"
+  },
+  "internalPhotos": {
+    "route": "https://pcmap.place.naver.com/restaurant/1720070048/photo?entry=bmp&from=map&fromPanelNum=2&locale=ko&searchText=%EC%8B%A0%EC%82%AC%EC%97%AD&timestamp=202607092146&filterType=AI%20View&subFilter=INTERIOR",
+    "loadedAssetCount": 31,
+    "sampleUrls": [
+      "https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=https%3A%2F%2Fldb-phinf.pstatic.net%2F20260615_83%2F1781508365501pgLcU_JPEG%2F%25B0%25AD%25B3%25B2_%25B8%25C0%25C1%25FD.jpg",
+      "https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=https%3A%2F%2Fldb-phinf.pstatic.net%2F20260615_169%2F1781508363447AYLwG_JPEG%2F%25B0%25AD%25B3%25B2_%25B8%25C0%25C1%25FD_2.jpg",
+      "https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=https%3A%2F%2Fblogfiles.pstatic.net%2FMjAyNjAxMjdfNjYg%2FMDAxNzY5NDgwNzgyOTg4.EGp1V7ZeNogTDqFxqAkFbmjQRUellp41fuJab3L-jC8g.jxTMr58FNrHOBrpSeFkkXZS95SUgJXAPBPEajCqSGgog.JPEG%2FIMG%25EF%25BC%25BF5505.jpg%2F900x1200",
+      "https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=https%3A%2F%2Fblogfiles.pstatic.net%2FMjAyNjAyMDhfMjAg%2FMDAxNzcwNTI1MjcwMjk2.g4tigWShVB-I8MWx3dvc9PQYvTIygPFXfXhw20-XtSwg.MO27t6jw2vDoXGwRWzlAWtJJQyoTTz5BQrMisQxWJnwg.JPEG%2Foutput%25EF%25BC%25BF2800068673.jpg%2F900x900",
+      "https://search.pstatic.net/common/?autoRotate=true&type=w560_sharpen&src=https%3A%2F%2Fblogfiles.pstatic.net%2FMjAyNjAyMDdfMTc0%2FMDAxNzcwNDY2NjIyMjQy.bB_6olnEAzTPe4JDImMawKNXrY1qDeoXg_IxDvy-u4Ag.Xbj3Boyz4ccCqQrdJZjabQ5FxLuB7tGA2BzVGogSf1Ig.JPEG%2F900%25EF%25BC%25BF20260206%25EF%25BC%25BF114710.jpg%2F900x1200"
+    ]
+  },
+  "latestReviews": {
+    "route": "https://pcmap.place.naver.com/restaurant/1720070048/review/visitor?entry=bmp&from=map&fromPanelNum=2&locale=ko&searchText=%EC%8B%A0%EC%82%AC%EC%97%AD&timestamp=202607092146&reviewSort=recent",
+    "loadedCount": 20,
+    "note": "원문 전문은 저장하지 않고 PoC 검증용 요약만 기록함.",
+    "items": [
+      {"no": 1, "author": "siy****", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "저녁 혼자 방문. 카이센동 방문 추천과 맛 만족 언급."},
+      {"no": 2, "author": "bej****", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "저녁 데이트 방문. 음식 맛과 직원 친절 만족."},
+      {"no": 3, "author": "hap****", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "저녁 친구 방문. 맛과 양에 긍정 반응."},
+      {"no": 4, "author": "멍구569", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "저녁 데이트 방문. 사케동, 카이센동, 우니, 맥주 조합 만족."},
+      {"no": 5, "author": "비망망", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "점심 친구 방문. 직원 친절, 맛, 재방문 의사 강함."},
+      {"no": 6, "author": "관리필수", "rating": "5", "visitDate": "2026년 7월 9일 목요일", "summary": "점심 혼자 방문. 재료 구성, 신선도, 양, 대기 팁까지 상세 호평."},
+      {"no": 7, "author": "차차 아저씨", "rating": "5", "visitDate": "2026년 7월 8일 수요일", "summary": "저녁 친구 방문. 대기가 있어도 먹을 가치가 있다고 평가."},
+      {"no": 8, "author": "고쟁이44", "rating": "5", "visitDate": "2026년 7월 8일 수요일", "summary": "저녁 연인 방문. 본점 차이와 재료 신선함 언급."},
+      {"no": 9, "author": "클로버7069", "rating": "5", "visitDate": "2026년 7월 8일 수요일", "summary": "점심 가족 방문. 우니, 전복, 참치, 연어 퀄리티 만족."},
+      {"no": 10, "author": "WassupDaviiiid", "rating": "5", "visitDate": "2026년 7월 8일 수요일", "summary": "점심 친구 방문. 해산물 품질에 강한 긍정 반응."},
+      {"no": 11, "author": "Hwiwoo", "rating": "4", "visitDate": "2026년 7월 7일 화요일", "summary": "저녁 친구 방문. 연어의 부드러움과 재방문 의사 언급."},
+      {"no": 12, "author": "jan****", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "저녁 혼자 방문. 연어 메뉴를 자주 먹는 단골성 리뷰."},
+      {"no": 13, "author": "리이잉방", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "저녁 데이트 방문. 양과 맛에 만족."},
+      {"no": 14, "author": "noe****", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "저녁 데이트/친구 방문. 맛에 긍정 반응."},
+      {"no": 15, "author": "기감", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "점심 방문. 반복 방문에도 맛이 좋다는 평가."},
+      {"no": 16, "author": "325****", "rating": "4.5", "visitDate": "2026년 7월 7일 화요일", "summary": "점심 친구 방문. 맛에 긍정 반응."},
+      {"no": 17, "author": "oli****", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "점심 혼자 방문. 여러 번 방문했고 맛의 일관성 언급."},
+      {"no": 18, "author": "김군76", "rating": "5", "visitDate": "2026년 7월 7일 화요일", "summary": "점심 데이트 방문. 오픈 시간과 해외 카이센동 대비 만족 언급."},
+      {"no": 19, "author": "이소은46", "rating": "5", "visitDate": "2026년 7월 6일 월요일", "summary": "저녁 데이트 방문. 도화새우 맛에 긍정 반응."},
+      {"no": 20, "author": "도서왕", "rating": "5", "visitDate": "2026년 7월 6일 월요일", "summary": "저녁 친구 방문. 맛과 인기 이유에 긍정 반응."}
+    ]
+  }
+}
