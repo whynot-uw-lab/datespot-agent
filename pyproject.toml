@@ -1,0 +1,22 @@
+[project]
+name = "datespot-agent"
+version = "0.1.0"
+description = "소개팅 장소 자동 탐색 에이전트"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=0.116.0",
+    "langchain-core>=1.4.9",
+    "langgraph>=1.2.8",
+    "playwright>=1.61.0",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/datespot_agent"]

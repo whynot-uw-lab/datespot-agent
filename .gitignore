@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Env / secrets
+.env
+.env.local
+
+# Playwright
+playwright-report/
+test-results/
+
+# Reports (generated)
+reports/*
+!reports/.gitkeep
+
+# PoC 단계별 생성 산출물 (디렉토리는 유지, 파일은 로컬 관리)
+poc/*/output/*
+!poc/*/output/.gitkeep
+
+# OS / IDE
+.DS_Store
