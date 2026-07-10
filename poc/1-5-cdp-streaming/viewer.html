@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CDP Stream Viewer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #111;
+        color: #eee;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      header {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        padding: 10px 14px;
+        background: #1b1b1b;
+        border-bottom: 1px solid #333;
+        font-size: 14px;
+      }
+
+      #status {
+        color: #f5c542;
+      }
+
+      main {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>CDP Stream Viewer</strong>
+      <span id="status">connecting</span>
+      <span>frames: <span id="frames">0</span></span>
+    </header>
+    <main>
+      <img id="frame" alt="CDP screencast frame" />
+    </main>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const wsUrl = params.get("ws") || "ws://127.0.0.1:8765";
+      const statusEl = document.querySelector("#status");
+      const framesEl = document.querySelector("#frames");
+      const frameEl = document.querySelector("#frame");
+      let frames = 0;
+
+      const socket = new WebSocket(wsUrl);
+
+      socket.addEventListener("open", () => {
+        statusEl.textContent = "connected";
+        statusEl.style.color = "#7bd88f";
+      });
+
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type !== "frame") return;
+        frameEl.src = `data:image/jpeg;base64,${message.data}`;
+        frames += 1;
+        framesEl.textContent = String(frames);
+      });
+
+      socket.addEventListener("close", () => {
+        statusEl.textContent = "closed";
+        statusEl.style.color = "#aaa";
+      });
+
+      socket.addEventListener("error", () => {
+        statusEl.textContent = "error";
+        statusEl.style.color = "#ff6b6b";
+      });
+    </script>
+  </body>
+</html>
