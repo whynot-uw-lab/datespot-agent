@@ -29,8 +29,8 @@
 - `GUIDE.md` — 수동 조사 기록 (단계별 스크린샷 설명, 셀렉터, 막힌 지점)
 - `naver-map-playwright-routing.md` — 확인된 라우팅, iframe, Playwright 조작 메모
 - `kainsendon-unido-poc-extraction-summary.json` — 카이센동 우니도 본점 추출 결과 요약
-- `explore.py` — Playwright 재현 스크립트 (조사 완료 후 작성)
-- `output/` — 실행 결과 (추출된 JSON, 스크린샷)
+- `explore.py` — Playwright 재현 스크립트
+- `output/naver_map_flow_result.json` — 실행 결과 JSON
 
 ## 확인 결과
 
@@ -42,13 +42,24 @@
 - 내부 사진은 `filterType=AI View&subFilter=INTERIOR`로 접근 가능.
 - 최신 리뷰는 `reviewSort=recent` 적용 가능.
 - 리뷰는 첫 번째 `펼쳐서 더보기` 클릭 후 20개까지 로드 확인.
+- `explore.py` 실행으로 광고 제외 상위 2개 장소 추출 성공.
+- 결과: 카이센동 우니도 본점(사진 10개, 리뷰 34개), 치보 신사점(사진 10개, 리뷰 12개).
+
+## 실행
+
+```bash
+uv run python poc/1-2-naver-map-flow/explore.py
+```
 
 ## 이슈
 
 - role/text click은 sticky header 또는 child span에 자주 막힘.
 - DOM node click 또는 direct `pcmap` route fallback 필요.
 - 사진 자산에는 지도 타일/아이콘/광고 이미지가 섞여 URL 필터링 필요.
+- 네이버 DOM 클래스명은 동적으로 바뀌므로 클래스 기반 selector는 피하고, iframe URL/role/text/DOM 구조/direct route를 우선 사용.
+- 검색 UI 자동완성은 간헐 timeout이 있어 `https://map.naver.com/p/search/{query}` direct 진입 fallback 사용.
+- 역 검색 후 같은 browser context에서 카테고리 검색이 “검색 결과 없음”으로 고착될 수 있어 station/context와 category/context를 분리.
 
 ## 상태
 
-수동 조사 완료. 스크립트화 전 단계.
+완료. 재현 스크립트와 결과 JSON 생성 확인.
