@@ -58,7 +58,7 @@ uv run python poc/1-5-cdp-streaming/stream_browser.py \
 - `https://map.naver.com` 대상 실제 CDP screencast 실행 성공.
 - `framesReceived=105`
 - `framesBroadcast=105`
-- `averageFps=16.46`
+- `averageFps=26.28`
 - 결과 파일: `output/cdp_stream_result.json`
 
 ## 참고

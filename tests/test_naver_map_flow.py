@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import unittest
 from pathlib import Path
@@ -115,6 +116,128 @@ class NaverMapFlowTests(unittest.TestCase):
             module.build_category_queries("신사역", "음식점"),
             ["신사역 음식점", "신사역 맛집"],
         )
+
+    def test_build_direct_pcmap_list_url_uses_station_coordinates(self):
+        module = load_module()
+
+        url = module.build_direct_pcmap_list_url("신사역 음식점")
+
+        self.assertTrue(url.startswith("https://pcmap.place.naver.com/restaurant/list?"))
+        self.assertIn("query=%EC%8B%A0%EC%82%AC%EC%97%AD%20%EC%9D%8C%EC%8B%9D%EC%A0%90", url)
+        self.assertIn("x=127.019566", url)
+        self.assertIn("y=37.516036", url)
+        self.assertIn("clientX=127.019566", url)
+        self.assertIn("clientY=37.516036", url)
+
+    def test_merge_place_ids_matches_apollo_businesses_by_clean_name(self):
+        module = load_module()
+        items = [
+            {"clickText": "카이센동 우니도 본점", "isAd": False},
+            {"clickText": "치보 신사점", "isAd": False},
+            {"clickText": "광고 가게", "isAd": True},
+        ]
+        businesses = [
+            {"id": "1720070048", "name": "카이센동 우니도 본점"},
+            {"id": "1150149433", "name": "치보 신사점"},
+        ]
+
+        merged = module.merge_place_ids_from_businesses(items, businesses)
+
+        self.assertEqual(merged[0]["placeId"], "1720070048")
+        self.assertEqual(merged[1]["placeId"], "1150149433")
+        self.assertNotIn("placeId", merged[2])
+
+    def test_click_review_more_uses_dom_click_without_actionability_wait(self):
+        module = load_module()
+        calls = {"click": 0, "evaluate": 0, "wait": 0}
+
+        class FakeHandle:
+            async def evaluate(self, _script):
+                calls["evaluate"] += 1
+
+        class FakeLocator:
+            @property
+            def first(self):
+                return self
+
+            async def count(self):
+                return 1
+
+            async def click(self, **_kwargs):
+                calls["click"] += 1
+
+            async def element_handle(self, **_kwargs):
+                return FakeHandle()
+
+        class FakePage:
+            def get_by_role(self, role, name):
+                self.role = role
+                self.name = name
+                return FakeLocator()
+
+            async def wait_for_timeout(self, timeout):
+                calls["wait"] = timeout
+
+        clicked = asyncio.run(module.click_review_more(FakePage()))
+
+        self.assertTrue(clicked)
+        self.assertEqual(calls["click"], 0)
+        self.assertEqual(calls["evaluate"], 1)
+        self.assertEqual(calls["wait"], 1500)
+
+    def test_click_list_item_uses_dom_click_before_reading_place_id(self):
+        module = load_module()
+        calls = {"click": 0, "evaluate": 0, "wait": 0}
+
+        class FakeHandle:
+            async def evaluate(self, _script):
+                calls["evaluate"] += 1
+
+        class FakeTitleLink:
+            @property
+            def first(self):
+                return self
+
+            async def click(self, **_kwargs):
+                calls["click"] += 1
+
+            async def element_handle(self, **_kwargs):
+                return FakeHandle()
+
+        class FakeRow:
+            def locator(self, _selector):
+                return self
+
+            def filter(self, **_kwargs):
+                return FakeTitleLink()
+
+        class FakeRows:
+            def nth(self, _index):
+                return FakeRow()
+
+        class FakeListFrame:
+            def locator(self, _selector):
+                return FakeRows()
+
+        class FakePage:
+            url = "https://map.naver.com/p/search/x/place/1720070048"
+            frames = []
+
+            async def wait_for_timeout(self, timeout):
+                calls["wait"] = timeout
+
+        place_id = asyncio.run(
+            module.click_list_item_for_place_id(
+                FakePage(),
+                FakeListFrame(),
+                {"domIndex": 3, "clickText": "카이센동 우니도 본점"},
+            )
+        )
+
+        self.assertEqual(place_id, "1720070048")
+        self.assertEqual(calls["click"], 0)
+        self.assertEqual(calls["evaluate"], 1)
+        self.assertEqual(calls["wait"], 2500)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,8 @@ from datespot_agent.config import get_settings
 
 STATION_QUERY = "신사역"
 CATEGORY_QUERY = "음식점"
+STATION_X = "127.019566"
+STATION_Y = "37.516036"
 STATION_RESULT_PATTERN = re.compile("신사역.*신분당선")
 LIST_FRAME_PATTERN = re.compile(r"pcmap\.place\.naver\.com/(restaurant|place)/list")
 TARGET_ORGANIC_PLACES = 2
@@ -84,6 +86,21 @@ def build_map_search_url(query: str) -> str:
     return f"https://map.naver.com/p/search/{quote(query)}"
 
 
+def build_direct_pcmap_list_url(query: str) -> str:
+    encoded_query = quote(query)
+    return (
+        "https://pcmap.place.naver.com/restaurant/list"
+        f"?query={encoded_query}"
+        f"&x={STATION_X}"
+        f"&y={STATION_Y}"
+        f"&clientX={STATION_X}"
+        f"&clientY={STATION_Y}"
+        "&display=70"
+        "&locale=ko"
+        f"&searchText={encoded_query}"
+    )
+
+
 def build_category_queries(station: str, category: str) -> list[str]:
     primary = f"{station} {category}"
     fallback = f"{station} 맛집" if category == "음식점" else primary
@@ -133,6 +150,26 @@ def parse_list_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             item["placeId"] = place_id
         items.append(item)
     return items
+
+
+def merge_place_ids_from_businesses(
+    items: list[dict[str, Any]],
+    businesses: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    place_id_by_name = {
+        clean_place_title(str(business.get("name", ""))): str(business.get("id", ""))
+        for business in businesses
+        if business.get("name") and business.get("id")
+    }
+    merged: list[dict[str, Any]] = []
+    for item in items:
+        enriched = dict(item)
+        if not enriched.get("isAd") and "placeId" not in enriched:
+            place_id = place_id_by_name.get(clean_place_title(str(enriched.get("clickText", ""))))
+            if place_id:
+                enriched["placeId"] = place_id
+        merged.append(enriched)
+    return merged
 
 
 async def find_frame(page: Page, pattern: Pattern[str]) -> Frame | None:
@@ -211,7 +248,7 @@ async def search_station(page: Page) -> dict[str, Any]:
     return status
 
 
-async def search_category(context: BrowserContext) -> tuple[Page, Frame, dict[str, Any]]:
+async def search_category(context: BrowserContext) -> tuple[Page, Page | Frame, dict[str, Any]]:
     diagnostics: list[dict[str, Any]] = []
     for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
         for attempt in range(1, 4):
@@ -244,10 +281,40 @@ async def search_category(context: BrowserContext) -> tuple[Page, Frame, dict[st
                 )
                 await page.close()
 
+    for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
+        page = await context.new_page()
+        try:
+            await page.goto(
+                build_direct_pcmap_list_url(query),
+                wait_until="domcontentloaded",
+                timeout=DEFAULT_TIMEOUT_MS,
+            )
+            await page.wait_for_selector("li", timeout=DEFAULT_TIMEOUT_MS)
+            return page, page, {
+                "query": query,
+                "attempt": 1,
+                "mode": "direct_pcmap",
+                "url": page.url,
+                "listFrameUrl": page.url,
+                "diagnostics": diagnostics,
+            }
+        except Exception as e:  # noqa: BLE001
+            diagnostics.append(
+                {
+                    "query": query,
+                    "attempt": 1,
+                    "mode": "direct_pcmap",
+                    "url": page.url,
+                    "error": f"{type(e).__name__}: {e}",
+                    "bodySample": await body_sample(page),
+                }
+            )
+            await page.close()
+
     raise RuntimeError(f"restaurant list frame not found after retries: {diagnostics}")
 
 
-async def extract_raw_list_rows(list_frame: Frame) -> list[dict[str, Any]]:
+async def extract_raw_list_rows(list_frame: Page | Frame) -> list[dict[str, Any]]:
     return await list_frame.eval_on_selector_all(
         "li",
         """(rows) => rows.map((row, domIndex) => {
@@ -264,6 +331,25 @@ async def extract_raw_list_rows(list_frame: Frame) -> list[dict[str, Any]]:
     )
 
 
+async def extract_apollo_place_businesses(list_frame: Page | Frame) -> list[dict[str, Any]]:
+    try:
+        businesses = await list_frame.evaluate(
+            """() => {
+              const state = window.__APOLLO_STATE__ || {};
+              return Object.entries(state)
+                .filter(([key, value]) => key.startsWith("PlaceListBusinessesItem:") && value)
+                .map(([, value]) => ({
+                  id: value.id || value.apolloCacheId || "",
+                  name: value.name || "",
+                  category: value.category || "",
+                }));
+            }"""
+        )
+    except Exception:
+        return []
+    return [business for business in businesses if business.get("id") and business.get("name")]
+
+
 async def js_click(locator) -> None:
     handle = await locator.element_handle(timeout=DEFAULT_TIMEOUT_MS)
     if handle is None:
@@ -271,13 +357,10 @@ async def js_click(locator) -> None:
     await handle.evaluate("(el) => el.click()")
 
 
-async def click_list_item_for_place_id(page: Page, list_frame: Frame, item: dict[str, Any]) -> str:
+async def click_list_item_for_place_id(page: Page, list_frame: Page | Frame, item: dict[str, Any]) -> str:
     row = list_frame.locator("li").nth(item["domIndex"])
     title_link = row.locator("a[role=button]").filter(has_text=item["clickText"]).first
-    try:
-        await title_link.click(timeout=10_000)
-    except Exception:
-        await js_click(title_link)
+    await js_click(title_link)
 
     await page.wait_for_timeout(2_500)
     place_id = extract_place_id_from_url(page.url)
@@ -307,7 +390,7 @@ async def close_entry_if_open(page: Page, place_id: str) -> None:
     await page.wait_for_timeout(1_500)
 
 
-async def collect_place_ids(page: Page, list_frame: Frame, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def collect_place_ids(page: Page, list_frame: Page | Frame, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     selected: list[dict[str, Any]] = []
     for item in items:
         if item["isAd"]:
@@ -381,10 +464,7 @@ async def click_review_more(page: Page) -> bool:
     more = page.get_by_role("button", name=re.compile("펼쳐서 더보기"))
     if await more.count() == 0:
         return False
-    try:
-        await more.first.click(timeout=5_000)
-    except Exception:
-        await js_click(more.first)
+    await js_click(more.first)
     await page.wait_for_timeout(1_500)
     return True
 
@@ -510,6 +590,10 @@ async def run_flow() -> dict[str, Any]:
 
             raw_rows = await extract_raw_list_rows(list_frame)
             items = parse_list_rows(raw_rows)
+            items = merge_place_ids_from_businesses(
+                items,
+                await extract_apollo_place_businesses(list_frame),
+            )
             result["listItems"] = items[:20]
             selected = await collect_place_ids(search_page, list_frame, items)
 

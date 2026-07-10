@@ -68,11 +68,11 @@ docs/                 # 기획 문서
 - [x] **1-2 네이버지도 탐색 PoC**: "역 + 카테고리" 검색 → 목록 → 상세(사진/리뷰) 추출
   - 네이버지도는 iframe·동적로딩·봇 차단이 까다로움 — **진짜 병목 지점**
 - [x] **1-3 사진 비전 분석 PoC**: 사진을 OpenAI 최저가 비전 모델에 넣어 "분위기 점수 + 근거"가 쓸만한지 확인
-  - `gpt-5.4-nano` 실제 호출 성공, `photoScore=5.8`, `confidence=medium`
+  - `gpt-5.4-nano` 실제 호출 성공, `photoScore=6.2`, `confidence=medium`
 - [x] **1-4 리뷰 LLM 분석 PoC**: 리뷰 텍스트로 "점수 + 근거" 산출 확인
-  - `gpt-5.4-nano` 실제 호출 성공, `reviewScore=8.6`, `confidence=medium`
+  - `gpt-5.4-nano` 실제 호출 성공, `reviewScore=8.3`, `confidence=medium`
 - [x] **1-5 CDP 스트리밍 최소 검증**: 브라우저 화면이 프론트에 뜨는지 확인
-  - CDP screencast → WebSocket → HTML viewer 경로 성공, 105프레임, 평균 16.46 FPS
+  - CDP screencast → WebSocket → HTML viewer 경로 성공, 105프레임, 평균 26.28 FPS
 - [ ] (플랜B) 자동화가 막힐 경우: 미리 크롤링한 데이터로 데모하는 방식 검토
 
 ### 2단계: 에이전트 코어 (~2주)

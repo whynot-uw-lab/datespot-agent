@@ -59,7 +59,7 @@ uv run python poc/1-3-photo-vision/analyze_photos.py --dry-run
 
 - 입력 로딩, OpenAI 이미지 URL message block 구성, JSON 응답 파싱 테스트 완료.
 - `gpt-5.4-nano` 실제 API 호출 성공.
-- 결과: `photoScore=5.8`, `confidence=medium`.
+- 결과: `photoScore=6.2`, `confidence=medium`.
 - 현재 Codex 셸에 기존 `OPENAI_API_KEY`가 있으면 `.env`보다 우선될 수 있으므로, 로컬 재현 시 필요하면 `env -u OPENAI_API_KEY uv run python poc/1-3-photo-vision/analyze_photos.py`로 실행한다.
 
 ## 완료 기준
