@@ -3,7 +3,7 @@
 실행: uv run python poc/1-1-env/smoke_test.py
 
 확인 항목:
-  1. 핵심 패키지 import (playwright, anthropic, langgraph, pydantic)
+  1. 핵심 패키지 import (playwright, openai, anthropic, langgraph, pydantic)
   2. 설정 모델 로드 (Settings, SearchConfig)
   3. Playwright Chromium 헤드리스 실행 + 간단한 페이지 로드
 
@@ -23,6 +23,7 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 def check_imports() -> str:
     import anthropic  # noqa: F401
     import langgraph  # noqa: F401
+    import openai  # noqa: F401
     import playwright  # noqa: F401
     import pydantic  # noqa: F401
 

@@ -2,7 +2,7 @@
 
 실행: uv run python poc/1-3-photo-vision/analyze_photos.py
 
-1-2 네이버지도 PoC 결과의 내부 사진 URL을 Claude 비전 모델에 전달하고,
+1-2 네이버지도 PoC 결과의 내부 사진 URL을 OpenAI 비전 모델에 전달하고,
 소개팅 장소 적합도 관점의 사진 점수와 근거를 JSON으로 저장한다.
 """
 
@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic
+from openai import OpenAI
 
 from datespot_agent.config import get_settings
 
@@ -26,6 +26,7 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 DEFAULT_OUTPUT = OUTPUT_DIR / "photo_vision_result.json"
 DEFAULT_MAX_PHOTOS = 3
 DEFAULT_MAX_TOKENS = 1200
+DEFAULT_IMAGE_DETAIL = "low"
 DEFAULT_CRITERIA = "어둡고 차분한 분위기, 넓은 좌석 간격, 대화하기 좋은 구조"
 
 SYSTEM_PROMPT = (
@@ -87,16 +88,22 @@ def build_prompt(place_name: str, criteria: str) -> str:
 
 def build_message_content(place_name: str, photo_urls: list[str], criteria: str) -> list[dict[str, Any]]:
     content: list[dict[str, Any]] = [
-        {"type": "image", "source": {"type": "url", "url": url}}
-        for url in photo_urls
+        {"type": "input_text", "text": build_prompt(place_name, criteria)}
     ]
-    content.append({"type": "text", "text": build_prompt(place_name, criteria)})
+    content.extend(
+        {"type": "input_image", "image_url": url, "detail": DEFAULT_IMAGE_DETAIL}
+        for url in photo_urls
+    )
     return content
 
 
-def extract_text_from_response(message: Any) -> str:
+def extract_text_from_response(response: Any) -> str:
+    output_text = getattr(response, "output_text", "")
+    if output_text:
+        return output_text.strip()
+
     parts: list[str] = []
-    for block in getattr(message, "content", []):
+    for block in getattr(response, "content", []):
         if getattr(block, "type", None) == "text":
             parts.append(getattr(block, "text", ""))
     return "\n".join(parts).strip()
@@ -135,11 +142,11 @@ def validate_analysis(analysis: dict[str, Any]) -> dict[str, Any]:
     return analysis
 
 
-def create_client(api_key: str) -> Anthropic:
-    return Anthropic(api_key=api_key)
+def create_client(api_key: str) -> OpenAI:
+    return OpenAI(api_key=api_key)
 
 
-def call_claude_vision(
+def call_openai_vision(
     *,
     api_key: str,
     model: str,
@@ -149,19 +156,18 @@ def call_claude_vision(
     max_tokens: int,
 ) -> tuple[dict[str, Any], str]:
     client = create_client(api_key)
-    message = client.messages.create(
+    response = client.responses.create(
         model=model,
-        max_tokens=max_tokens,
-        temperature=0,
-        system=SYSTEM_PROMPT,
-        messages=[
+        instructions=SYSTEM_PROMPT,
+        max_output_tokens=max_tokens,
+        input=[
             {
                 "role": "user",
                 "content": build_message_content(place_name, photo_urls, criteria),
             }
         ],
     )
-    raw_text = extract_text_from_response(message)
+    raw_text = extract_text_from_response(response)
     analysis = validate_analysis(parse_json_response(raw_text))
     return analysis, raw_text
 
@@ -210,13 +216,13 @@ def run_analysis(args: argparse.Namespace) -> dict[str, Any]:
         }
         return result
 
-    if not settings.anthropic_api_key:
-        result["errors"].append("ANTHROPIC_API_KEY is empty")
+    if not settings.openai_api_key:
+        result["errors"].append("OPENAI_API_KEY is empty")
         return result
 
     try:
-        analysis, raw_text = call_claude_vision(
-            api_key=settings.anthropic_api_key,
+        analysis, raw_text = call_openai_vision(
+            api_key=settings.openai_api_key,
             model=model,
             place_name=result["place"]["name"],
             photo_urls=result["photoUrls"],
@@ -227,7 +233,7 @@ def run_analysis(args: argparse.Namespace) -> dict[str, Any]:
         result["rawText"] = raw_text
         result["ok"] = True
     except Exception as e:  # noqa: BLE001
-        result["errors"].append(f"anthropic: {type(e).__name__}: {e}")
+        result["errors"].append(f"openai: {type(e).__name__}: {e}")
     return result
 
 

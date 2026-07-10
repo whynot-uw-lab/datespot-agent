@@ -7,7 +7,7 @@
 ## 목표
 
 - uv 프로젝트 + src 레이아웃 패키지
-- 핵심 의존성 설치 (Playwright / Anthropic / LangGraph / pydantic)
+- 핵심 의존성 설치 (Playwright / OpenAI / Anthropic / LangGraph / pydantic)
 - 설정 모델(`datespot_agent.config`) 로드 확인
 - Playwright Chromium 헤드리스 실행 확인
 

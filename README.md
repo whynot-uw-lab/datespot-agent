@@ -27,7 +27,7 @@ uv sync
 uv run playwright install chromium
 
 # 3. 환경변수 설정
-cp .env.example .env   # ANTHROPIC_API_KEY 등 채우기
+cp .env.example .env   # OPENAI_API_KEY 등 채우기
 
 # 4. 환경 검증
 uv run python poc/1-1-env/smoke_test.py
@@ -64,11 +64,11 @@ docs/                 # 기획 문서
 
 여기서 막히면 아이디어 전체가 바뀔 수 있으므로 가장 먼저 진행한다. 목표는 "예쁜 코드"가 아니라 **"이 방식이 되긴 하는가"** 를 증명하는 것. 세부 단계로 나눠 진행한다.
 
-- [x] **1-1 개발 환경 구축**: uv 프로젝트, 의존성(Playwright/Anthropic/LangGraph), 설정 모델, 스모크 테스트
+- [x] **1-1 개발 환경 구축**: uv 프로젝트, 의존성(Playwright/OpenAI/Anthropic/LangGraph), 설정 모델, 스모크 테스트
 - [x] **1-2 네이버지도 탐색 PoC**: "역 + 카테고리" 검색 → 목록 → 상세(사진/리뷰) 추출
   - 네이버지도는 iframe·동적로딩·봇 차단이 까다로움 — **진짜 병목 지점**
-- [ ] **1-3 사진 비전 분석 PoC**: 사진 1장을 Claude(비전)에 넣어 "분위기 점수 + 근거"가 쓸만한지 확인
-  - 스크립트/테스트 작성 완료, 실제 API 호출은 `ANTHROPIC_API_KEY` 인증 오류 해결 후 재검증 필요
+- [x] **1-3 사진 비전 분석 PoC**: 사진을 OpenAI 최저가 비전 모델에 넣어 "분위기 점수 + 근거"가 쓸만한지 확인
+  - `gpt-5.4-nano` 실제 호출 성공, `photoScore=5.8`, `confidence=medium`
 - [ ] **1-4 리뷰 LLM 분석 PoC**: 리뷰 텍스트로 "점수 + 근거" 산출 확인
 - [ ] **1-5 CDP 스트리밍 최소 검증**: 브라우저 화면이 프론트에 뜨는지 확인
 - [ ] (플랜B) 자동화가 막힐 경우: 미리 크롤링한 데이터로 데모하는 방식 검토

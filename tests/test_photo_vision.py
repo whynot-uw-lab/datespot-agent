@@ -4,8 +4,9 @@ import importlib.util
 import json
 import tempfile
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,11 +53,15 @@ class PhotoVisionTests(unittest.TestCase):
             criteria="어둡고 차분한 분위기",
         )
 
-        self.assertEqual(content[0], {"type": "image", "source": {"type": "url", "url": "https://example.com/a.jpg"}})
-        self.assertEqual(content[1]["source"]["url"], "https://example.com/b.jpg")
-        self.assertEqual(content[-1]["type"], "text")
-        self.assertIn("치보 신사점", content[-1]["text"])
-        self.assertIn("어둡고 차분한 분위기", content[-1]["text"])
+        self.assertEqual(content[0]["type"], "input_text")
+        self.assertIn("치보 신사점", content[0]["text"])
+        self.assertIn("어둡고 차분한 분위기", content[0]["text"])
+        self.assertEqual(
+            content[1],
+            {"type": "input_image", "image_url": "https://example.com/a.jpg", "detail": "low"},
+        )
+        self.assertEqual(content[2]["image_url"], "https://example.com/b.jpg")
+        self.assertEqual(content[2]["detail"], "low")
 
     def test_parse_json_response_accepts_fenced_json(self):
         module = load_module()
@@ -81,13 +86,61 @@ class PhotoVisionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.validate_analysis({"photoScore": 12, "summary": "x"})
 
-    def test_create_client_passes_explicit_api_key(self):
+    def test_extract_text_from_openai_response_output_text(self):
         module = load_module()
 
-        with patch.object(module, "Anthropic") as anthropic_cls:
+        class Response:
+            output_text = "  {\"photoScore\": 7.5}  "
+
+        self.assertEqual(module.extract_text_from_response(Response()), '{"photoScore": 7.5}')
+
+    def test_create_client_passes_explicit_openai_api_key(self):
+        module = load_module()
+
+        with patch.object(module, "OpenAI") as openai_cls:
             module.create_client("secret-key")
 
-        anthropic_cls.assert_called_once_with(api_key="secret-key")
+        openai_cls.assert_called_once_with(api_key="secret-key")
+
+    def test_call_openai_vision_uses_responses_api(self):
+        module = load_module()
+        captured = {}
+
+        class Responses:
+            @staticmethod
+            def create(**kwargs):
+                captured.update(kwargs)
+                return SimpleNamespace(
+                    output_text=json.dumps(
+                        {
+                            "photoScore": 7.5,
+                            "summary": "차분한 분위기",
+                            "positiveSignals": ["조명"],
+                            "negativeSignals": ["좌석 간격 일부 확인 어려움"],
+                            "confidence": "medium",
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+
+        fake_client = SimpleNamespace(responses=Responses())
+
+        with patch.object(module, "create_client", return_value=fake_client):
+            analysis, raw_text = module.call_openai_vision(
+                api_key="secret-key",
+                model="gpt-5.4-nano",
+                place_name="치보 신사점",
+                photo_urls=["https://example.com/a.jpg"],
+                criteria="차분한 분위기",
+                max_tokens=800,
+            )
+
+        self.assertEqual(analysis["photoScore"], 7.5)
+        self.assertIn("차분한 분위기", raw_text)
+        self.assertEqual(captured["model"], "gpt-5.4-nano")
+        self.assertEqual(captured["max_output_tokens"], 800)
+        self.assertIn("반드시 JSON만 출력", captured["instructions"])
+        self.assertEqual(captured["input"][0]["content"][1]["type"], "input_image")
 
 
 if __name__ == "__main__":

@@ -44,7 +44,8 @@ uv sync
 설치되는 핵심 패키지:
 
 - `playwright` — 브라우저 자동화
-- `anthropic` — 사진 비전 / 리뷰 LLM 분석
+- `openai` — 사진 비전 분석
+- `anthropic` — 향후 리뷰 LLM 분석 등 필요 시 사용
 - `langgraph`, `langchain-core` — 에이전트 그래프
 - `pydantic`, `pydantic-settings` — 설정 모델
 - `python-dotenv` — .env 로드
@@ -67,8 +68,8 @@ cp .env.example .env
 
 | 키 | 설명 | 예시 |
 |----|------|------|
-| `ANTHROPIC_API_KEY` | Anthropic API 키 | `sk-ant-...` |
-| `DATESPOT_MODEL` | 사용할 비전 지원 모델 | `claude-opus-4-8` |
+| `OPENAI_API_KEY` | OpenAI API 키 | `sk-...` |
+| `DATESPOT_MODEL` | 사용할 비전 지원 모델 | `gpt-5.4-nano` |
 | `DATESPOT_HEADLESS` | 브라우저 헤드리스 여부 | `true` / `false` |
 
 > 1-1 스모크 테스트는 API 키 없이도 통과한다(실호출 없음).
@@ -93,7 +94,7 @@ uv run python poc/1-1-env/smoke_test.py
 ```
 === 1-1 환경 스모크 테스트 ===
   [OK] 핵심 패키지 import
-  [OK] 설정 로드 (model=claude-opus-4-8, headless=True, max_places=30, weights=0.5/0.5)
+  [OK] 설정 로드 (model=gpt-5.4-nano, headless=True, max_places=30, weights=0.5/0.5)
   [OK] Playwright Chromium 헤드리스 실행
 === 전체 통과 ✅ (결과: .../poc/1-1-env/output/smoke_result.json) ===
 ```

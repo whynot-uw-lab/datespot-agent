@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     )
 
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
-    model: str = Field(default="claude-opus-4-8", alias="DATESPOT_MODEL")
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    model: str = Field(default="gpt-5.4-nano", alias="DATESPOT_MODEL")
     headless: bool = Field(default=True, alias="DATESPOT_HEADLESS")
 
 
