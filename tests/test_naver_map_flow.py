@@ -117,6 +117,35 @@ class NaverMapFlowTests(unittest.TestCase):
             ["신사역 음식점", "신사역 맛집"],
         )
 
+    def test_category_search_modes_prioritize_direct_when_station_search_failed(self):
+        module = load_module()
+
+        modes = module.build_category_search_modes(
+            {"selectedStation": False, "error": "station search: TimeoutError"}
+        )
+
+        self.assertEqual(modes, ["direct_pcmap", "map_shell"])
+
+    def test_category_search_modes_try_map_shell_first_after_station_selected(self):
+        module = load_module()
+
+        modes = module.build_category_search_modes({"selectedStation": True, "error": ""})
+
+        self.assertEqual(modes, ["map_shell", "direct_pcmap"])
+
+    def test_safe_close_ignores_already_closed_playwright_targets(self):
+        module = load_module()
+        calls = {"close": 0}
+
+        class ClosedTarget:
+            async def close(self):
+                calls["close"] += 1
+                raise RuntimeError("Target page, context or browser has been closed")
+
+        asyncio.run(module.safe_close(ClosedTarget()))
+
+        self.assertEqual(calls["close"], 1)
+
     def test_build_direct_pcmap_list_url_uses_station_coordinates(self):
         module = load_module()
 
@@ -128,6 +157,11 @@ class NaverMapFlowTests(unittest.TestCase):
         self.assertIn("y=37.516036", url)
         self.assertIn("clientX=127.019566", url)
         self.assertIn("clientY=37.516036", url)
+
+    def test_browser_launch_options_are_headful_for_visible_poc(self):
+        module = load_module()
+
+        self.assertEqual(module.build_browser_launch_options(), {"headless": False})
 
     def test_merge_place_ids_matches_apollo_businesses_by_clean_name(self):
         module = load_module()

@@ -15,11 +15,9 @@ import sys
 from urllib.parse import quote
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Pattern
+from typing import Any, Callable, Pattern
 
 from playwright.async_api import BrowserContext, Frame, Page, TimeoutError, async_playwright
-
-from datespot_agent.config import get_settings
 
 STATION_QUERY = "신사역"
 CATEGORY_QUERY = "음식점"
@@ -30,6 +28,8 @@ LIST_FRAME_PATTERN = re.compile(r"pcmap\.place\.naver\.com/(restaurant|place)/li
 TARGET_ORGANIC_PLACES = 2
 REVIEW_TARGET_COUNT = 50
 DEFAULT_TIMEOUT_MS = 20_000
+MAP_SHELL_ATTEMPTS = 1
+MAP_SHELL_FRAME_TIMEOUT_MS = 8_000
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_PATH = OUTPUT_DIR / "naver_map_flow_result.json"
@@ -42,6 +42,7 @@ PHOTO_HOST_MARKERS = (
     "blogfiles.pstatic.net",
     "pup-review-phinf.pstatic.net",
 )
+ProgressLogger = Callable[[str], None]
 
 
 def normalize_text(value: str | None) -> str:
@@ -101,10 +102,20 @@ def build_direct_pcmap_list_url(query: str) -> str:
     )
 
 
+def build_browser_launch_options() -> dict[str, bool]:
+    return {"headless": False}
+
+
 def build_category_queries(station: str, category: str) -> list[str]:
     primary = f"{station} {category}"
     fallback = f"{station} 맛집" if category == "음식점" else primary
     return dedupe_preserve_order([primary, fallback])
+
+
+def build_category_search_modes(station_status: dict[str, Any]) -> list[str]:
+    if station_status.get("selectedStation") and not station_status.get("error"):
+        return ["map_shell", "direct_pcmap"]
+    return ["direct_pcmap", "map_shell"]
 
 
 def filter_photo_urls(urls: list[str]) -> list[str]:
@@ -204,6 +215,25 @@ async def body_sample(page: Page, limit: int = 500) -> str:
         return ""
 
 
+async def safe_close(closeable: Any | None) -> None:
+    if closeable is None:
+        return
+    try:
+        await closeable.close()
+    except Exception:
+        return
+
+
+async def safe_close_page(page: Page | None) -> None:
+    if page is None or page.is_closed():
+        return
+    await safe_close(page)
+
+
+def emit_progress(message: str) -> None:
+    print(f"[1-2] {message}", flush=True)
+
+
 async def search_station(page: Page) -> dict[str, Any]:
     status: dict[str, Any] = {
         "query": STATION_QUERY,
@@ -248,68 +278,80 @@ async def search_station(page: Page) -> dict[str, Any]:
     return status
 
 
-async def search_category(context: BrowserContext) -> tuple[Page, Page | Frame, dict[str, Any]]:
+async def search_category(
+    context: BrowserContext,
+    modes: list[str] | None = None,
+    progress: ProgressLogger | None = None,
+) -> tuple[Page, Page | Frame, dict[str, Any]]:
     diagnostics: list[dict[str, Any]] = []
-    for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
-        for attempt in range(1, 4):
-            page = await context.new_page()
-            try:
-                await page.goto(
-                    build_map_search_url(query),
-                    wait_until="domcontentloaded",
-                    timeout=DEFAULT_TIMEOUT_MS,
-                )
-                list_frame = await wait_for_frame(page, LIST_FRAME_PATTERN, 15_000)
-                await list_frame.wait_for_selector("li", timeout=DEFAULT_TIMEOUT_MS)
-                return page, list_frame, {
-                    "query": query,
-                    "attempt": attempt,
-                    "url": page.url,
-                    "listFrameUrl": list_frame.url,
-                    "diagnostics": diagnostics,
-                }
-            except Exception as e:  # noqa: BLE001
-                diagnostics.append(
-                    {
+    for mode in modes or ["map_shell", "direct_pcmap"]:
+        if mode == "map_shell":
+            for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
+                for attempt in range(1, MAP_SHELL_ATTEMPTS + 1):
+                    page = await context.new_page()
+                    try:
+                        if progress:
+                            progress(f"카테고리 검색(map shell): {query} / attempt {attempt}")
+                        await page.goto(
+                            build_map_search_url(query),
+                            wait_until="domcontentloaded",
+                            timeout=DEFAULT_TIMEOUT_MS,
+                        )
+                        list_frame = await wait_for_frame(page, LIST_FRAME_PATTERN, MAP_SHELL_FRAME_TIMEOUT_MS)
+                        await list_frame.wait_for_selector("li", timeout=DEFAULT_TIMEOUT_MS)
+                        return page, list_frame, {
+                            "query": query,
+                            "attempt": attempt,
+                            "mode": "map_shell",
+                            "url": page.url,
+                            "listFrameUrl": list_frame.url,
+                            "diagnostics": diagnostics,
+                        }
+                    except Exception as e:  # noqa: BLE001
+                        diagnostics.append(
+                            {
+                                "query": query,
+                                "attempt": attempt,
+                                "mode": "map_shell",
+                                "url": page.url,
+                                "error": f"{type(e).__name__}: {e}",
+                                "pcmapFrames": [frame.url for frame in page.frames if "pcmap" in frame.url],
+                                "bodySample": await body_sample(page),
+                            }
+                        )
+                        await safe_close_page(page)
+        elif mode == "direct_pcmap":
+            for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
+                page = await context.new_page()
+                try:
+                    if progress:
+                        progress(f"카테고리 검색(direct pcmap): {query}")
+                    await page.goto(
+                        build_direct_pcmap_list_url(query),
+                        wait_until="domcontentloaded",
+                        timeout=DEFAULT_TIMEOUT_MS,
+                    )
+                    await page.wait_for_selector("li", timeout=DEFAULT_TIMEOUT_MS)
+                    return page, page, {
                         "query": query,
-                        "attempt": attempt,
+                        "attempt": 1,
+                        "mode": "direct_pcmap",
                         "url": page.url,
-                        "error": f"{type(e).__name__}: {e}",
-                        "pcmapFrames": [frame.url for frame in page.frames if "pcmap" in frame.url],
-                        "bodySample": await body_sample(page),
+                        "listFrameUrl": page.url,
+                        "diagnostics": diagnostics,
                     }
-                )
-                await page.close()
-
-    for query in build_category_queries(STATION_QUERY, CATEGORY_QUERY):
-        page = await context.new_page()
-        try:
-            await page.goto(
-                build_direct_pcmap_list_url(query),
-                wait_until="domcontentloaded",
-                timeout=DEFAULT_TIMEOUT_MS,
-            )
-            await page.wait_for_selector("li", timeout=DEFAULT_TIMEOUT_MS)
-            return page, page, {
-                "query": query,
-                "attempt": 1,
-                "mode": "direct_pcmap",
-                "url": page.url,
-                "listFrameUrl": page.url,
-                "diagnostics": diagnostics,
-            }
-        except Exception as e:  # noqa: BLE001
-            diagnostics.append(
-                {
-                    "query": query,
-                    "attempt": 1,
-                    "mode": "direct_pcmap",
-                    "url": page.url,
-                    "error": f"{type(e).__name__}: {e}",
-                    "bodySample": await body_sample(page),
-                }
-            )
-            await page.close()
+                except Exception as e:  # noqa: BLE001
+                    diagnostics.append(
+                        {
+                            "query": query,
+                            "attempt": 1,
+                            "mode": "direct_pcmap",
+                            "url": page.url,
+                            "error": f"{type(e).__name__}: {e}",
+                            "bodySample": await body_sample(page),
+                        }
+                    )
+                    await safe_close_page(page)
 
     raise RuntimeError(f"restaurant list frame not found after retries: {diagnostics}")
 
@@ -547,7 +589,6 @@ async def process_place(context: BrowserContext, item: dict[str, Any]) -> dict[s
 
 
 async def run_flow() -> dict[str, Any]:
-    settings = get_settings()
     result: dict[str, Any] = {
         "ranAt": datetime.now(timezone.utc).isoformat(),
         "ok": False,
@@ -564,7 +605,7 @@ async def run_flow() -> dict[str, Any]:
     }
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=settings.headless)
+        browser = await p.chromium.launch(**build_browser_launch_options())
         station_context = await browser.new_context(
             locale="ko-KR",
             timezone_id="Asia/Seoul",
@@ -576,8 +617,14 @@ async def run_flow() -> dict[str, Any]:
         search_page: Page | None = None
 
         try:
+            emit_progress("역 검색 시작")
             result["navigation"]["station"] = await search_station(station_page)
-            await station_context.close()
+            station_status = result["navigation"]["station"]
+            if station_status.get("selectedStation"):
+                emit_progress(f"역 검색 성공: {station_status.get('url')}")
+            else:
+                emit_progress(f"역 검색 fallback: {station_status.get('error')}")
+            await safe_close(station_context)
             station_context_closed = True
 
             search_context = await browser.new_context(
@@ -585,9 +632,16 @@ async def run_flow() -> dict[str, Any]:
                 timezone_id="Asia/Seoul",
                 viewport={"width": 1440, "height": 1000},
             )
-            search_page, list_frame, category_navigation = await search_category(search_context)
+            category_modes = build_category_search_modes(station_status)
+            emit_progress(f"카테고리 검색 모드: {' -> '.join(category_modes)}")
+            search_page, list_frame, category_navigation = await search_category(
+                search_context,
+                modes=category_modes,
+                progress=emit_progress,
+            )
             result["navigation"]["category"] = category_navigation
 
+            emit_progress("목록 추출 시작")
             raw_rows = await extract_raw_list_rows(list_frame)
             items = parse_list_rows(raw_rows)
             items = merge_place_ids_from_businesses(
@@ -596,10 +650,16 @@ async def run_flow() -> dict[str, Any]:
             )
             result["listItems"] = items[:20]
             selected = await collect_place_ids(search_page, list_frame, items)
+            emit_progress(f"분석 대상 {len(selected)}개 선택")
 
             for item in selected:
+                emit_progress(f"장소 처리 시작: {item['clickText']}")
                 place_result = await process_place(search_context, item)
                 result["places"].append(place_result)
+                emit_progress(
+                    f"장소 처리 완료: {place_result['name']} / "
+                    f"사진 {place_result['photoCount']}개 / 리뷰 {place_result['reviewCount']}개"
+                )
 
             result["ok"] = any(
                 place.get("placeId")
@@ -609,15 +669,12 @@ async def run_flow() -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001
             result["errors"].append(f"{type(e).__name__}: {e}")
         finally:
-            if not station_page.is_closed():
-                await station_page.close()
-            if search_page is not None and not search_page.is_closed():
-                await search_page.close()
-            if search_context is not None:
-                await search_context.close()
+            await safe_close_page(station_page)
+            await safe_close_page(search_page)
+            await safe_close(search_context)
             if not station_context_closed:
-                await station_context.close()
-            await browser.close()
+                await safe_close(station_context)
+            await safe_close(browser)
 
     return result
 
@@ -650,7 +707,11 @@ async def async_main() -> int:
 
 
 def main() -> int:
-    return asyncio.run(async_main())
+    try:
+        return asyncio.run(async_main())
+    except KeyboardInterrupt:
+        print("\n=== 1-2 네이버지도 탐색 PoC 중단 ===", flush=True)
+        return 130
 
 
 if __name__ == "__main__":
