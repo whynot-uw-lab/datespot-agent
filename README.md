@@ -75,15 +75,22 @@ docs/                 # 기획 문서
   - CDP screencast → WebSocket → HTML viewer 경로 성공, 105프레임, 평균 26.28 FPS
 - [ ] (플랜B) 자동화가 막힐 경우: 미리 크롤링한 데이터로 데모하는 방식 검토
 
-### 2단계: 에이전트 코어 (~2주)
+### 2단계: LangGraph 에이전트 코어 구현 (~3~4주)
 
-- [ ] LangGraph 메인 에이전트 그래프: `검색 → 목록순회 → (서브)필터링 → 심층분석 → 리포트반영` 루프
-- [ ] 서브 에이전트: 필터 통과 판정 → 사진 분석 + 리뷰 분석 → 점수 산출
-- [ ] state에 누적 리포트를 담아 매 장소마다 갱신 (프론트 전송 준비)
+설계 초안: [LangGraph + Agent Core Design](docs/superpowers/specs/2026-07-12-langgraph-agent-core-design.md)
 
-### 3단계: 백엔드 + 실시간 채널 (1~2주)
+- [ ] **2-1 설계 확정**: LangGraph node 흐름, state, 데이터 모델, 인터페이스 정의
+- [ ] **2-2 데이터 모델 구현**: RunConfig, CandidatePlace, PlaceDetail, PhotoAnalysis, ReviewAnalysis, PlaceResult
+- [ ] **2-3 Navigator 연동**: 1-2 PoC의 네이버지도 검색/상세 추출 로직을 core 모듈로 정리
+- [ ] **2-4 분석 노드 구현**: 사전 필터링, 사진 분석, 리뷰 분석, 점수 계산
+- [ ] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 필터 → 분석 → 리포트 반영
+- [ ] **2-6 실패 처리**: 장소별 실패 기록, navigation recovery 최소 구조
+- [ ] **2-7 JSON 리포트 출력**: 분석/제외/실패 장소를 하나의 결과로 저장
 
-- [ ] FastAPI + WebSocket/SSE로 에이전트 판단 로그·리포트 갱신 실시간 push
+### 3단계: 백엔드 로직 구현 (1~2주)
+
+- [ ] FastAPI 실행 API: 탐색 설정 입력 → 에이전트 실행
+- [ ] WebSocket/SSE로 에이전트 판단 로그·리포트 갱신 실시간 push
 - [ ] CDP 브라우저 스트림을 프론트로 중계
 - [ ] 리포트 파일 저장 / "인박스" 저장 로직
 
