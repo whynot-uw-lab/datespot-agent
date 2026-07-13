@@ -14,7 +14,7 @@ Agent는 전체 흐름을 자율적으로 결정하지 않는다. 사진 분석,
 - Playwright fixed router가 기본 브라우저 이동을 담당함
 - Navigation recovery agent는 실패 시에만 제한적으로 호출함
 - Photo/Review analyzer agent는 장소별 단발 호출함
-- 필터링, 점수 계산, 다음 장소 선택은 코드로 고정함
+- 기준 충족 판정, 점수 계산, 다음 장소 선택은 코드로 고정함
 - 장소 하나가 실패해도 전체 실행은 계속함
 
 ## LangGraph node 흐름
@@ -32,7 +32,7 @@ flowchart TD
     START([시작])
     END([종료])
 
-    validate["탐색요청 검증<br/>최대 장소 수 / 필터 / 가중치 확인"]
+    validate["탐색요청 검증<br/>최대 장소 수 / 가중치 확인"]
     init["실행컨텍스트 초기화<br/>실행 ID 생성 / 결과 저장소 초기화"]
     openBrowser["브라우저 세션 시작<br/>브라우저 자동화 준비"]
 
@@ -52,15 +52,12 @@ flowchart TD
     recordFailure["추출 실패 기록<br/>실패 사유 저장"]
     appendFailed["실패 장소 결과 추가<br/>리포트에 반영"]
 
-    preFilter["사전 필터 규칙 평가<br/>카테고리 / 리뷰 수 검사"]
-    routeFilter{"사전 필터 결과 판단"}
-    recordExcluded["사전 필터 제외 기록<br/>제외 사유 저장"]
-    appendExcluded["제외 장소 결과 추가<br/>리포트에 반영"]
-
-    analyzePhotos["사진 점수화<br/>사진 분석 에이전트 호출"]
-    analyzeReviews["리뷰 점수화<br/>리뷰 분석 에이전트 호출"]
-    calculate["최종 가중점수 계산<br/>사진/리뷰 점수 결합"]
+    analyzePhotos["사진 점수화·기준 판정<br/>사진 분석 에이전트 호출"]
+    analyzeReviews["리뷰 점수화·기준 판정<br/>리뷰 분석 에이전트 호출"]
+    calculate["기준 충족·최종 점수 계산<br/>사진/리뷰 결과 결합"]
+    routeMatch{"분석 기준 충족 여부"}
     appendAnalyzed["분석 장소 결과 추가<br/>리포트에 반영"]
+    appendNotMatched["기준 미충족 결과 추가<br/>리포트에 반영"]
 
     throttle["다음 장소 전 대기<br/>딜레이 / 속도 제한 적용"]
     routeLoop{"다음 후보 진행 여부 판단"}
@@ -76,15 +73,15 @@ flowchart TD
     routeLoop -- "다음 후보 있음" --> select --> extract --> routeExtract
     routeLoop -- "완료" --> finalize
 
-    routeExtract -- "추출 성공" --> preFilter --> routeFilter
+    routeExtract -- "추출 성공" --> analyzePhotos --> analyzeReviews --> calculate --> routeMatch
     routeExtract -- "복구 필요" --> buildRecovery --> recoverAgent --> applyRecovery --> routeRecovery
     routeExtract -- "추출 실패" --> recordFailure --> appendFailed --> throttle --> routeLoop
 
     routeRecovery -- "추출 재시도" --> extract
     routeRecovery -- "복구 포기" --> recordFailure
 
-    routeFilter -- "제외" --> recordExcluded --> appendExcluded --> throttle
-    routeFilter -- "점수화 필요" --> analyzePhotos --> analyzeReviews --> calculate --> appendAnalyzed --> throttle
+    routeMatch -- "기준 충족" --> appendAnalyzed --> throttle
+    routeMatch -- "기준 미충족" --> appendNotMatched --> throttle
 
     throttle --> routeLoop
     finalize --> closeBrowser --> END
@@ -100,7 +97,8 @@ flowchart TD
 - JSON/API 입출력은 `camelCase` alias를 지원한다.
 - 입력은 `snake_case`와 `camelCase`를 모두 허용한다.
 - 출력 JSON은 `camelCase`로 직렬화할 수 있어야 한다.
-- 점수는 `0`부터 `10`까지의 정수다.
+- 사진·리뷰 점수는 `0`부터 `10`까지의 정수다.
+- 최종 점수는 `0`부터 `10`까지 소수점 첫째 자리다.
 - 리스트 필드는 `None` 대신 빈 배열을 기본값으로 쓴다.
 - 선택 필드는 값이 없으면 `None`으로 둔다.
 - 시간 필드는 UTC `datetime`으로 저장하고 JSON에서는 ISO 문자열로 직렬화한다.
@@ -119,7 +117,7 @@ flowchart TD
 `PlaceResultStatus`:
 
 - `analyzed`: 분석 완료
-- `excluded`: 사전 필터로 제외
+- `not_matched`: 정상 분석됐지만 사용자 기준 미충족
 - `failed`: 상세 추출 또는 분석 실패
 
 ### RunConfig
@@ -131,14 +129,8 @@ flowchart TD
 - `location: str`: 기준 지역 또는 역
 - `search_keyword: str`: 검색 키워드 또는 카테고리
 - `max_places: int = 10`: 최소 `1`, 최대 `10`
-- `filters: Filters = Filters()`
 - `weights: Weights = Weights()`
 - `scoring: ScoringCriteria = ScoringCriteria()`
-
-`Filters`:
-
-- `categories: list[str] = []`
-- `min_review_count: int = 0`
 
 `Weights`:
 
@@ -159,10 +151,6 @@ flowchart TD
   "location": "신사역",
   "searchKeyword": "음식점",
   "maxPlaces": 10,
-  "filters": {
-    "categories": ["일식", "양식"],
-    "minReviewCount": 50
-  },
   "weights": {
     "photoPercent": 50,
     "reviewPercent": 50
@@ -194,7 +182,7 @@ flowchart TD
 
 ### PlaceDetail
 
-상세 페이지에서 추출한 분석 재료다. 사진/리뷰 분석 node와 사전 필터 node의 입력이 된다.
+상세 페이지에서 추출한 사진/리뷰 분석 재료다.
 
 필드:
 
@@ -227,6 +215,7 @@ flowchart TD
 필드:
 
 - `photo_score: int`: `0`부터 `10`
+- `matched: bool`: 사진 근거가 사용자 기준을 전체적으로 충족하는지 여부
 - `reason: str`
 
 예시:
@@ -234,6 +223,7 @@ flowchart TD
 ```json
 {
   "photoScore": 7,
+  "matched": true,
   "reason": "차분한 조명과 정돈된 좌석 구성이 보이고, 대화하기 어려울 정도의 혼잡 신호는 약함"
 }
 ```
@@ -245,6 +235,7 @@ flowchart TD
 필드:
 
 - `review_score: int`: `0`부터 `10`
+- `matched: bool`: 리뷰 근거가 사용자 기준을 전체적으로 충족하는지 여부
 - `reason: str`
 
 예시:
@@ -252,31 +243,14 @@ flowchart TD
 ```json
 {
   "reviewScore": 8,
+  "matched": true,
   "reason": "조용함, 친절함, 데이트 방문 언급이 반복되어 소개팅 장소로 적합한 편임"
-}
-```
-
-### FilterDecision
-
-사전 필터 node의 판단 결과다.
-
-필드:
-
-- `passed: bool`
-- `exclusion_reason: str | None = None`
-
-예시:
-
-```json
-{
-  "passed": false,
-  "exclusionReason": "리뷰 수가 최소 기준 50개보다 적음"
 }
 ```
 
 ### PlaceResult
 
-리포트에 누적되는 장소 단위 결과다. 분석 완료, 제외, 실패를 하나의 모델에서 상태값으로 구분한다.
+리포트에 누적되는 장소 단위 결과다. 분석 완료, 기준 미충족, 실패를 하나의 모델에서 상태값으로 구분한다.
 
 필드:
 
@@ -287,16 +261,16 @@ flowchart TD
 - `address: str | None = None`
 - `photo_score: int | None = None`
 - `review_score: int | None = None`
-- `final_score: int | None = None`
+- `final_score: float | None = None`
 - `photo_reason: str | None = None`
 - `review_reason: str | None = None`
-- `exclusion_reason: str | None = None`
+- `mismatch_reason: str | None = None`
 - `failure_reason: str | None = None`
 
 상태별 검증:
 
 - `analyzed`: `final_score` 필수
-- `excluded`: `exclusion_reason` 필수
+- `not_matched`: `mismatch_reason` 필수, `final_score` 없음
 - `failed`: `failure_reason` 필수
 
 예시:
@@ -310,10 +284,10 @@ flowchart TD
   "address": "서울 강남구 압구정로2길 15",
   "photoScore": 7,
   "reviewScore": 8,
-  "finalScore": 8,
+  "finalScore": 7.5,
   "photoReason": "차분한 조명과 정돈된 좌석 구성이 보이고, 대화하기 어려울 정도의 혼잡 신호는 약함",
   "reviewReason": "조용함, 친절함, 데이트 방문 언급이 반복되어 소개팅 장소로 적합한 편임",
-  "exclusionReason": null,
+  "mismatchReason": null,
   "failureReason": null
 }
 ```
@@ -341,10 +315,6 @@ flowchart TD
     "location": "신사역",
     "searchKeyword": "음식점",
     "maxPlaces": 10,
-    "filters": {
-      "categories": ["일식", "양식"],
-      "minReviewCount": 50
-    },
     "weights": {
       "photoPercent": 50,
       "reviewPercent": 50
@@ -373,7 +343,6 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
 - `current_place_index: int = 0`
 - `current_place: CandidatePlace | None = None`
 - `current_place_detail: PlaceDetail | None = None`
-- `filter_decision: FilterDecision | None = None`
 - `photo_analysis: PhotoAnalysis | None = None`
 - `review_analysis: ReviewAnalysis | None = None`
 - `place_results: list[PlaceResult] = []`
@@ -398,10 +367,6 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
     "location": "신사역",
     "searchKeyword": "음식점",
     "maxPlaces": 10,
-    "filters": {
-      "categories": ["일식", "양식"],
-      "minReviewCount": 50
-    },
     "weights": {
       "photoPercent": 50,
       "reviewPercent": 50
@@ -421,7 +386,6 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
   "currentPlaceIndex": 0,
   "currentPlace": null,
   "currentPlaceDetail": null,
-  "filterDecision": null,
   "photoAnalysis": null,
   "reviewAnalysis": null,
   "placeResults": [],
@@ -441,7 +405,7 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
 패키지를 여러 파일로 나누지 않는다.
 
 `src/datespot_agent/config.py`는 환경변수 기반 `Settings`를 계속 담당한다. 기존 PoC의
-import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
+import 호환을 위해 `Weights`, `ScoringCriteria`, `RunConfig`를
 `datespot_agent.models`에서 다시 export하고, `SearchConfig`는 `RunConfig`의 별칭으로
 유지한다. 같은 의미의 모델을 두 모듈에 중복 정의하지 않는다.
 
@@ -466,13 +430,12 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 - `RunConfig.location`, `RunConfig.search_keyword`, 분석 이유, 장소 ID와 장소명은 빈
   문자열을 허용하지 않는다.
 - `RunConfig.max_places`는 `1`부터 `10`까지 허용한다.
-- `Filters.min_review_count`는 `0` 이상이다.
 - `Weights.photo_percent`와 `Weights.review_percent`는 각각 `0`부터 `100`까지이며,
   합은 반드시 `100`이다.
-- 사진, 리뷰, 최종 점수는 정수 `0`부터 `10`까지다.
-- `PlaceResult`는 상태별 필수 필드만 교차 검증한다. `analyzed`는 `final_score`,
-  `excluded`는 비어 있지 않은 `exclusion_reason`, `failed`는 비어 있지 않은
-  `failure_reason`이 필요하다. 부분 분석을 위해 사진/리뷰 점수는 선택 필드로 둔다.
+- 사진과 리뷰 점수는 정수 `0`부터 `10`까지고 최종 점수는 소수점 첫째 자리다.
+- `PlaceResult`는 상태별 필수 필드를 교차 검증한다. `analyzed`는 `final_score`,
+  `not_matched`는 비어 있지 않은 `mismatch_reason`, `failed`는 비어 있지 않은
+  `failure_reason`이 필요하다. `not_matched`에는 `final_score`를 넣지 않는다.
 - `RunReport.created_at`은 timezone이 있는 값만 허용하고 UTC로 정규화한다.
 - `GraphState`는 선언된 직렬화 가능 필드 외 입력을 거부하므로 Playwright live object를
   저장할 수 없다.
@@ -490,7 +453,7 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 
 - `snake_case`/`camelCase` 입력과 `camelCase` 직렬화
 - 실행 설정 범위와 가중치 합계
-- 점수 범위와 상태별 `PlaceResult` 필수값
+- 점수 범위, 분석 기준 충족 여부, 상태별 `PlaceResult` 필수값
 - 리스트 기본값의 인스턴스 분리
 - `RunReport.created_at` timezone 검증과 UTC 정규화
 - `GraphState` 기본값, 중첩 모델 직렬화, 미정의 필드 거부
@@ -549,7 +512,7 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 
 ### PhotoAnalysisAgent
 
-사진 URL 목록과 사진 평가 기준으로 사진 점수와 이유를 만든다.
+사진 URL 목록과 사진 평가 기준으로 사진 점수, 기준 충족 여부, 이유를 만든다.
 
 입력 정보:
 
@@ -563,7 +526,7 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 
 ### ReviewAnalysisAgent
 
-리뷰 목록과 리뷰 평가 기준으로 리뷰 점수와 이유를 만든다.
+리뷰 목록과 리뷰 평가 기준으로 리뷰 점수, 기준 충족 여부, 이유를 만든다.
 
 입력 정보:
 
@@ -577,23 +540,22 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 
 ### PlaceScoringService
 
-사진/리뷰 분석 결과를 결합해 최종 장소 점수를 계산한다. LLM을 사용하지 않는다.
+사진/리뷰 분석 결과를 결합해 기준 충족 여부와 최종 장소 점수를 계산한다. LLM을 사용하지 않는다.
 
 책임:
 
 - 사진 점수와 리뷰 점수 가중합 계산
-- 점수 없음/부분 분석 상황 처리
+- 활성 가중치의 분석 결과 누락 검사
+- 사진 또는 리뷰 기준 미충족 시 `PlaceResult(status="not_matched")` 생성
 - `PlaceResult(status="analyzed")` 생성
 
 ### PlaceResultService
 
-분석, 제외, 실패 결과를 `PlaceResult` 형식으로 통일한다.
+분석 실패 결과를 `PlaceResult` 형식으로 통일한다.
 
 책임:
 
-- `FilterDecision`을 `PlaceResult(status="excluded")`로 변환
 - 추출/분석 실패를 `PlaceResult(status="failed")`로 변환
-- 분석 결과와 최종 점수를 `PlaceResult(status="analyzed")`로 변환
 
 ### ReportService
 

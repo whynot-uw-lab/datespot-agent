@@ -1,5 +1,11 @@
 # 에이전트 코어 데이터 모델 구현 계획
 
+> **현재 계약 안내(2026-07-13):** 2-4 분석 계층 설계에서 사전 필터 계약을 제거하고
+> 분석 기준 충족 여부를 `not_matched`로 분리했다. 현재 모델 계약은
+> `docs/superpowers/specs/2026-07-13-analysis-nodes-design.md`와
+> `src/datespot_agent/models.py`를 기준으로 한다. 아래 내용은 2-2 구현 당시의 실행
+> 기록이다.
+
 > **에이전트 작업자 필수 사항:** 이 계획을 작업 단위로 실행할 때 `superpowers:executing-plans` 스킬을 사용한다. 사용자가 명시적으로 요청하지 않는 한 저장소 지침에 따라 하위 에이전트 위임을 금지한다.
 
 **목표:** 기존 `SearchConfig` import 호환성을 유지하면서 실행 설정, 장소 데이터, 분석 결과, 리포트, LangGraph 상태에 필요한 2-2 Pydantic 데이터 규격을 구현한다.
