@@ -25,65 +25,66 @@ Agent는 전체 흐름을 자율적으로 결정하지 않는다. 사진 분석,
 - 마름모: `add_conditional_edges`에서 사용하는 routing 함수
 - Agent는 node 안에서 단발 호출됨
 - `route_after_loop`가 장소 순차 처리 루프를 통제함
+- Mermaid node ID는 실제 함수명 후보이며, 화면 라벨은 한국어 설명으로 둔다.
 
 ```mermaid
 flowchart TD
-    START([START])
-    END([END])
+    START([시작])
+    END([종료])
 
-    validate["validate_run_config<br/>사용자 설정 검증<br/>max_places / filters / weights"]
-    init["init_run_state<br/>run_id 생성<br/>report / errors 초기화"]
-    openBrowser["open_browser<br/>Playwright browser/context/page 준비"]
+    validate["탐색요청 검증<br/>최대 장소 수 / 필터 / 가중치 확인"]
+    init["실행컨텍스트 초기화<br/>실행 ID 생성 / 결과 저장소 초기화"]
+    openBrowser["브라우저 세션 시작<br/>브라우저 자동화 준비"]
 
-    search["search_candidates<br/>후보 장소 검색<br/>fixed navigator 우선"]
-    normalize["normalize_candidates<br/>광고 제외 / 중복 제거<br/>placeId 보강"]
-    routeSearch{"route_after_search<br/>후보 있음?"}
+    search["후보장소 수집<br/>네이버지도 검색"]
+    normalize["후보장소 정규화<br/>광고 제외 / 중복 제거 / 장소 ID 보강"]
+    routeSearch{"후보장소 존재 여부 판단"}
 
-    select["select_next_place<br/>current_place 지정<br/>index 증가"]
-    extract["extract_place_detail<br/>home/photo/review 추출<br/>category / address / photos / reviews"]
-    routeExtract{"route_after_extract<br/>성공 / 복구 / 실패?"}
+    select["다음 후보 선택<br/>현재 장소 지정 / 인덱스 증가"]
+    extract["장소 분석자료 추출<br/>기본정보 / 사진 / 리뷰 수집"]
+    routeExtract{"추출 결과 분류"}
 
-    buildRecovery["build_recovery_context<br/>URL / frame URLs / error 수집"]
-    recoverAgent["navigation_recovery_agent<br/>허용 action 중 하나 선택"]
-    applyRecovery["apply_navigation_action<br/>escape / close / reload / retry route"]
-    routeRecovery{"route_after_recovery<br/>복구됨?"}
+    buildRecovery["복구 진단정보 수집<br/>주소 / 프레임 / 오류 확인"]
+    recoverAgent["복구 액션 판단<br/>허용 액션 중 선택"]
+    applyRecovery["복구 액션 실행<br/>닫기 / 새로고침 / 경로 재시도"]
+    routeRecovery{"복구 결과 판단"}
 
-    recordFailure["record_place_failure<br/>실패 사유 저장"]
-    appendFailed["append_failed_result<br/>실패 장소 리포트 반영"]
+    recordFailure["추출 실패 기록<br/>실패 사유 저장"]
+    appendFailed["실패 장소 결과 추가<br/>리포트에 반영"]
 
-    preFilter["pre_filter_place<br/>카테고리 / 리뷰 수 / 거리 검사"]
-    routeFilter{"route_after_filter<br/>통과?"}
-    recordExcluded["record_place_exclusion<br/>제외 사유 저장"]
-    appendExcluded["append_excluded_result<br/>제외 장소 리포트 반영"]
+    preFilter["사전 필터 규칙 평가<br/>카테고리 / 리뷰 수 / 거리 검사"]
+    routeFilter{"사전 필터 결과 판단"}
+    recordExcluded["사전 필터 제외 기록<br/>제외 사유 저장"]
+    appendExcluded["제외 장소 결과 추가<br/>리포트에 반영"]
 
-    analyzePhotos["analyze_photos<br/>PhotoAnalyzerAgent 단발 호출"]
-    analyzeReviews["analyze_reviews<br/>ReviewAnalyzerAgent 단발 호출"]
-    calculate["calculate_final_score<br/>사진/리뷰 가중합 계산"]
-    appendAnalyzed["append_analyzed_result<br/>분석 완료 장소 리포트 반영"]
+    analyzePhotos["사진 점수화<br/>사진 분석 에이전트 호출"]
+    analyzeReviews["리뷰 점수화<br/>리뷰 분석 에이전트 호출"]
+    calculate["최종 가중점수 계산<br/>사진/리뷰 점수 결합"]
+    appendAnalyzed["분석 장소 결과 추가<br/>리포트에 반영"]
 
-    throttle["throttle_between_places<br/>delay / rate limit 적용"]
-    routeLoop{"route_after_loop<br/>다음 장소 있음?"}
+    throttle["다음 장소 전 대기<br/>딜레이 / 속도 제한 적용"]
+    routeLoop{"다음 후보 진행 여부 판단"}
 
-    finalize["finalize_report<br/>점수순 정렬<br/>최종 payload 확정"]
-    closeBrowser["close_browser<br/>browser/context 정리"]
+    finalize["최종 리포트 생성<br/>점수순 정렬 / 최종 결과 확정"]
+    closeBrowser["브라우저 세션 종료<br/>세션 리소스 정리"]
 
     START --> validate --> init --> openBrowser --> search --> normalize --> routeSearch
 
-    routeSearch -- "empty" --> finalize
-    routeSearch -- "ready" --> routeLoop
+    routeSearch -- "후보 없음" --> finalize
+    routeSearch -- "후보 있음" --> routeLoop
 
-    routeLoop -- "next" --> select --> extract --> routeExtract
-    routeLoop -- "done" --> finalize
+    routeLoop -- "다음 후보 있음" --> select --> extract --> routeExtract
+    routeLoop -- "완료" --> finalize
 
-    routeExtract -- "success" --> preFilter --> routeFilter
-    routeExtract -- "recover" --> buildRecovery --> recoverAgent --> applyRecovery --> routeRecovery
-    routeExtract -- "fail" --> recordFailure --> appendFailed --> throttle --> routeLoop
+    routeExtract -- "추출 성공" --> preFilter --> routeFilter
+    routeExtract -- "복구 필요" --> buildRecovery --> recoverAgent --> applyRecovery --> routeRecovery
+    routeExtract -- "추출 실패" --> recordFailure --> appendFailed --> throttle --> routeLoop
 
-    routeRecovery -- "retry_extract" --> extract
-    routeRecovery -- "give_up" --> recordFailure
+    routeRecovery -- "추출 재시도" --> extract
+    routeRecovery -- "복구 포기" --> recordFailure
 
-    routeFilter -- "exclude" --> recordExcluded --> appendExcluded --> throttle
-    routeFilter -- "analyze" --> analyzePhotos --> analyzeReviews --> calculate --> appendAnalyzed --> throttle
+    routeFilter -- "제외" --> recordExcluded --> appendExcluded --> throttle
+    routeFilter -- "점수화 필요" --> analyzePhotos --> analyzeReviews --> calculate --> appendAnalyzed --> throttle
 
     throttle --> routeLoop
     finalize --> closeBrowser --> END
