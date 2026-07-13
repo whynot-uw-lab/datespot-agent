@@ -29,6 +29,12 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(
             BLOCK_TEXT_PATTERN.search("비정상적인 접근이 감지되었습니다")
         )
+        self.assertIsNotNone(
+            BLOCK_TEXT_PATTERN.search(
+                "보안 확인을 완료해 주세요. 실제 사용자임을 확인하여 "
+                "계정을 안전하게 보호하고 스팸을 방지합니다."
+            )
+        )
 
     async def test_blocked_response_stops_before_next_action(self):
         navigator = object.__new__(NaverMapPage)
@@ -58,6 +64,15 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
             await navigator.set_zoom(15)
 
     async def test_station_route_uses_url_condition_not_load_lifecycle(self):
+        class StationHandle:
+            def __init__(self, page) -> None:
+                self.page = page
+
+            async def evaluate(self, _script: str) -> None:
+                self.page.url = (
+                    "https://map.naver.com/p/subway-station/1907"
+                )
+
         class StationControl:
             def __init__(self, page) -> None:
                 self.page = page
@@ -70,9 +85,10 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
                 return 1
 
             async def click(self, **_kwargs) -> None:
-                self.page.url = (
-                    "https://map.naver.com/p/subway-station/1907"
-                )
+                return None
+
+            async def element_handle(self, **_kwargs):
+                return StationHandle(self.page)
 
         class StationFrame:
             def __init__(self, page) -> None:
@@ -104,8 +120,13 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         async def mutate(action):
             return await action()
 
+        async def wait_page_url(pattern, *_args, **_kwargs):
+            if not pattern.search(page.url):
+                raise BrowserNavigationError("역 route 미변경")
+
         navigator._wait_frame = frame_value
         navigator._mutate = mutate
+        navigator._wait_page_url = wait_page_url
 
         await navigator.select_station("신사역")
 

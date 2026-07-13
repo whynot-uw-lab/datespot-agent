@@ -36,7 +36,8 @@ LIST_FRAME_PATTERN = re.compile(
     r"pcmap\.place\.naver\.com/(?:restaurant|place)/list"
 )
 BLOCK_TEXT_PATTERN = re.compile(
-    r"CAPTCHA|비정상적인 접근|서비스 이용이 제한|접근이 제한",
+    r"CAPTCHA|비정상적인 접근|서비스 이용이 제한|접근이 제한|"
+    r"보안 확인을 완료|실제 사용자임을 확인|스팸을 방지",
     re.IGNORECASE,
 )
 T = TypeVar("T")
@@ -79,6 +80,12 @@ class NaverMapPage:
         result = await self.pacer.run(action)
         await self._assert_access_allowed()
         return result
+
+    async def _dom_click(self, locator: Locator) -> None:
+        handle = await locator.element_handle(timeout=10_000)
+        if handle is None:
+            raise BrowserNavigationError("DOM click 대상을 찾지 못함")
+        await handle.evaluate("(element) => element.click()")
 
     async def _wait_frame(
         self,
@@ -149,9 +156,7 @@ class NaverMapPage:
             raise BrowserNavigationError(
                 f"역 검색 결과를 찾지 못함: {location}"
             )
-        await self._mutate(
-            lambda: station.first.click(force=True, timeout=10_000)
-        )
+        await self._mutate(lambda: self._dom_click(station.first))
         await self._wait_page_url(re.compile(r"subway-station/"))
 
     async def set_zoom(self, target: int = 15) -> None:
