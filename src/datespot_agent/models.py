@@ -145,3 +145,19 @@ class RunReport(CamelModel):
         if value.tzinfo is None or value.utcoffset() is None:
             raise ValueError("created_at에는 timezone 정보가 필요하다")
         return value.astimezone(timezone.utc)
+
+
+class GraphState(CamelModel):
+    run_id: str = Field(min_length=1)
+    config: RunConfig
+    status: RunStatus = RunStatus.PENDING
+    candidates: list[CandidatePlace] = Field(default_factory=list)
+    current_place_index: int = Field(default=0, ge=0)
+    current_place: CandidatePlace | None = None
+    current_place_detail: PlaceDetail | None = None
+    filter_decision: FilterDecision | None = None
+    photo_analysis: PhotoAnalysis | None = None
+    review_analysis: ReviewAnalysis | None = None
+    place_results: list[PlaceResult] = Field(default_factory=list)
+    final_report: RunReport | None = None
+    last_error: str | None = None

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from datespot_agent.models import (
     CandidatePlace,
     FilterDecision,
+    GraphState,
     PhotoAnalysis,
     PlaceDetail,
     PlaceResult,
@@ -192,6 +193,36 @@ class ResultAndReportModelTests(unittest.TestCase):
         self.assertEqual(payload["runId"], "run-1")
         self.assertEqual(payload["config"]["searchKeyword"], "음식점")
         self.assertEqual(payload["results"][0]["exclusionReason"], "리뷰 부족")
+
+
+class GraphStateModelTests(unittest.TestCase):
+    def test_defaults_are_independent_and_nested_state_serializes(self):
+        first = GraphState(
+            run_id="run-1",
+            config=RunConfig(location="신사역", search_keyword="음식점"),
+        )
+        second = GraphState(
+            run_id="run-2",
+            config=RunConfig(location="강남역", search_keyword="음식점"),
+        )
+        first.candidates.append(CandidatePlace(place_id="1", name="우니도"))
+
+        payload = first.model_dump(mode="json", by_alias=True)
+
+        self.assertEqual(second.candidates, [])
+        self.assertEqual(first.status.value, "pending")
+        self.assertEqual(payload["candidates"][0]["placeId"], "1")
+        self.assertIsNone(payload["currentPlaceDetail"])
+
+    def test_rejects_undeclared_live_objects(self):
+        with self.assertRaises(ValidationError):
+            GraphState.model_validate(
+                {
+                    "runId": "run-1",
+                    "config": {"location": "신사역", "searchKeyword": "음식점"},
+                    "page": object(),
+                }
+            )
 
 
 if __name__ == "__main__":
