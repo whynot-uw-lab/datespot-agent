@@ -105,6 +105,7 @@ flowchart TD
 - 선택 필드는 값이 없으면 `None`으로 둔다.
 - 시간 필드는 UTC `datetime`으로 저장하고 JSON에서는 ISO 문자열로 직렬화한다.
 - `GraphState`에는 Playwright live object를 절대 넣지 않는다.
+- 실행 분기, 점수 계산, 리포트 출력에 직접 쓰지 않는 원천/디버깅 필드는 모델에 넣지 않는다.
 
 ### 공통 enum
 
@@ -183,35 +184,25 @@ flowchart TD
 
 ### CandidatePlace
 
-검색 목록에서 얻은 후보 장소다. 상세 분석 전 단계에서 사용한다. 목록 단계에서는 `place_id`가 없을 수 있다.
+정규화가 끝난 실행 후보 장소다. 상세 추출에 바로 사용할 수 있어야 하므로 `place_id`는 필수다.
 
 필드:
 
-- `place_id: str | None = None`
+- `place_id: str`
 - `name: str`
-- `list_rank: int | None = None`
-- `category_hint: str | None = None`
-- `is_ad: bool = False`
-- `raw_text: str | None = None`
-- `detail_url_hint: str | None = None`
 
 예시:
 
 ```json
 {
-  "placeId": null,
-  "name": "카이센동 우니도 본점",
-  "listRank": 1,
-  "categoryHint": "일식당",
-  "isAd": false,
-  "rawText": "카이센동 우니도 본점 일식당",
-  "detailUrlHint": "https://pcmap.place.naver.com/restaurant/1720070048/home"
+  "placeId": "1720070048",
+  "name": "카이센동 우니도 본점"
 }
 ```
 
 ### PlaceDetail
 
-상세 페이지에서 추출한 분석 재료다. 사진/리뷰 분석 node의 입력이 된다. 상세 단계부터 `place_id`는 필수다.
+상세 페이지에서 추출한 분석 재료다. 사진/리뷰 분석 node와 사전 필터 node의 입력이 된다.
 
 필드:
 
@@ -219,15 +210,10 @@ flowchart TD
 - `name: str`
 - `category: str | None = None`
 - `address: str | None = None`
-- `distance_hint: str | None = None`
-- `home_url: str | None = None`
-- `photo_url: str | None = None`
-- `review_url: str | None = None`
+- `distance_m: int | None = None`
 - `photo_urls: list[str] = []`
 - `reviews: list[str] = []`
 - `review_count: int = 0`
-- `extracted_at: datetime`
-- `extraction_errors: list[str] = []`
 
 예시:
 
@@ -237,15 +223,10 @@ flowchart TD
   "name": "카이센동 우니도 본점",
   "category": "일식당",
   "address": "서울 강남구 압구정로2길 15",
-  "distanceHint": "신사역 700m 이내",
-  "homeUrl": "https://pcmap.place.naver.com/restaurant/1720070048/home",
-  "photoUrl": "https://pcmap.place.naver.com/restaurant/1720070048/photo",
-  "reviewUrl": "https://pcmap.place.naver.com/restaurant/1720070048/review/visitor",
+  "distanceM": 520,
   "photoUrls": ["https://example.com/photo-1.jpg"],
   "reviews": ["조용하고 대화하기 좋았어요."],
-  "reviewCount": 128,
-  "extractedAt": "2026-07-12T00:00:00Z",
-  "extractionErrors": []
+  "reviewCount": 128
 }
 ```
 
@@ -257,9 +238,7 @@ flowchart TD
 
 - `photo_score: int`: `0`부터 `10`
 - `summary: str`
-- `mood_signals: list[str] = []`
-- `space_signals: list[str] = []`
-- `lighting_signals: list[str] = []`
+- `positive_signals: list[str] = []`
 - `negative_signals: list[str] = []`
 - `representative_photo_url: str | None = None`
 - `confidence: ConfidenceLevel = "medium"`
@@ -270,9 +249,7 @@ flowchart TD
 {
   "photoScore": 7,
   "summary": "차분한 조명과 정돈된 좌석 구성이 보임",
-  "moodSignals": ["차분한 조명"],
-  "spaceSignals": ["테이블 간격이 비교적 넓음"],
-  "lightingSignals": ["어두운 톤"],
+  "positiveSignals": ["차분한 조명", "테이블 간격이 비교적 넓음"],
   "negativeSignals": ["일부 사진에서 혼잡 가능성"],
   "representativePhotoUrl": "https://example.com/photo-1.jpg",
   "confidence": "medium"
@@ -291,7 +268,6 @@ flowchart TD
 - `negative_signals: list[str] = []`
 - `date_fit_signals: list[str] = []`
 - `concerns: list[str] = []`
-- `used_review_count: int = 0`
 - `confidence: ConfidenceLevel = "medium"`
 
 예시:
@@ -304,7 +280,6 @@ flowchart TD
   "negativeSignals": ["웨이팅 가능성"],
   "dateFitSignals": ["데이트 방문"],
   "concerns": ["피크 시간 혼잡도 확인 필요"],
-  "usedReviewCount": 50,
   "confidence": "medium"
 }
 ```
@@ -317,17 +292,13 @@ flowchart TD
 
 - `passed: bool`
 - `exclusion_reason: str | None = None`
-- `applied_filters: list[str] = []`
-- `detail_summary: str | None = None`
 
 예시:
 
 ```json
 {
   "passed": false,
-  "exclusionReason": "리뷰 수가 최소 기준 50개보다 적음",
-  "appliedFilters": ["minReviewCount"],
-  "detailSummary": "리뷰 수 18개"
+  "exclusionReason": "리뷰 수가 최소 기준 50개보다 적음"
 }
 ```
 
@@ -337,7 +308,6 @@ navigation 복구 agent의 판단 결과다.
 
 필드:
 
-- `diagnosis: str`
 - `action: str`
 - `reason: str`
 - `can_retry: bool = False`
@@ -346,7 +316,6 @@ navigation 복구 agent의 판단 결과다.
 
 ```json
 {
-  "diagnosis": "목록 iframe 로딩 실패",
   "action": "direct_route_retry",
   "reason": "pcmap 직접 URL 접근이 가능함",
   "canRetry": true
@@ -375,7 +344,6 @@ navigation 복구 agent의 판단 결과다.
 - `sample_reviews: list[str] = []`
 - `exclusion_reason: str | None = None`
 - `failure_reason: str | None = None`
-- `errors: list[str] = []`
 
 상태별 검증:
 
@@ -402,8 +370,7 @@ navigation 복구 agent의 판단 결과다.
   "representativePhotoUrl": "https://example.com/photo-1.jpg",
   "sampleReviews": ["조용하고 대화하기 좋았어요."],
   "exclusionReason": null,
-  "failureReason": null,
-  "errors": []
+  "failureReason": null
 }
 ```
 
@@ -417,9 +384,6 @@ navigation 복구 agent의 판단 결과다.
 - `status: RunStatus`
 - `config: RunConfig`
 - `results: list[PlaceResult] = []`
-- `analyzed_count: int = 0`
-- `excluded_count: int = 0`
-- `failed_count: int = 0`
 - `errors: list[str] = []`
 - `created_at: datetime`
 
@@ -448,9 +412,6 @@ navigation 복구 agent의 판단 결과다.
     }
   },
   "results": [],
-  "analyzedCount": 0,
-  "excludedCount": 0,
-  "failedCount": 0,
   "errors": [],
   "createdAt": "2026-07-12T00:00:00Z"
 }
@@ -512,13 +473,8 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
   "status": "running",
   "candidates": [
     {
-      "placeId": null,
-      "name": "카이센동 우니도 본점",
-      "listRank": 1,
-      "categoryHint": "일식당",
-      "isAd": false,
-      "rawText": "카이센동 우니도 본점 일식당",
-      "detailUrlHint": "https://pcmap.place.naver.com/restaurant/1720070048/home"
+      "placeId": "1720070048",
+      "name": "카이센동 우니도 본점"
     }
   ],
   "currentPlaceIndex": 0,
