@@ -52,7 +52,7 @@ flowchart TD
     recordFailure["추출 실패 기록<br/>실패 사유 저장"]
     appendFailed["실패 장소 결과 추가<br/>리포트에 반영"]
 
-    preFilter["사전 필터 규칙 평가<br/>카테고리 / 리뷰 수 / 거리 검사"]
+    preFilter["사전 필터 규칙 평가<br/>카테고리 / 리뷰 수 검사"]
     routeFilter{"사전 필터 결과 판단"}
     recordExcluded["사전 필터 제외 기록<br/>제외 사유 저장"]
     appendExcluded["제외 장소 결과 추가<br/>리포트에 반영"]
@@ -139,7 +139,6 @@ flowchart TD
 
 - `categories: list[str] = []`
 - `min_review_count: int = 0`
-- `max_distance_m: int | None = None`
 
 `Weights`:
 
@@ -162,8 +161,7 @@ flowchart TD
   "maxPlaces": 10,
   "filters": {
     "categories": ["일식", "양식"],
-    "minReviewCount": 50,
-    "maxDistanceM": 700
+    "minReviewCount": 50
   },
   "weights": {
     "photoPercent": 50,
@@ -204,7 +202,6 @@ flowchart TD
 - `name: str`
 - `category: str | None = None`
 - `address: str | None = None`
-- `distance_m: int | None = None`
 - `photo_urls: list[str] = []`
 - `reviews: list[str] = []`
 - `review_count: int = 0`
@@ -217,7 +214,6 @@ flowchart TD
   "name": "카이센동 우니도 본점",
   "category": "일식당",
   "address": "서울 강남구 압구정로2길 15",
-  "distanceM": 520,
   "photoUrls": ["https://example.com/photo-1.jpg"],
   "reviews": ["조용하고 대화하기 좋았어요."],
   "reviewCount": 128
@@ -347,8 +343,7 @@ flowchart TD
     "maxPlaces": 10,
     "filters": {
       "categories": ["일식", "양식"],
-      "minReviewCount": 50,
-      "maxDistanceM": 700
+      "minReviewCount": 50
     },
     "weights": {
       "photoPercent": 50,
@@ -405,8 +400,7 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
     "maxPlaces": 10,
     "filters": {
       "categories": ["일식", "양식"],
-      "minReviewCount": 50,
-      "maxDistanceM": 700
+      "minReviewCount": 50
     },
     "weights": {
       "photoPercent": 50,
@@ -472,7 +466,7 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 - `RunConfig.location`, `RunConfig.search_keyword`, 분석 이유, 장소 ID와 장소명은 빈
   문자열을 허용하지 않는다.
 - `RunConfig.max_places`는 `1`부터 `10`까지 허용한다.
-- `Filters.min_review_count`와 값이 있는 `Filters.max_distance_m`는 `0` 이상이다.
+- `Filters.min_review_count`는 `0` 이상이다.
 - `Weights.photo_percent`와 `Weights.review_percent`는 각각 `0`부터 `100`까지이며,
   합은 반드시 `100`이다.
 - 사진, 리뷰, 최종 점수는 정수 `0`부터 `10`까지다.
@@ -527,16 +521,18 @@ import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
 - 광고/중복/ID 없는 후보 제외
 - `CandidatePlace` 목록 반환
 - 상세 페이지 진입
-- 카테고리, 주소, 거리 추출
+- 카테고리와 주소 추출
 - 사진 URL 목록 추출
 - 리뷰 텍스트 목록과 리뷰 수 추출
-- 고정 경로 실패 시 복구 agent 호출
+- 고정 경로 실패 시 1회 재시도 후 타입이 있는 예외 반환
+- 2-6 실패 처리에서 필요 시 복구 agent 호출
 - 성공 시 `PlaceDetail` 반환
 - 실패 시 실패 사유 반환
 
 ### NavigationRecoveryAgent
 
-`BrowserService`의 고정 경로 추출이 실패했을 때만 호출되는 제한적 agent다. 복구 계획을 state에 저장하지 않고, 복구 시도 결과만 반환한다.
+2-6 실패 처리에서 `BrowserService`의 고정 경로 추출이 재시도 후에도 실패했을 때만
+호출되는 제한적 agent다. 복구 계획을 state에 저장하지 않고, 복구 시도 결과만 반환한다.
 
 입력 정보:
 
