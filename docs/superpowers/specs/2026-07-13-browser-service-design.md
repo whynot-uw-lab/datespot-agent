@@ -120,9 +120,11 @@ class BrowserService:
 ```python
 @dataclass
 class BrowserSession:
+    playwright: Playwright
     browser: Browser
     context: BrowserContext
     page: Page
+    navigator: NaverMapPage
     candidate_targets: dict[str, CandidateTarget]
 ```
 
@@ -258,7 +260,7 @@ BrowserServiceError
 
 ## 12. 자원 정리
 
-- 세션 종료 순서: Page → BrowserContext → Browser
+- 세션 종료 순서: Page → BrowserContext → Browser → Playwright
 - 중간 단계가 실패해도 나머지 자원 종료 계속 시도
 - 종료 후 레지스트리에서 세션 제거
 - `extract_place_detail` 성공 여부와 무관하게 목록 복원 시도
