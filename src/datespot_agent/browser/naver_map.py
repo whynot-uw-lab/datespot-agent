@@ -77,7 +77,12 @@ class NaverMapPage:
 
     async def _mutate(self, action: Callable[[], Awaitable[T]]) -> T:
         await self._assert_access_allowed()
-        result = await self.pacer.run(action)
+
+        async def guarded_action() -> T:
+            await self._assert_access_allowed()
+            return await action()
+
+        result = await self.pacer.run(guarded_action)
         await self._assert_access_allowed()
         return result
 
@@ -272,9 +277,7 @@ class NaverMapPage:
             .filter(has_text=target.name)
             .first
         )
-        await self._mutate(
-            lambda: link.click(force=True, timeout=10_000)
-        )
+        await self._mutate(lambda: self._dom_click(link))
         entry = await self._entry_frame(target.place_id)
         if f"/{target.place_id}/" not in entry.url:
             raise BrowserExtractionError(

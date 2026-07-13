@@ -50,6 +50,31 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(navigator.pacer.actions, 0)
 
+    async def test_block_appearing_during_pacing_stops_action(self):
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = None
+        navigator._blocked_response = None
+        action_calls = 0
+
+        class BlockingPacer:
+            async def run(self, action):
+                navigator._blocked_response = (
+                    429,
+                    "https://map.naver.com/p/search/일식",
+                )
+                return await action()
+
+        async def action():
+            nonlocal action_calls
+            action_calls += 1
+
+        navigator.pacer = BlockingPacer()
+
+        with self.assertRaises(BrowserAccessBlockedError):
+            await navigator._mutate(action)
+
+        self.assertEqual(action_calls, 0)
+
     async def test_unknown_zoom_is_navigation_error(self):
         navigator = object.__new__(NaverMapPage)
         navigator.page = type(
@@ -131,6 +156,73 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         await navigator.select_station("신사역")
 
         self.assertIn("subway-station/1907", page.url)
+
+    async def test_candidate_open_uses_dom_click(self):
+        calls = {"click": 0, "evaluate": 0}
+
+        class CandidateHandle:
+            async def evaluate(self, _script: str) -> None:
+                calls["evaluate"] += 1
+
+        class CandidateLink:
+            @property
+            def first(self):
+                return self
+
+            def filter(self, **_kwargs):
+                return self
+
+            async def click(self, **_kwargs) -> None:
+                calls["click"] += 1
+
+            async def element_handle(self, **_kwargs):
+                return CandidateHandle()
+
+        class CandidateRow:
+            def locator(self, _selector: str):
+                return CandidateLink()
+
+        class CandidateRows:
+            def nth(self, _index: int):
+                return CandidateRow()
+
+        class CandidateFrame:
+            def locator(self, _selector: str):
+                return CandidateRows()
+
+        navigator = object.__new__(NaverMapPage)
+
+        async def frame_value(*_args, **_kwargs):
+            return CandidateFrame()
+
+        async def entry_value(*_args, **_kwargs):
+            return type(
+                "EntryFrame",
+                (),
+                {
+                    "url": (
+                        "https://pcmap.place.naver.com/restaurant/"
+                        "1150149433/home"
+                    )
+                },
+            )()
+
+        async def mutate(action):
+            return await action()
+
+        navigator._wait_frame = frame_value
+        navigator._entry_frame = entry_value
+        navigator._mutate = mutate
+
+        await navigator.open_candidate(
+            CandidateTarget(
+                place_id="1150149433",
+                name="치보 신사점",
+                dom_index=1,
+            )
+        )
+
+        self.assertEqual(calls, {"click": 0, "evaluate": 1})
 
 
 class NaverMapDetailContractTests(unittest.IsolatedAsyncioTestCase):
