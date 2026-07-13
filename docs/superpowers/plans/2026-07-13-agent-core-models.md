@@ -1,42 +1,42 @@
-# Agent Core Models Implementation Plan
+# 에이전트 코어 데이터 모델 구현 계획
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Repository instructions prohibit subagent delegation unless the user explicitly requests it.
+> **에이전트 작업자 필수 사항:** 이 계획을 작업 단위로 실행할 때 `superpowers:executing-plans` 스킬을 사용한다. 사용자가 명시적으로 요청하지 않는 한 저장소 지침에 따라 하위 에이전트 위임을 금지한다.
 
-**Goal:** Implement the 2-2 Pydantic data contract for run configuration, place data, analysis results, reports, and LangGraph state while preserving the legacy `SearchConfig` import.
+**목표:** 기존 `SearchConfig` import 호환성을 유지하면서 실행 설정, 장소 데이터, 분석 결과, 리포트, LangGraph 상태에 필요한 2-2 Pydantic 데이터 규격을 구현한다.
 
-**Architecture:** Put every serializable agent-core model in one `datespot_agent.models` module built on a shared camel-case Pydantic base. Keep environment-backed `Settings` in `config.py`, re-export the run configuration models there, and make `SearchConfig` an exact alias of `RunConfig` so there is only one source of truth.
+**아키텍처:** 직렬화 가능한 모든 에이전트 코어 모델을 공통 camelCase Pydantic 기반 클래스와 함께 `datespot_agent.models` 단일 모듈에 둔다. 환경변수 기반 `Settings`는 `config.py`에 유지하고 실행 설정 모델을 해당 모듈에서 다시 export한다. `SearchConfig`는 `RunConfig`의 동일 객체 별칭으로 만들어 데이터 규격의 단일 출처를 유지한다.
 
-**Tech Stack:** Python 3.13, Pydantic 2.13+, pydantic-settings, standard-library `unittest`
+**기술 스택:** Python 3.13, Pydantic 2.13+, pydantic-settings, 표준 라이브러리 `unittest`
 
-## Global Constraints
+## 전체 제약사항
 
-- Python fields use `snake_case`; JSON/API aliases use `camelCase`.
-- Inputs accept both `snake_case` and `camelCase`; `model_dump(by_alias=True)` emits `camelCase`.
-- Unknown model fields are rejected and string inputs are stripped.
-- Scores are integers from `0` through `10`.
-- `RunConfig.max_places` is an integer from `1` through `10`.
-- Weight percentages are integers from `0` through `100` and must sum to `100`.
-- List fields use independent `default_factory=list` defaults.
-- Datetimes stored by `RunReport` are timezone-aware and normalized to UTC.
-- `GraphState` contains no Playwright `Browser`, `BrowserContext`, `Page`, or `Locator` objects.
-- Existing user changes in `README.md` and `.playwright-cli/` are out of scope and must not be staged.
-- Every production change follows RED → GREEN → REFACTOR using `uv run python -m unittest`.
+- Python 필드는 `snake_case`, JSON/API 별칭은 `camelCase`를 사용한다.
+- 입력은 `snake_case`와 `camelCase`를 모두 허용하고, `model_dump(by_alias=True)`는 `camelCase`로 출력한다.
+- 정의되지 않은 모델 필드는 거부하고 문자열 입력의 앞뒤 공백을 제거한다.
+- 점수는 `0`부터 `10`까지의 정수다.
+- `RunConfig.max_places`는 `1`부터 `10`까지의 정수다.
+- 가중치 비율은 `0`부터 `100`까지의 정수이며 합계는 반드시 `100`이다.
+- 리스트 필드는 독립적인 `default_factory=list` 기본값을 사용한다.
+- `RunReport`에 저장되는 datetime은 timezone을 포함하며 UTC로 정규화한다.
+- `GraphState`에는 Playwright `Browser`, `BrowserContext`, `Page`, `Locator` 객체를 넣지 않는다.
+- 기존 사용자 변경인 `README.md`와 `.playwright-cli/`는 범위 밖이며 stage하지 않는다.
+- 모든 프로덕션 변경은 `uv run python -m unittest`를 사용해 RED → GREEN → REFACTOR 순서로 진행한다.
 
 ---
 
-### Task 1: Shared model base and run configuration
+### 작업 1: 공통 모델 기반 클래스와 실행 설정
 
-**Files:**
-- Create: `src/datespot_agent/models.py`
-- Create: `tests/test_models.py`
+**파일:**
+- 생성: `src/datespot_agent/models.py`
+- 생성: `tests/test_models.py`
 
-**Interfaces:**
-- Produces: `CamelModel`, `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`
+**인터페이스:**
+- 생성 결과: `CamelModel`, `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`
 - `RunConfig(location: str, search_keyword: str, max_places: int = 10, filters: Filters = Filters(), weights: Weights = Weights(), scoring: ScoringCriteria = ScoringCriteria())`
 
-- [ ] **Step 1: Write the failing run-configuration tests**
+- [ ] **1단계: 실패하는 실행 설정 테스트 작성**
 
-Create `tests/test_models.py`:
+`tests/test_models.py` 생성:
 
 ```python
 from __future__ import annotations
@@ -116,22 +116,22 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [ ] **2단계: 대상 테스트를 실행해 RED 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: FAIL with `ModuleNotFoundError: No module named 'datespot_agent.models'`.
+예상 결과: `ModuleNotFoundError: No module named 'datespot_agent.models'`와 함께 실패함.
 
-- [ ] **Step 3: Implement the shared base and run configuration**
+- [ ] **3단계: 공통 기반 클래스와 실행 설정 구현**
 
-Create `src/datespot_agent/models.py`:
+`src/datespot_agent/models.py` 생성:
 
 ```python
-"""Serializable data contracts for the agent-core workflow."""
+"""에이전트 코어 워크플로의 직렬화 가능한 데이터 규격."""
 
 from __future__ import annotations
 
@@ -139,13 +139,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def to_camel(field_name: str) -> str:
-    """Convert a snake_case model field name to lower camelCase."""
+    """snake_case 모델 필드명을 lower camelCase로 변환한다."""
     first, *rest = field_name.split("_")
     return first + "".join(part.capitalize() for part in rest)
 
 
 class CamelModel(BaseModel):
-    """Base model accepting snake_case and camelCase without extra fields."""
+    """추가 필드 없이 snake_case와 camelCase를 허용하는 기반 모델."""
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -168,7 +168,7 @@ class Weights(CamelModel):
     @model_validator(mode="after")
     def validate_total(self) -> "Weights":
         if self.photo_percent + self.review_percent != 100:
-            raise ValueError("weight percentages must sum to 100")
+            raise ValueError("가중치 비율의 합은 100이어야 한다")
         return self
 
 
@@ -192,17 +192,17 @@ class RunConfig(CamelModel):
     scoring: ScoringCriteria = Field(default_factory=ScoringCriteria)
 ```
 
-- [ ] **Step 4: Run the focused test to verify GREEN**
+- [ ] **4단계: 대상 테스트를 실행해 GREEN 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: `Ran 4 tests` and `OK`.
+예상 결과: `Ran 4 tests`, `OK`.
 
-- [ ] **Step 5: Commit the run-configuration contract**
+- [ ] **5단계: 실행 설정 규격 커밋**
 
 ```bash
 git add src/datespot_agent/models.py tests/test_models.py
@@ -211,20 +211,20 @@ git commit -m "feat: add agent run configuration models"
 
 ---
 
-### Task 2: Place and analysis models
+### 작업 2: 장소 및 분석 모델
 
-**Files:**
-- Modify: `src/datespot_agent/models.py`
-- Modify: `tests/test_models.py`
+**파일:**
+- 수정: `src/datespot_agent/models.py`
+- 수정: `tests/test_models.py`
 
-**Interfaces:**
-- Consumes: `CamelModel`
-- Produces: `CandidatePlace`, `PlaceDetail`, `PhotoAnalysis`, `ReviewAnalysis`, `FilterDecision`
-- `PlaceDetail` is the typed input for pre-filter, photo-analysis, and review-analysis nodes.
+**인터페이스:**
+- 입력 의존성: `CamelModel`
+- 생성 결과: `CandidatePlace`, `PlaceDetail`, `PhotoAnalysis`, `ReviewAnalysis`, `FilterDecision`
+- `PlaceDetail`은 사전 필터, 사진 분석, 리뷰 분석 노드의 타입 지정 입력값이다.
 
-- [ ] **Step 1: Write failing place and analysis tests**
+- [ ] **1단계: 실패하는 장소 및 분석 테스트 작성**
 
-Extend the import in `tests/test_models.py`:
+`tests/test_models.py`의 import 확장:
 
 ```python
 from datespot_agent.models import (
@@ -238,7 +238,7 @@ from datespot_agent.models import (
 )
 ```
 
-Insert before the `if __name__ == "__main__"` block:
+`if __name__ == "__main__"` 블록 앞에 삽입:
 
 ```python
 class PlaceAndAnalysisModelTests(unittest.TestCase):
@@ -282,19 +282,19 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
         self.assertFalse(decision.passed)
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [ ] **2단계: 대상 테스트를 실행해 RED 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: FAIL because the five new model names cannot be imported.
+예상 결과: 신규 모델 5개를 import할 수 없어 실패함.
 
-- [ ] **Step 3: Implement place and analysis models**
+- [ ] **3단계: 장소 및 분석 모델 구현**
 
-Append to `src/datespot_agent/models.py`:
+`src/datespot_agent/models.py`에 추가:
 
 ```python
 
@@ -329,17 +329,17 @@ class FilterDecision(CamelModel):
     exclusion_reason: str | None = None
 ```
 
-- [ ] **Step 4: Run the focused test to verify GREEN**
+- [ ] **4단계: 대상 테스트를 실행해 GREEN 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: `Ran 7 tests` and `OK`.
+예상 결과: `Ran 7 tests`, `OK`.
 
-- [ ] **Step 5: Commit typed place and analysis data**
+- [ ] **5단계: 타입이 지정된 장소 및 분석 데이터 커밋**
 
 ```bash
 git add src/datespot_agent/models.py tests/test_models.py
@@ -348,33 +348,33 @@ git commit -m "feat: add place analysis data models"
 
 ---
 
-### Task 3: Place results and run report
+### 작업 3: 장소 결과 및 실행 리포트
 
-**Files:**
-- Modify: `src/datespot_agent/models.py`
-- Modify: `tests/test_models.py`
+**파일:**
+- 수정: `src/datespot_agent/models.py`
+- 수정: `tests/test_models.py`
 
-**Interfaces:**
-- Consumes: `CamelModel`, `RunConfig`
-- Produces: `RunStatus`, `PlaceResultStatus`, `PlaceResult`, `RunReport`
-- `RunReport.created_at` accepts aware datetimes only and stores them in UTC.
+**인터페이스:**
+- 입력 의존성: `CamelModel`, `RunConfig`
+- 생성 결과: `RunStatus`, `PlaceResultStatus`, `PlaceResult`, `RunReport`
+- `RunReport.created_at`은 timezone이 있는 datetime만 허용하고 UTC로 저장한다.
 
-- [ ] **Step 1: Write failing result and report tests**
+- [ ] **1단계: 실패하는 결과 및 리포트 테스트 작성**
 
-Add to the standard-library imports in `tests/test_models.py`:
+`tests/test_models.py`의 표준 라이브러리 import에 추가:
 
 ```python
 from datetime import datetime, timedelta, timezone
 ```
 
-Extend the `datespot_agent.models` import with:
+`datespot_agent.models` import에 추가:
 
 ```python
     PlaceResult,
     RunReport,
 ```
 
-Insert before the module’s final `if __name__ == "__main__"` block:
+모듈의 마지막 `if __name__ == "__main__"` 블록 앞에 삽입:
 
 ```python
 class ResultAndReportModelTests(unittest.TestCase):
@@ -448,19 +448,19 @@ class ResultAndReportModelTests(unittest.TestCase):
         self.assertEqual(payload["results"][0]["exclusionReason"], "리뷰 부족")
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [ ] **2단계: 대상 테스트를 실행해 RED 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: FAIL because `PlaceResult` and `RunReport` cannot be imported.
+예상 결과: `PlaceResult`와 `RunReport`를 import할 수 없어 실패함.
 
-- [ ] **Step 3: Implement enums, result validation, and UTC normalization**
+- [ ] **3단계: enum, 결과 검증, UTC 정규화 구현**
 
-Add these imports at the top of `src/datespot_agent/models.py`:
+`src/datespot_agent/models.py` 상단에 다음 import 추가:
 
 ```python
 from datetime import datetime, timezone
@@ -469,7 +469,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 ```
 
-Append:
+아래 내용 추가:
 
 ```python
 
@@ -503,11 +503,11 @@ class PlaceResult(CamelModel):
     @model_validator(mode="after")
     def validate_status_fields(self) -> "PlaceResult":
         if self.status is PlaceResultStatus.ANALYZED and self.final_score is None:
-            raise ValueError("analyzed result requires final_score")
+            raise ValueError("분석 완료 결과에는 final_score가 필요하다")
         if self.status is PlaceResultStatus.EXCLUDED and not self.exclusion_reason:
-            raise ValueError("excluded result requires exclusion_reason")
+            raise ValueError("제외 결과에는 exclusion_reason이 필요하다")
         if self.status is PlaceResultStatus.FAILED and not self.failure_reason:
-            raise ValueError("failed result requires failure_reason")
+            raise ValueError("실패 결과에는 failure_reason이 필요하다")
         return self
 
 
@@ -523,21 +523,21 @@ class RunReport(CamelModel):
     @classmethod
     def normalize_created_at(cls, value: datetime) -> datetime:
         if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("created_at must be timezone-aware")
+            raise ValueError("created_at에는 timezone 정보가 필요하다")
         return value.astimezone(timezone.utc)
 ```
 
-- [ ] **Step 4: Run the focused test to verify GREEN**
+- [ ] **4단계: 대상 테스트를 실행해 GREEN 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: `Ran 11 tests` and `OK`.
+예상 결과: `Ran 11 tests`, `OK`.
 
-- [ ] **Step 5: Commit result and report contracts**
+- [ ] **5단계: 결과 및 리포트 규격 커밋**
 
 ```bash
 git add src/datespot_agent/models.py tests/test_models.py
@@ -546,29 +546,29 @@ git commit -m "feat: add place result and run report models"
 
 ---
 
-### Task 4: LangGraph state model
+### 작업 4: LangGraph 상태 모델
 
-**Files:**
-- Modify: `src/datespot_agent/models.py`
-- Modify: `tests/test_models.py`
+**파일:**
+- 수정: `src/datespot_agent/models.py`
+- 수정: `tests/test_models.py`
 
-**Interfaces:**
-- Consumes: every model produced by Tasks 1–3
-- Produces: `GraphState`
-- `GraphState` is serializable and holds only run identifiers and typed data, never Playwright live objects.
+**인터페이스:**
+- 입력 의존성: 작업 1~3에서 생성한 모든 모델
+- 생성 결과: `GraphState`
+- `GraphState`는 직렬화 가능하며 실행 식별자와 타입 지정 데이터만 보유하고 Playwright live object는 저장하지 않는다.
 
-- [ ] **Step 1: Write failing GraphState tests**
+- [ ] **1단계: 실패하는 GraphState 테스트 작성**
 
-Extend the `datespot_agent.models` import with:
+`datespot_agent.models` import에 추가:
 
 ```python
     CandidatePlace,
     GraphState,
 ```
 
-`CandidatePlace` is already imported after Task 2; add only `GraphState` if present.
+작업 2 이후에는 `CandidatePlace`가 이미 import되어 있으므로 중복된 경우 `GraphState`만 추가한다.
 
-Insert before the module’s final `if __name__ == "__main__"` block:
+모듈의 마지막 `if __name__ == "__main__"` 블록 앞에 삽입:
 
 ```python
 class GraphStateModelTests(unittest.TestCase):
@@ -601,19 +601,19 @@ class GraphStateModelTests(unittest.TestCase):
             )
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [ ] **2단계: 대상 테스트를 실행해 RED 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: FAIL because `GraphState` cannot be imported.
+예상 결과: `GraphState`를 import할 수 없어 실패함.
 
-- [ ] **Step 3: Implement GraphState**
+- [ ] **3단계: GraphState 구현**
 
-Append to `src/datespot_agent/models.py`:
+`src/datespot_agent/models.py`에 추가:
 
 ```python
 
@@ -633,17 +633,17 @@ class GraphState(CamelModel):
     last_error: str | None = None
 ```
 
-- [ ] **Step 4: Run the focused test to verify GREEN**
+- [ ] **4단계: 대상 테스트를 실행해 GREEN 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: `Ran 13 tests` and `OK`.
+예상 결과: `Ran 13 tests`, `OK`.
 
-- [ ] **Step 5: Commit the serializable graph state**
+- [ ] **5단계: 직렬화 가능한 그래프 상태 커밋**
 
 ```bash
 git add src/datespot_agent/models.py tests/test_models.py
@@ -652,22 +652,22 @@ git commit -m "feat: add serializable graph state model"
 
 ---
 
-### Task 5: Config compatibility and regression verification
+### 작업 5: 설정 호환성과 회귀 검증
 
-**Files:**
-- Modify: `src/datespot_agent/config.py`
-- Modify: `poc/1-1-env/smoke_test.py`
-- Modify: `poc/1-1-env/GUIDE.md`
-- Modify: `tests/test_models.py`
+**파일:**
+- 수정: `src/datespot_agent/config.py`
+- 수정: `poc/1-1-env/smoke_test.py`
+- 수정: `poc/1-1-env/GUIDE.md`
+- 수정: `tests/test_models.py`
 
-**Interfaces:**
-- Consumes: `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`
-- Produces: `datespot_agent.config.SearchConfig is datespot_agent.models.RunConfig`
-- Preserves: `Settings` and `get_settings()` behavior
+**인터페이스:**
+- 입력 의존성: `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`
+- 생성 결과: `datespot_agent.config.SearchConfig is datespot_agent.models.RunConfig`
+- 유지 대상: `Settings`, `get_settings()` 동작
 
-- [ ] **Step 1: Write the failing compatibility test**
+- [ ] **1단계: 실패하는 호환성 테스트 작성**
 
-Insert before the module’s final `if __name__ == "__main__"` block in `tests/test_models.py`:
+`tests/test_models.py`의 마지막 `if __name__ == "__main__"` 블록 앞에 삽입:
 
 ```python
 class ConfigCompatibilityTests(unittest.TestCase):
@@ -680,22 +680,22 @@ class ConfigCompatibilityTests(unittest.TestCase):
         self.assertEqual(config.weights.photo_percent, 50)
 ```
 
-- [ ] **Step 2: Run the focused test to verify RED**
+- [ ] **2단계: 대상 테스트를 실행해 RED 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: FAIL because the current `SearchConfig` is a different class from `RunConfig`.
+예상 결과: 현재 `SearchConfig`가 `RunConfig`와 다른 클래스이므로 실패함.
 
-- [ ] **Step 3: Replace duplicate run models with compatibility re-exports**
+- [ ] **3단계: 중복 실행 모델을 호환용 re-export로 교체**
 
-Keep the existing `Settings` and `get_settings()` definitions in `src/datespot_agent/config.py`. Replace its module description, imports, and everything after `get_settings()` so the file has this structure:
+`src/datespot_agent/config.py`의 기존 `Settings`, `get_settings()` 정의는 유지한다. 모듈 설명과 import, `get_settings()` 이후 내용을 교체해 다음 구조로 만든다:
 
 ```python
-"""Environment-backed app settings and run-config compatibility exports."""
+"""환경변수 기반 앱 설정과 실행 설정 호환 export."""
 
 from __future__ import annotations
 
@@ -741,9 +741,9 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 4: Update the 1-1 smoke check to the new compatibility contract**
+- [ ] **4단계: 1-1 스모크 검증을 새 호환 규격에 맞게 수정**
 
-Replace `check_config()` in `poc/1-1-env/smoke_test.py` with:
+`poc/1-1-env/smoke_test.py`의 `check_config()`를 다음 내용으로 교체:
 
 ```python
 def check_config() -> str:
@@ -760,52 +760,52 @@ def check_config() -> str:
     )
 ```
 
-Change the config description in `poc/1-1-env/GUIDE.md` to:
+`poc/1-1-env/GUIDE.md`의 설정 설명을 다음과 같이 변경:
 
 ```markdown
 2. **config** — `datespot_agent.config`의 `Settings` / `SearchConfig` 호환 별칭 로드 및 2단계 기본값(가중치 합=100, max_places=10) 확인
 ```
 
-- [ ] **Step 5: Run focused tests to verify GREEN**
+- [ ] **5단계: 대상 테스트를 실행해 GREEN 확인**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-Expected: `Ran 14 tests` and `OK`.
+예상 결과: `Ran 14 tests`, `OK`.
 
-- [ ] **Step 6: Run the full unit regression suite**
+- [ ] **6단계: 전체 단위 회귀 테스트 실행**
 
-Run:
+실행:
 
 ```bash
 uv run python -m unittest discover -s tests -v
 ```
 
-Expected: `Ran 46 tests` and `OK`.
+예상 결과: `Ran 46 tests`, `OK`.
 
-- [ ] **Step 7: Run the environment smoke test**
+- [ ] **7단계: 환경 스모크 테스트 실행**
 
-Run:
+실행:
 
 ```bash
 uv run python poc/1-1-env/smoke_test.py
 ```
 
-Expected: exit code `0`, config reports `max_places=10` and `weights=50/50`, and Playwright Chromium check passes.
+예상 결과: 종료 코드 `0`, 설정 출력 `max_places=10`, `weights=50/50`, Playwright Chromium 검증 통과.
 
-- [ ] **Step 8: Check scope and commit compatibility migration**
+- [ ] **8단계: 변경 범위 확인 및 호환성 마이그레이션 커밋**
 
-Run:
+실행:
 
 ```bash
 git diff --check
 git status --short
 ```
 
-Expected: only `config.py`, `smoke_test.py`, `GUIDE.md`, `models.py`, and `test_models.py` are part of the 2-2 work; pre-existing `README.md` and `.playwright-cli/` remain unstaged.
+예상 결과: `config.py`, `smoke_test.py`, `GUIDE.md`, `models.py`, `test_models.py`만 2-2 작업에 포함됨. 기존 `README.md`, `.playwright-cli/`는 stage되지 않은 상태로 유지됨.
 
 ```bash
 git add src/datespot_agent/config.py poc/1-1-env/smoke_test.py poc/1-1-env/GUIDE.md tests/test_models.py
@@ -814,13 +814,13 @@ git commit -m "refactor: align config with agent core models"
 
 ---
 
-## Completion Gate
+## 완료 조건
 
-- [ ] `tests/test_models.py` contains 14 passing model-contract tests.
-- [ ] Full unit suite reports 46 passing tests and zero failures.
-- [ ] Environment smoke test exits `0`.
-- [ ] `git diff --check` reports no whitespace errors.
-- [ ] `src/datespot_agent/models.py` is the only definition site for run and workflow models.
-- [ ] `SearchConfig is RunConfig` evaluates to `True`.
-- [ ] No Playwright live object field exists in `GraphState`.
-- [ ] `README.md` and `.playwright-cli/` are not staged by this plan.
+- [ ] `tests/test_models.py`의 모델 규격 테스트 14개 통과.
+- [ ] 전체 단위 테스트 46개 통과, 실패 0개.
+- [ ] 환경 스모크 테스트 종료 코드 `0`.
+- [ ] `git diff --check` 공백 오류 없음.
+- [ ] 실행 및 워크플로 모델 정의 위치는 `src/datespot_agent/models.py` 하나뿐임.
+- [ ] `SearchConfig is RunConfig` 평가 결과 `True`.
+- [ ] `GraphState`에 Playwright live object 필드 없음.
+- [ ] 이 계획으로 `README.md`, `.playwright-cli/`를 stage하지 않음.
