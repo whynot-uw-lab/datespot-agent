@@ -4,7 +4,15 @@ import unittest
 
 from pydantic import ValidationError
 
-from datespot_agent.models import RunConfig, Weights
+from datespot_agent.models import (
+    CandidatePlace,
+    FilterDecision,
+    PhotoAnalysis,
+    PlaceDetail,
+    ReviewAnalysis,
+    RunConfig,
+    Weights,
+)
 
 
 class RunConfigTests(unittest.TestCase):
@@ -69,6 +77,47 @@ class RunConfigTests(unittest.TestCase):
         first.filters.categories.append("일식")
 
         self.assertEqual(second.filters.categories, [])
+
+
+class PlaceAndAnalysisModelTests(unittest.TestCase):
+    def test_place_detail_supports_aliases_and_independent_lists(self):
+        detail = PlaceDetail.model_validate(
+            {
+                "placeId": "1720070048",
+                "name": "우니도",
+                "distanceM": 520,
+                "photoUrls": ["https://example.com/1.jpg"],
+                "reviewCount": 128,
+            }
+        )
+        other = PlaceDetail(place_id="2", name="다른 장소")
+
+        detail.reviews.append("조용해요")
+
+        self.assertEqual(detail.distance_m, 520)
+        self.assertEqual(other.reviews, [])
+        self.assertEqual(
+            detail.model_dump(by_alias=True)["photoUrls"],
+            ["https://example.com/1.jpg"],
+        )
+
+    def test_analysis_models_require_integer_score_in_range(self):
+        self.assertEqual(PhotoAnalysis(photo_score=7, reason="차분함").photo_score, 7)
+        self.assertEqual(ReviewAnalysis(review_score=8, reason="조용함").review_score, 8)
+
+        for score in (-1, 11, 7.5):
+            with self.subTest(score=score):
+                with self.assertRaises(ValidationError):
+                    PhotoAnalysis(photo_score=score, reason="근거")
+
+    def test_identifying_fields_and_reasons_cannot_be_blank(self):
+        with self.assertRaises(ValidationError):
+            CandidatePlace(place_id=" ", name="우니도")
+        with self.assertRaises(ValidationError):
+            ReviewAnalysis(review_score=8, reason=" ")
+
+        decision = FilterDecision(passed=False, exclusion_reason="리뷰 부족")
+        self.assertFalse(decision.passed)
 
 
 if __name__ == "__main__":
