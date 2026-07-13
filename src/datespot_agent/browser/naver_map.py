@@ -98,6 +98,20 @@ class NaverMapPage:
             f"frame을 찾지 못함: {pattern.pattern}"
         )
 
+    async def _wait_page_url(
+        self,
+        pattern: re.Pattern[str],
+        timeout_ms: int = 20_000,
+    ) -> None:
+        deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+        while asyncio.get_running_loop().time() < deadline:
+            if pattern.search(self.page.url):
+                return
+            await self.page.wait_for_timeout(100)
+        raise BrowserNavigationError(
+            f"URL 변경 실패: pattern={pattern.pattern}, current={self.page.url}"
+        )
+
     async def open(self) -> None:
         await self._mutate(
             lambda: self.page.goto(
@@ -118,10 +132,7 @@ class NaverMapPage:
             exact=True,
         )
         await self._mutate(lambda: option.click(timeout=20_000))
-        await self.page.wait_for_url(
-            re.compile(r"/p/search/"),
-            timeout=20_000,
-        )
+        await self._wait_page_url(re.compile(r"/p/search/"))
 
     async def search_location(self, location: str) -> None:
         await self._submit_search(location)
@@ -141,10 +152,7 @@ class NaverMapPage:
         await self._mutate(
             lambda: station.first.click(force=True, timeout=10_000)
         )
-        await self.page.wait_for_url(
-            re.compile(r"subway-station/"),
-            timeout=20_000,
-        )
+        await self._wait_page_url(re.compile(r"subway-station/"))
 
     async def set_zoom(self, target: int = 15) -> None:
         current = parse_zoom(self.page.url)

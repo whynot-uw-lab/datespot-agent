@@ -57,6 +57,60 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(BrowserNavigationError):
             await navigator.set_zoom(15)
 
+    async def test_station_route_uses_url_condition_not_load_lifecycle(self):
+        class StationControl:
+            def __init__(self, page) -> None:
+                self.page = page
+
+            @property
+            def first(self):
+                return self
+
+            async def count(self) -> int:
+                return 1
+
+            async def click(self, **_kwargs) -> None:
+                self.page.url = (
+                    "https://map.naver.com/p/subway-station/1907"
+                )
+
+        class StationFrame:
+            def __init__(self, page) -> None:
+                self.control = StationControl(page)
+
+            def get_by_role(self, *_args, **_kwargs):
+                return self.control
+
+        class Page:
+            def __init__(self) -> None:
+                self.url = "https://map.naver.com/p/search/신사역"
+                self.frame = StationFrame(self)
+
+            async def wait_for_url(self, *_args, **_kwargs):
+                raise AssertionError("SPA route에서 load lifecycle 대기 금지")
+
+            async def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+        page = Page()
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = page
+        navigator.pacer = FakePacer()
+        navigator._blocked_response = None
+
+        async def frame_value(*_args, **_kwargs):
+            return page.frame
+
+        async def mutate(action):
+            return await action()
+
+        navigator._wait_frame = frame_value
+        navigator._mutate = mutate
+
+        await navigator.select_station("신사역")
+
+        self.assertIn("subway-station/1907", page.url)
+
 
 class NaverMapDetailContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_detail_result_limits_photos_and_reviews_and_restores_list(self):
