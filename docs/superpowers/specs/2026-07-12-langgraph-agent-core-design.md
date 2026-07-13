@@ -89,30 +89,392 @@ flowchart TD
     finalize --> closeBrowser --> END
 ```
 
-## 데이터 모델 초안
+## 데이터 규격
 
-이 단계에서는 구체 JSON schema를 정하지 않는다. 각 모델이 어떤 정보를 책임지는지만 정한다.
+2-2 단계에서는 실행 설정, 장소 후보, 상세 추출값, 분석 결과, 리포트, LangGraph state를 Pydantic `BaseModel`로 구현한다.
+
+공통 규칙:
+
+- Python 내부 필드는 `snake_case`를 사용한다.
+- JSON/API 입출력은 `camelCase` alias를 지원한다.
+- 입력은 `snake_case`와 `camelCase`를 모두 허용한다.
+- 출력 JSON은 `camelCase`로 직렬화할 수 있어야 한다.
+- 점수는 `0`부터 `10`까지의 정수다.
+- 리스트 필드는 `None` 대신 빈 배열을 기본값으로 쓴다.
+- 선택 필드는 값이 없으면 `None`으로 둔다.
+- 시간 필드는 UTC `datetime`으로 저장하고 JSON에서는 ISO 문자열로 직렬화한다.
+- `GraphState`에는 Playwright live object를 절대 넣지 않는다.
+
+### 공통 enum
+
+`RunStatus`:
+
+- `pending`: 실행 준비 상태
+- `running`: 실행 중
+- `completed`: 정상 완료
+- `failed`: 실행 전체 실패
+
+`PlaceResultStatus`:
+
+- `analyzed`: 분석 완료
+- `excluded`: 사전 필터로 제외
+- `failed`: 상세 추출 또는 분석 실패
+
+`ConfidenceLevel`:
+
+- `low`
+- `medium`
+- `high`
+
+### RunConfig
+
+사용자가 한 번의 탐색 실행에서 지정하는 설정이다. 2단계 MVP에서는 분석 수를 최대 10개로 제한한다.
+
+필드:
+
+- `location: str`: 기준 지역 또는 역
+- `search_keyword: str`: 검색 키워드 또는 카테고리
+- `max_places: int = 10`: 최소 `1`, 최대 `10`
+- `filters: Filters = Filters()`
+- `weights: Weights = Weights()`
+- `scoring: ScoringCriteria = ScoringCriteria()`
+
+`Filters`:
+
+- `categories: list[str] = []`
+- `min_review_count: int = 0`
+- `max_distance_m: int | None = None`
+
+`Weights`:
+
+- `photo_percent: int = 50`
+- `review_percent: int = 50`
+- 합계는 반드시 `100`
+- 각 값은 `0`부터 `100`까지 허용
+
+`ScoringCriteria`:
+
+- `photo: str`: 사진 평가 기준
+- `review: str`: 리뷰 평가 기준
+
+예시:
+
+```json
+{
+  "location": "신사역",
+  "searchKeyword": "음식점",
+  "maxPlaces": 10,
+  "filters": {
+    "categories": ["일식", "양식"],
+    "minReviewCount": 50,
+    "maxDistanceM": 700
+  },
+  "weights": {
+    "photoPercent": 50,
+    "reviewPercent": 50
+  },
+  "scoring": {
+    "photo": "어둡고 차분한 분위기, 넓은 좌석 간격, 대화하기 좋은 구조",
+    "review": "깔끔함, 조용함, 대화하기 좋음 등 긍정 표현"
+  }
+}
+```
+
+### CandidatePlace
+
+검색 목록에서 얻은 후보 장소다. 상세 분석 전 단계에서 사용한다. 목록 단계에서는 `place_id`가 없을 수 있다.
+
+필드:
+
+- `place_id: str | None = None`
+- `name: str`
+- `list_rank: int | None = None`
+- `category_hint: str | None = None`
+- `is_ad: bool = False`
+- `raw_text: str | None = None`
+- `detail_url_hint: str | None = None`
+
+예시:
+
+```json
+{
+  "placeId": null,
+  "name": "카이센동 우니도 본점",
+  "listRank": 1,
+  "categoryHint": "일식당",
+  "isAd": false,
+  "rawText": "카이센동 우니도 본점 일식당",
+  "detailUrlHint": "https://pcmap.place.naver.com/restaurant/1720070048/home"
+}
+```
+
+### PlaceDetail
+
+상세 페이지에서 추출한 분석 재료다. 사진/리뷰 분석 node의 입력이 된다. 상세 단계부터 `place_id`는 필수다.
+
+필드:
+
+- `place_id: str`
+- `name: str`
+- `category: str | None = None`
+- `address: str | None = None`
+- `distance_hint: str | None = None`
+- `home_url: str | None = None`
+- `photo_url: str | None = None`
+- `review_url: str | None = None`
+- `photo_urls: list[str] = []`
+- `reviews: list[str] = []`
+- `review_count: int = 0`
+- `extracted_at: datetime`
+- `extraction_errors: list[str] = []`
+
+예시:
+
+```json
+{
+  "placeId": "1720070048",
+  "name": "카이센동 우니도 본점",
+  "category": "일식당",
+  "address": "서울 강남구 압구정로2길 15",
+  "distanceHint": "신사역 700m 이내",
+  "homeUrl": "https://pcmap.place.naver.com/restaurant/1720070048/home",
+  "photoUrl": "https://pcmap.place.naver.com/restaurant/1720070048/photo",
+  "reviewUrl": "https://pcmap.place.naver.com/restaurant/1720070048/review/visitor",
+  "photoUrls": ["https://example.com/photo-1.jpg"],
+  "reviews": ["조용하고 대화하기 좋았어요."],
+  "reviewCount": 128,
+  "extractedAt": "2026-07-12T00:00:00Z",
+  "extractionErrors": []
+}
+```
+
+### PhotoAnalysis
+
+사진 기반 소개팅 적합도 분석 결과다.
+
+필드:
+
+- `photo_score: int`: `0`부터 `10`
+- `summary: str`
+- `mood_signals: list[str] = []`
+- `space_signals: list[str] = []`
+- `lighting_signals: list[str] = []`
+- `negative_signals: list[str] = []`
+- `representative_photo_url: str | None = None`
+- `confidence: ConfidenceLevel = "medium"`
+
+예시:
+
+```json
+{
+  "photoScore": 7,
+  "summary": "차분한 조명과 정돈된 좌석 구성이 보임",
+  "moodSignals": ["차분한 조명"],
+  "spaceSignals": ["테이블 간격이 비교적 넓음"],
+  "lightingSignals": ["어두운 톤"],
+  "negativeSignals": ["일부 사진에서 혼잡 가능성"],
+  "representativePhotoUrl": "https://example.com/photo-1.jpg",
+  "confidence": "medium"
+}
+```
+
+### ReviewAnalysis
+
+리뷰 기반 소개팅 적합도 분석 결과다.
+
+필드:
+
+- `review_score: int`: `0`부터 `10`
+- `summary: str`
+- `positive_signals: list[str] = []`
+- `negative_signals: list[str] = []`
+- `date_fit_signals: list[str] = []`
+- `concerns: list[str] = []`
+- `used_review_count: int = 0`
+- `confidence: ConfidenceLevel = "medium"`
+
+예시:
+
+```json
+{
+  "reviewScore": 8,
+  "summary": "조용함, 친절함, 데이트 방문 언급이 반복됨",
+  "positiveSignals": ["친절함", "깔끔함"],
+  "negativeSignals": ["웨이팅 가능성"],
+  "dateFitSignals": ["데이트 방문"],
+  "concerns": ["피크 시간 혼잡도 확인 필요"],
+  "usedReviewCount": 50,
+  "confidence": "medium"
+}
+```
+
+### FilterDecision
+
+사전 필터 node의 판단 결과다.
+
+필드:
+
+- `passed: bool`
+- `exclusion_reason: str | None = None`
+- `applied_filters: list[str] = []`
+- `detail_summary: str | None = None`
+
+예시:
+
+```json
+{
+  "passed": false,
+  "exclusionReason": "리뷰 수가 최소 기준 50개보다 적음",
+  "appliedFilters": ["minReviewCount"],
+  "detailSummary": "리뷰 수 18개"
+}
+```
+
+### RecoveryDecision
+
+navigation 복구 agent의 판단 결과다.
+
+필드:
+
+- `diagnosis: str`
+- `action: str`
+- `reason: str`
+- `can_retry: bool = False`
+
+예시:
+
+```json
+{
+  "diagnosis": "목록 iframe 로딩 실패",
+  "action": "direct_route_retry",
+  "reason": "pcmap 직접 URL 접근이 가능함",
+  "canRetry": true
+}
+```
+
+### PlaceResult
+
+리포트에 누적되는 장소 단위 결과다. 분석 완료, 제외, 실패를 하나의 모델에서 상태값으로 구분한다.
+
+필드:
+
+- `status: PlaceResultStatus`
+- `place_id: str | None = None`
+- `name: str`
+- `category: str | None = None`
+- `address: str | None = None`
+- `photo_score: int | None = None`
+- `review_score: int | None = None`
+- `final_score: int | None = None`
+- `photo_summary: str | None = None`
+- `review_summary: str | None = None`
+- `key_reasons: list[str] = []`
+- `concerns: list[str] = []`
+- `representative_photo_url: str | None = None`
+- `sample_reviews: list[str] = []`
+- `exclusion_reason: str | None = None`
+- `failure_reason: str | None = None`
+- `errors: list[str] = []`
+
+상태별 검증:
+
+- `analyzed`: `final_score` 필수
+- `excluded`: `exclusion_reason` 필수
+- `failed`: `failure_reason` 필수
+
+예시:
+
+```json
+{
+  "status": "analyzed",
+  "placeId": "1720070048",
+  "name": "카이센동 우니도 본점",
+  "category": "일식당",
+  "address": "서울 강남구 압구정로2길 15",
+  "photoScore": 7,
+  "reviewScore": 8,
+  "finalScore": 8,
+  "photoSummary": "차분한 조명과 정돈된 좌석 구성이 보임",
+  "reviewSummary": "조용함과 친절함 언급이 반복됨",
+  "keyReasons": ["조용함", "깔끔함", "데이트 방문 언급"],
+  "concerns": ["피크 시간 웨이팅 가능성"],
+  "representativePhotoUrl": "https://example.com/photo-1.jpg",
+  "sampleReviews": ["조용하고 대화하기 좋았어요."],
+  "exclusionReason": null,
+  "failureReason": null,
+  "errors": []
+}
+```
+
+### RunReport
+
+최종 JSON 리포트 payload다. `finalize_report` node가 만든다.
+
+필드:
+
+- `run_id: str`
+- `status: RunStatus`
+- `config: RunConfig`
+- `results: list[PlaceResult] = []`
+- `analyzed_count: int = 0`
+- `excluded_count: int = 0`
+- `failed_count: int = 0`
+- `errors: list[str] = []`
+- `created_at: datetime`
+
+예시:
+
+```json
+{
+  "runId": "run_20260712_000001",
+  "status": "completed",
+  "config": {
+    "location": "신사역",
+    "searchKeyword": "음식점",
+    "maxPlaces": 10,
+    "filters": {
+      "categories": ["일식", "양식"],
+      "minReviewCount": 50,
+      "maxDistanceM": 700
+    },
+    "weights": {
+      "photoPercent": 50,
+      "reviewPercent": 50
+    },
+    "scoring": {
+      "photo": "어둡고 차분한 분위기, 넓은 좌석 간격, 대화하기 좋은 구조",
+      "review": "깔끔함, 조용함, 대화하기 좋음 등 긍정 표현"
+    }
+  },
+  "results": [],
+  "analyzedCount": 0,
+  "excludedCount": 0,
+  "failedCount": 0,
+  "errors": [],
+  "createdAt": "2026-07-12T00:00:00Z"
+}
+```
 
 ### GraphState
 
-LangGraph node 사이를 이동하는 최소 실행 state다. Playwright 객체는 포함하지 않는다.
+LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydantic `BaseModel`로 구현한다.
 
-포함 정보:
+필드:
 
-- `run_id`: 실행 식별자
-- `config`: 사용자 실행 설정
-- `status`: 실행 상태
-- `candidates`: 정규화된 후보 장소 목록
-- `current_place_index`: 현재 처리 중인 후보 index
-- `current_place`: 현재 후보 장소
-- `current_place_detail`: 현재 장소 상세 추출 결과
-- `filter_decision`: 현재 장소 필터 판단
-- `photo_analysis`: 현재 장소 사진 분석 결과
-- `review_analysis`: 현재 장소 리뷰 분석 결과
-- `recovery_decision`: 최근 navigation 복구 판단
-- `place_results`: 분석/제외/실패 장소 결과 목록
-- `final_report`: 최종 리포트 payload
-- `last_error`: 최근 오류 요약
+- `run_id: str`
+- `config: RunConfig`
+- `status: RunStatus = "pending"`
+- `candidates: list[CandidatePlace] = []`
+- `current_place_index: int = 0`
+- `current_place: CandidatePlace | None = None`
+- `current_place_detail: PlaceDetail | None = None`
+- `filter_decision: FilterDecision | None = None`
+- `photo_analysis: PhotoAnalysis | None = None`
+- `review_analysis: ReviewAnalysis | None = None`
+- `recovery_decision: RecoveryDecision | None = None`
+- `place_results: list[PlaceResult] = []`
+- `final_report: RunReport | None = None`
+- `last_error: str | None = None`
 
 제외 정보:
 
@@ -123,136 +485,53 @@ LangGraph node 사이를 이동하는 최소 실행 state다. Playwright 객체�
 - DOM snapshot
 - 전체 retry history
 
-### RunConfig
+예시:
 
-사용자가 한 번의 탐색 실행에서 지정하는 설정이다. 운영 옵션은 아직 포함하지 않는다.
-
-포함 정보:
-
-- `location`: 기준 지역 또는 역
-- `search_keyword`: 검색 키워드 또는 카테고리
-- `max_places`: 최대 분석 장소 수
-- `filters`: 사전 필터 조건
-- `weights`: 사진/리뷰 점수 가중치
-- `scoring`: 사진/리뷰 평가 기준 문장
-
-필터 정보:
-
-- 포함 카테고리
-- 최소 리뷰 수
-- 최대 거리
-
-보류 정보:
-
-- delay / rate limit
-- headless 여부
-- 모델명
-- retry 횟수
-- viewport
-
-### CandidatePlace
-
-검색 목록에서 얻은 후보 장소다. 상세 분석 전 단계에서 사용한다.
-
-포함 정보:
-
-- 장소 ID
-- 장소명
-- 목록 순위
-- 카테고리 힌트
-- 광고 여부
-- 목록 원문 텍스트
-- 상세 URL 힌트
-
-### PlaceDetail
-
-상세 페이지에서 추출한 분석 재료다. 사진/리뷰 분석 node의 입력이 된다.
-
-포함 정보:
-
-- 장소 ID
-- 장소명
-- 카테고리
-- 주소
-- 거리 힌트
-- home/photos/reviews route
-- 사진 URL 목록
-- 리뷰 텍스트 목록
-- 리뷰 수
-- 추출 시각
-- 추출 오류
-
-### PhotoAnalysis
-
-사진 기반 소개팅 적합도 분석 결과다.
-
-포함 정보:
-
-- 사진 점수
-- 사진 기반 요약
-- 분위기 신호
-- 좌석/공간 신호
-- 조명 신호
-- 부정 신호
-- 대표 사진 URL
-- 신뢰도
-
-### ReviewAnalysis
-
-리뷰 기반 소개팅 적합도 분석 결과다.
-
-포함 정보:
-
-- 리뷰 점수
-- 리뷰 기반 요약
-- 긍정 신호
-- 부정 신호
-- 데이트 적합 신호
-- 우려 사항
-- 분석에 사용한 리뷰 수
-- 신뢰도
-
-### PlaceResult
-
-리포트에 누적되는 장소 단위 결과다. 분석 완료, 제외, 실패를 하나의 모델에서 상태값으로 구분한다.
-
-포함 정보:
-
-- 상태: `analyzed`, `excluded`, `failed`
-- 장소 기본 정보
-- 사진 점수
-- 리뷰 점수
-- 최종 점수
-- 사진/리뷰 요약
-- 핵심 근거
-- 우려 사항
-- 대표 사진
-- 샘플 리뷰
-- 제외 사유
-- 실패 사유
-- 오류 목록
-
-### FilterDecision
-
-사전 필터 node의 판단 결과다.
-
-포함 정보:
-
-- 통과 여부
-- 제외 사유
-- 적용된 필터
-- 판단에 사용한 장소 정보 요약
-
-### RecoveryDecision
-
-navigation 복구 agent의 판단 결과다.
-
-포함 정보:
-
-- 진단 요약
-- 선택한 복구 action
-- 선택 이유
-- 재시도 가능 여부
+```json
+{
+  "runId": "run_20260712_000001",
+  "config": {
+    "location": "신사역",
+    "searchKeyword": "음식점",
+    "maxPlaces": 10,
+    "filters": {
+      "categories": ["일식", "양식"],
+      "minReviewCount": 50,
+      "maxDistanceM": 700
+    },
+    "weights": {
+      "photoPercent": 50,
+      "reviewPercent": 50
+    },
+    "scoring": {
+      "photo": "어둡고 차분한 분위기, 넓은 좌석 간격, 대화하기 좋은 구조",
+      "review": "깔끔함, 조용함, 대화하기 좋음 등 긍정 표현"
+    }
+  },
+  "status": "running",
+  "candidates": [
+    {
+      "placeId": null,
+      "name": "카이센동 우니도 본점",
+      "listRank": 1,
+      "categoryHint": "일식당",
+      "isAd": false,
+      "rawText": "카이센동 우니도 본점 일식당",
+      "detailUrlHint": "https://pcmap.place.naver.com/restaurant/1720070048/home"
+    }
+  ],
+  "currentPlaceIndex": 0,
+  "currentPlace": null,
+  "currentPlaceDetail": null,
+  "filterDecision": null,
+  "photoAnalysis": null,
+  "reviewAnalysis": null,
+  "recoveryDecision": null,
+  "placeResults": [],
+  "finalReport": null,
+  "lastError": null
+}
+```
 
 라우팅 결정은 별도 모델로 만들지 않는다. `route_after_*` 함수의 문자열 반환값으로 처리한다.
 
@@ -348,4 +627,3 @@ LLM을 사용하지 않는 순수 계산 로직이다.
 
 - 사진 점수와 리뷰 점수 가중합 계산
 - 점수 없음/부분 분석 상황 처리
-
