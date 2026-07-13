@@ -25,11 +25,6 @@ class CamelModel(BaseModel):
     )
 
 
-class Filters(CamelModel):
-    categories: list[str] = Field(default_factory=list)
-    min_review_count: int = Field(default=0, ge=0)
-
-
 class Weights(CamelModel):
     photo_percent: int = Field(default=50, ge=0, le=100)
     review_percent: int = Field(default=50, ge=0, le=100)
@@ -56,7 +51,6 @@ class RunConfig(CamelModel):
     location: str = Field(min_length=1)
     search_keyword: str = Field(min_length=1)
     max_places: int = Field(default=10, ge=1, le=10)
-    filters: Filters = Field(default_factory=Filters)
     weights: Weights = Field(default_factory=Weights)
     scoring: ScoringCriteria = Field(default_factory=ScoringCriteria)
 
@@ -78,17 +72,14 @@ class PlaceDetail(CamelModel):
 
 class PhotoAnalysis(CamelModel):
     photo_score: int = Field(ge=0, le=10)
+    matched: bool
     reason: str = Field(min_length=1)
 
 
 class ReviewAnalysis(CamelModel):
     review_score: int = Field(ge=0, le=10)
+    matched: bool
     reason: str = Field(min_length=1)
-
-
-class FilterDecision(CamelModel):
-    passed: bool
-    exclusion_reason: str | None = None
 
 
 class RunStatus(str, Enum):
@@ -100,7 +91,7 @@ class RunStatus(str, Enum):
 
 class PlaceResultStatus(str, Enum):
     ANALYZED = "analyzed"
-    EXCLUDED = "excluded"
+    NOT_MATCHED = "not_matched"
     FAILED = "failed"
 
 
@@ -112,18 +103,24 @@ class PlaceResult(CamelModel):
     address: str | None = None
     photo_score: int | None = Field(default=None, ge=0, le=10)
     review_score: int | None = Field(default=None, ge=0, le=10)
-    final_score: int | None = Field(default=None, ge=0, le=10)
+    final_score: float | None = Field(default=None, ge=0, le=10, multiple_of=0.1)
     photo_reason: str | None = None
     review_reason: str | None = None
-    exclusion_reason: str | None = None
+    mismatch_reason: str | None = None
     failure_reason: str | None = None
 
     @model_validator(mode="after")
     def validate_status_fields(self) -> "PlaceResult":
-        if self.status is PlaceResultStatus.ANALYZED and self.final_score is None:
-            raise ValueError("분석 완료 결과에는 final_score가 필요하다")
-        if self.status is PlaceResultStatus.EXCLUDED and not self.exclusion_reason:
-            raise ValueError("제외 결과에는 exclusion_reason이 필요하다")
+        if self.status is PlaceResultStatus.ANALYZED:
+            if self.final_score is None:
+                raise ValueError("분석 완료 결과에는 final_score가 필요하다")
+            if self.mismatch_reason is not None:
+                raise ValueError("분석 완료 결과에는 mismatch_reason을 넣을 수 없다")
+        if self.status is PlaceResultStatus.NOT_MATCHED:
+            if not self.mismatch_reason:
+                raise ValueError("기준 미충족 결과에는 mismatch_reason이 필요하다")
+            if self.final_score is not None:
+                raise ValueError("기준 미충족 결과에는 final_score를 넣을 수 없다")
         if self.status is PlaceResultStatus.FAILED and not self.failure_reason:
             raise ValueError("실패 결과에는 failure_reason이 필요하다")
         return self
@@ -153,7 +150,6 @@ class GraphState(CamelModel):
     current_place_index: int = Field(default=0, ge=0)
     current_place: CandidatePlace | None = None
     current_place_detail: PlaceDetail | None = None
-    filter_decision: FilterDecision | None = None
     photo_analysis: PhotoAnalysis | None = None
     review_analysis: ReviewAnalysis | None = None
     place_results: list[PlaceResult] = Field(default_factory=list)

@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from datespot_agent.models import (
     CandidatePlace,
-    FilterDecision,
     GraphState,
     PhotoAnalysis,
     PlaceDetail,
@@ -27,7 +26,6 @@ class RunConfigTests(unittest.TestCase):
                 "location": "강남역",
                 "searchKeyword": "일식",
                 "maxPlaces": 3,
-                "filters": {"minReviewCount": 50},
                 "weights": {"photoPercent": 60, "reviewPercent": 40},
             }
         )
@@ -36,11 +34,11 @@ class RunConfigTests(unittest.TestCase):
         self.assertEqual(camel.search_keyword, "일식")
         payload = camel.model_dump(by_alias=True)
         self.assertEqual(payload["maxPlaces"], 3)
-        self.assertEqual(payload["filters"]["minReviewCount"], 50)
         self.assertEqual(payload["weights"]["photoPercent"], 60)
+        self.assertNotIn("filters", payload)
         self.assertNotIn("search_keyword", payload)
 
-    def test_rejects_out_of_range_and_unknown_fields(self):
+    def test_rejects_out_of_range_unknown_and_removed_filter_fields(self):
         for max_places in (0, 11):
             with self.subTest(max_places=max_places):
                 with self.assertRaises(ValidationError):
@@ -53,10 +51,12 @@ class RunConfigTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RunConfig(location=" ", search_keyword="음식점")
         with self.assertRaises(ValidationError):
-            RunConfig(
-                location="신사역",
-                search_keyword="음식점",
-                filters={"min_review_count": -1},
+            RunConfig.model_validate(
+                {
+                    "location": "신사역",
+                    "searchKeyword": "음식점",
+                    "filters": {"categories": ["일식"]},
+                }
             )
         with self.assertRaises(ValidationError):
             RunConfig.model_validate(
@@ -74,23 +74,13 @@ class RunConfigTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Weights(photo_percent=101, review_percent=-1)
 
-    def test_nested_defaults_are_independent(self):
+    def test_nested_scoring_defaults_are_independent(self):
         first = RunConfig(location="신사역", search_keyword="음식점")
         second = RunConfig(location="강남역", search_keyword="음식점")
 
-        first.filters.categories.append("일식")
+        first.scoring.photo = "밝고 활기찬 분위기"
 
-        self.assertEqual(second.filters.categories, [])
-
-    def test_distance_filter_is_not_part_of_run_config(self):
-        with self.assertRaises(ValidationError):
-            RunConfig.model_validate(
-                {
-                    "location": "신사역",
-                    "searchKeyword": "일식",
-                    "filters": {"maxDistanceM": 700},
-                }
-            )
+        self.assertNotEqual(first.scoring.photo, second.scoring.photo)
 
 
 class PlaceAndAnalysisModelTests(unittest.TestCase):
@@ -123,31 +113,35 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
             ["https://example.com/1.jpg"],
         )
 
-    def test_analysis_models_require_integer_score_in_range(self):
-        self.assertEqual(PhotoAnalysis(photo_score=7, reason="차분함").photo_score, 7)
-        self.assertEqual(ReviewAnalysis(review_score=8, reason="조용함").review_score, 8)
+    def test_analysis_models_require_match_and_integer_score_in_range(self):
+        photo = PhotoAnalysis(photo_score=7, matched=True, reason="차분함")
+        review = ReviewAnalysis(review_score=8, matched=False, reason="소음 근거가 있음")
+
+        self.assertTrue(photo.matched)
+        self.assertFalse(review.matched)
 
         for score in (-1, 11, 7.5):
             with self.subTest(score=score):
                 with self.assertRaises(ValidationError):
-                    PhotoAnalysis(photo_score=score, reason="근거")
+                    PhotoAnalysis(photo_score=score, matched=True, reason="근거")
+
+        with self.assertRaises(ValidationError):
+            PhotoAnalysis(photo_score=7, reason="근거")
 
     def test_identifying_fields_and_reasons_cannot_be_blank(self):
         with self.assertRaises(ValidationError):
             CandidatePlace(place_id=" ", name="우니도")
         with self.assertRaises(ValidationError):
-            ReviewAnalysis(review_score=8, reason=" ")
-
-        decision = FilterDecision(passed=False, exclusion_reason="리뷰 부족")
-        self.assertFalse(decision.passed)
+            ReviewAnalysis(review_score=8, matched=True, reason=" ")
 
 
 class ResultAndReportModelTests(unittest.TestCase):
     def test_place_result_requires_fields_for_each_status(self):
         invalid_payloads = (
             {"status": "analyzed", "name": "우니도"},
-            {"status": "excluded", "name": "우니도"},
+            {"status": "not_matched", "name": "우니도"},
             {"status": "failed", "name": "우니도"},
+            {"status": "excluded", "name": "우니도", "exclusionReason": "리뷰 부족"},
         )
 
         for payload in invalid_payloads:
@@ -155,18 +149,35 @@ class ResultAndReportModelTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     PlaceResult.model_validate(payload)
 
-    def test_place_result_allows_partial_component_scores(self):
+    def test_place_result_accepts_one_decimal_final_score(self):
         result = PlaceResult(
             status="analyzed",
             place_id="1720070048",
             name="우니도",
-            final_score=8,
+            final_score=7.5,
         )
 
-        self.assertIsNone(result.photo_score)
-        self.assertIsNone(result.review_score)
+        self.assertEqual(result.final_score, 7.5)
         with self.assertRaises(ValidationError):
-            PlaceResult(status="analyzed", place_id=" ", name="우니도", final_score=8)
+            PlaceResult(status="analyzed", name="우니도", final_score=7.55)
+
+    def test_not_matched_requires_reason_and_forbids_final_score(self):
+        result = PlaceResult(
+            status="not_matched",
+            name="우니도",
+            photo_score=6,
+            photo_reason="사진 기준 미충족",
+            mismatch_reason="사진 기준 미충족: 사진 기준 미충족",
+        )
+
+        self.assertIsNone(result.final_score)
+        with self.assertRaises(ValidationError):
+            PlaceResult(
+                status="not_matched",
+                name="우니도",
+                final_score=6.0,
+                mismatch_reason="사진 기준 미충족",
+            )
 
     def test_run_report_requires_aware_datetime_and_normalizes_utc(self):
         config = RunConfig(location="신사역", search_keyword="음식점")
@@ -201,7 +212,11 @@ class ResultAndReportModelTests(unittest.TestCase):
             status="completed",
             config=RunConfig(location="신사역", search_keyword="음식점"),
             results=[
-                PlaceResult(status="excluded", name="우니도", exclusion_reason="리뷰 부족")
+                PlaceResult(
+                    status="not_matched",
+                    name="우니도",
+                    mismatch_reason="리뷰 기준 미충족",
+                )
             ],
             created_at=datetime(2026, 7, 13, tzinfo=timezone.utc),
         )
@@ -210,7 +225,7 @@ class ResultAndReportModelTests(unittest.TestCase):
 
         self.assertEqual(payload["runId"], "run-1")
         self.assertEqual(payload["config"]["searchKeyword"], "음식점")
-        self.assertEqual(payload["results"][0]["exclusionReason"], "리뷰 부족")
+        self.assertEqual(payload["results"][0]["mismatchReason"], "리뷰 기준 미충족")
 
 
 class GraphStateModelTests(unittest.TestCase):
@@ -239,6 +254,16 @@ class GraphStateModelTests(unittest.TestCase):
                     "runId": "run-1",
                     "config": {"location": "신사역", "searchKeyword": "음식점"},
                     "page": object(),
+                }
+            )
+
+    def test_rejects_removed_filter_decision(self):
+        with self.assertRaises(ValidationError):
+            GraphState.model_validate(
+                {
+                    "runId": "run-1",
+                    "config": {"location": "신사역", "searchKeyword": "음식점"},
+                    "filterDecision": {"passed": True},
                 }
             )
 

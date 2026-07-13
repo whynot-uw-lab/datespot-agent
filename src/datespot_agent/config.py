@@ -7,7 +7,7 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from datespot_agent.models import Filters, RunConfig, ScoringCriteria, Weights
+from datespot_agent.models import RunConfig, ScoringCriteria, Weights
 
 
 class Settings(BaseSettings):
@@ -34,7 +34,6 @@ def get_settings() -> Settings:
 SearchConfig = RunConfig
 
 __all__ = [
-    "Filters",
     "RunConfig",
     "ScoringCriteria",
     "SearchConfig",
