@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+  <body>
+    <ul id="results"></ul>
+    <script>
+      const mode = new URL(location.href).searchParams.get('mode');
+      const results = document.querySelector('#results');
+      if (mode === 'station') {
+        results.innerHTML = [
+          '<li>',
+          '<button aria-label="신사역 신분당선지하철,전철">',
+          '신사역 신분당선',
+          '</button>',
+          '</li>',
+        ].join('');
+        document.querySelector('button').onclick = () => {
+          parent.postMessage({station: true}, '*');
+        };
+      } else {
+        window.__APOLLO_STATE__ = {
+          'PlaceListBusinessesItem:1': {
+            id: '1150149433',
+            name: '치보 신사점',
+          },
+        };
+        results.innerHTML = [
+          '<li><a role="button">치보 신사점</a><span>일식당</span></li>',
+          '<li><a role="button" href="/restaurant/9">광고집</a>',
+          '<span>광고</span></li>',
+        ].join('');
+        document.querySelector('a').onclick = () => {
+          parent.postMessage({openPlace: '1150149433'}, '*');
+        };
+      }
+    </script>
+  </body>
+</html>

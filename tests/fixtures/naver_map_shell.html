@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+  <body>
+    <input role="combobox" aria-label="검색" id="search">
+    <button role="option" id="option"></button>
+    <button aria-label="확대" id="zoom-in">확대</button>
+    <button aria-label="축소" id="zoom-out">축소</button>
+    <iframe
+      id="searchIframe"
+      name="searchIframe"
+      src="https://pcmap.place.naver.com/place/list?mode=station"
+    ></iframe>
+    <script>
+      let query = '';
+      const input = document.querySelector('#search');
+      const option = document.querySelector('#option');
+      input.addEventListener('input', () => {
+        query = input.value;
+        option.textContent = `검색어 ${query}`;
+        option.setAttribute('aria-label', `검색어 ${query}`);
+      });
+      option.addEventListener('click', () => {
+        history.pushState(
+          {},
+          '',
+          `/p/search/${encodeURIComponent(query)}?c=127,37,14,0,0,0,dh`,
+        );
+        if (query === '일식') {
+          document.querySelector('#searchIframe').src =
+            'https://pcmap.place.naver.com/restaurant/list?mode=food';
+        }
+      });
+      document.querySelector('#zoom-in').addEventListener('click', () => {
+        history.replaceState(
+          {},
+          '',
+          `${location.pathname}?c=127,37,15,0,0,0,dh`,
+        );
+      });
+      window.addEventListener('message', (event) => {
+        if (event.data.station) {
+          history.pushState(
+            {},
+            '',
+            '/p/subway-station/1907?c=127,37,14,0,0,0,dh',
+          );
+        }
+        if (event.data.openPlace) {
+          const frame = document.createElement('iframe');
+          frame.id = 'entryIframe';
+          frame.name = 'entryIframe';
+          frame.src =
+            `https://pcmap.place.naver.com/restaurant/${event.data.openPlace}/home`;
+          document.body.append(frame);
+        }
+        if (event.data.closeEntry) {
+          document.querySelector('#entryIframe')?.remove();
+        }
+      });
+    </script>
+  </body>
+</html>
