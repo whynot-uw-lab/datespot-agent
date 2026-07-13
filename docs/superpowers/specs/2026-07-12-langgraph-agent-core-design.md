@@ -122,12 +122,6 @@ flowchart TD
 - `excluded`: 사전 필터로 제외
 - `failed`: 상세 추출 또는 분석 실패
 
-`ConfidenceLevel`:
-
-- `low`
-- `medium`
-- `high`
-
 ### RunConfig
 
 사용자가 한 번의 탐색 실행에서 지정하는 설정이다. 2단계 MVP에서는 분석 수를 최대 10개로 제한한다.
@@ -237,22 +231,14 @@ flowchart TD
 필드:
 
 - `photo_score: int`: `0`부터 `10`
-- `summary: str`
-- `positive_signals: list[str] = []`
-- `negative_signals: list[str] = []`
-- `representative_photo_url: str | None = None`
-- `confidence: ConfidenceLevel = "medium"`
+- `reason: str`
 
 예시:
 
 ```json
 {
   "photoScore": 7,
-  "summary": "차분한 조명과 정돈된 좌석 구성이 보임",
-  "positiveSignals": ["차분한 조명", "테이블 간격이 비교적 넓음"],
-  "negativeSignals": ["일부 사진에서 혼잡 가능성"],
-  "representativePhotoUrl": "https://example.com/photo-1.jpg",
-  "confidence": "medium"
+  "reason": "차분한 조명과 정돈된 좌석 구성이 보이고, 대화하기 어려울 정도의 혼잡 신호는 약함"
 }
 ```
 
@@ -263,24 +249,14 @@ flowchart TD
 필드:
 
 - `review_score: int`: `0`부터 `10`
-- `summary: str`
-- `positive_signals: list[str] = []`
-- `negative_signals: list[str] = []`
-- `date_fit_signals: list[str] = []`
-- `concerns: list[str] = []`
-- `confidence: ConfidenceLevel = "medium"`
+- `reason: str`
 
 예시:
 
 ```json
 {
   "reviewScore": 8,
-  "summary": "조용함, 친절함, 데이트 방문 언급이 반복됨",
-  "positiveSignals": ["친절함", "깔끔함"],
-  "negativeSignals": ["웨이팅 가능성"],
-  "dateFitSignals": ["데이트 방문"],
-  "concerns": ["피크 시간 혼잡도 확인 필요"],
-  "confidence": "medium"
+  "reason": "조용함, 친절함, 데이트 방문 언급이 반복되어 소개팅 장소로 적합한 편임"
 }
 ```
 
@@ -302,26 +278,6 @@ flowchart TD
 }
 ```
 
-### RecoveryDecision
-
-navigation 복구 agent의 판단 결과다.
-
-필드:
-
-- `action: str`
-- `reason: str`
-- `can_retry: bool = False`
-
-예시:
-
-```json
-{
-  "action": "direct_route_retry",
-  "reason": "pcmap 직접 URL 접근이 가능함",
-  "canRetry": true
-}
-```
-
 ### PlaceResult
 
 리포트에 누적되는 장소 단위 결과다. 분석 완료, 제외, 실패를 하나의 모델에서 상태값으로 구분한다.
@@ -336,12 +292,8 @@ navigation 복구 agent의 판단 결과다.
 - `photo_score: int | None = None`
 - `review_score: int | None = None`
 - `final_score: int | None = None`
-- `photo_summary: str | None = None`
-- `review_summary: str | None = None`
-- `key_reasons: list[str] = []`
-- `concerns: list[str] = []`
-- `representative_photo_url: str | None = None`
-- `sample_reviews: list[str] = []`
+- `photo_reason: str | None = None`
+- `review_reason: str | None = None`
 - `exclusion_reason: str | None = None`
 - `failure_reason: str | None = None`
 
@@ -363,12 +315,8 @@ navigation 복구 agent의 판단 결과다.
   "photoScore": 7,
   "reviewScore": 8,
   "finalScore": 8,
-  "photoSummary": "차분한 조명과 정돈된 좌석 구성이 보임",
-  "reviewSummary": "조용함과 친절함 언급이 반복됨",
-  "keyReasons": ["조용함", "깔끔함", "데이트 방문 언급"],
-  "concerns": ["피크 시간 웨이팅 가능성"],
-  "representativePhotoUrl": "https://example.com/photo-1.jpg",
-  "sampleReviews": ["조용하고 대화하기 좋았어요."],
+  "photoReason": "차분한 조명과 정돈된 좌석 구성이 보이고, 대화하기 어려울 정도의 혼잡 신호는 약함",
+  "reviewReason": "조용함, 친절함, 데이트 방문 언급이 반복되어 소개팅 장소로 적합한 편임",
   "exclusionReason": null,
   "failureReason": null
 }
@@ -433,7 +381,6 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
 - `filter_decision: FilterDecision | None = None`
 - `photo_analysis: PhotoAnalysis | None = None`
 - `review_analysis: ReviewAnalysis | None = None`
-- `recovery_decision: RecoveryDecision | None = None`
 - `place_results: list[PlaceResult] = []`
 - `final_report: RunReport | None = None`
 - `last_error: str | None = None`
@@ -483,7 +430,6 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
   "filterDecision": null,
   "photoAnalysis": null,
   "reviewAnalysis": null,
-  "recoveryDecision": null,
   "placeResults": [],
   "finalReport": null,
   "lastError": null
