@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from pydantic import ValidationError
 
@@ -9,8 +10,10 @@ from datespot_agent.models import (
     FilterDecision,
     PhotoAnalysis,
     PlaceDetail,
+    PlaceResult,
     ReviewAnalysis,
     RunConfig,
+    RunReport,
     Weights,
 )
 
@@ -118,6 +121,77 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
 
         decision = FilterDecision(passed=False, exclusion_reason="리뷰 부족")
         self.assertFalse(decision.passed)
+
+
+class ResultAndReportModelTests(unittest.TestCase):
+    def test_place_result_requires_fields_for_each_status(self):
+        invalid_payloads = (
+            {"status": "analyzed", "name": "우니도"},
+            {"status": "excluded", "name": "우니도"},
+            {"status": "failed", "name": "우니도"},
+        )
+
+        for payload in invalid_payloads:
+            with self.subTest(status=payload["status"]):
+                with self.assertRaises(ValidationError):
+                    PlaceResult.model_validate(payload)
+
+    def test_place_result_allows_partial_component_scores(self):
+        result = PlaceResult(
+            status="analyzed",
+            place_id="1720070048",
+            name="우니도",
+            final_score=8,
+        )
+
+        self.assertIsNone(result.photo_score)
+        self.assertIsNone(result.review_score)
+        with self.assertRaises(ValidationError):
+            PlaceResult(status="analyzed", place_id=" ", name="우니도", final_score=8)
+
+    def test_run_report_requires_aware_datetime_and_normalizes_utc(self):
+        config = RunConfig(location="신사역", search_keyword="음식점")
+        with self.assertRaises(ValidationError):
+            RunReport(
+                run_id="run-1",
+                status="completed",
+                config=config,
+                created_at=datetime(2026, 7, 13, 9, 0),
+            )
+
+        report = RunReport(
+            run_id="run-1",
+            status="completed",
+            config=config,
+            created_at=datetime(
+                2026,
+                7,
+                13,
+                9,
+                0,
+                tzinfo=timezone(timedelta(hours=9)),
+            ),
+        )
+
+        self.assertEqual(report.created_at.utcoffset(), timedelta(0))
+        self.assertEqual(report.created_at.hour, 0)
+
+    def test_run_report_serializes_nested_models_with_aliases(self):
+        report = RunReport(
+            run_id="run-1",
+            status="completed",
+            config=RunConfig(location="신사역", search_keyword="음식점"),
+            results=[
+                PlaceResult(status="excluded", name="우니도", exclusion_reason="리뷰 부족")
+            ],
+            created_at=datetime(2026, 7, 13, tzinfo=timezone.utc),
+        )
+
+        payload = report.model_dump(mode="json", by_alias=True)
+
+        self.assertEqual(payload["runId"], "run-1")
+        self.assertEqual(payload["config"]["searchKeyword"], "음식점")
+        self.assertEqual(payload["results"][0]["exclusionReason"], "리뷰 부족")
 
 
 if __name__ == "__main__":

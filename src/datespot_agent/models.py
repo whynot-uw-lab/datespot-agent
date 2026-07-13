@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from datetime import datetime, timezone
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def to_camel(field_name: str) -> str:
@@ -88,3 +91,57 @@ class ReviewAnalysis(CamelModel):
 class FilterDecision(CamelModel):
     passed: bool
     exclusion_reason: str | None = None
+
+
+class RunStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PlaceResultStatus(str, Enum):
+    ANALYZED = "analyzed"
+    EXCLUDED = "excluded"
+    FAILED = "failed"
+
+
+class PlaceResult(CamelModel):
+    status: PlaceResultStatus
+    place_id: str | None = Field(default=None, min_length=1)
+    name: str = Field(min_length=1)
+    category: str | None = None
+    address: str | None = None
+    photo_score: int | None = Field(default=None, ge=0, le=10)
+    review_score: int | None = Field(default=None, ge=0, le=10)
+    final_score: int | None = Field(default=None, ge=0, le=10)
+    photo_reason: str | None = None
+    review_reason: str | None = None
+    exclusion_reason: str | None = None
+    failure_reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_status_fields(self) -> "PlaceResult":
+        if self.status is PlaceResultStatus.ANALYZED and self.final_score is None:
+            raise ValueError("분석 완료 결과에는 final_score가 필요하다")
+        if self.status is PlaceResultStatus.EXCLUDED and not self.exclusion_reason:
+            raise ValueError("제외 결과에는 exclusion_reason이 필요하다")
+        if self.status is PlaceResultStatus.FAILED and not self.failure_reason:
+            raise ValueError("실패 결과에는 failure_reason이 필요하다")
+        return self
+
+
+class RunReport(CamelModel):
+    run_id: str = Field(min_length=1)
+    status: RunStatus
+    config: RunConfig
+    results: list[PlaceResult] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+    @field_validator("created_at")
+    @classmethod
+    def normalize_created_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("created_at에는 timezone 정보가 필요하다")
+        return value.astimezone(timezone.utc)
