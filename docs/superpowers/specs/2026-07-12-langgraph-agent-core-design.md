@@ -442,61 +442,52 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
 
 구체 함수 시그니처는 아직 정하지 않는다. node가 의존할 외부 능력의 경계만 정한다.
 
-### BrowserRuntime
+이름 규칙:
 
-Playwright live object를 관리한다. LangGraph state에는 `run_id`만 저장하고, 실제 browser/context/page는 runtime registry 또는 dependency injection으로 접근한다.
+- `Service`: 정해진 절차, 브라우저 조작, 데이터 변환, 점수 계산을 담당한다.
+- `Agent`: LLM 판단이 필요한 분석 또는 복구를 담당한다.
+- `Executor`, `Runtime` 같은 구현 패턴 중심 이름은 사용하지 않는다.
+
+### BrowserService
+
+브라우저 세션과 네이버지도 라우팅/추출을 담당한다. LangGraph state에는 `run_id`만 저장하고, 실제 browser/context/page는 이 service 내부에서 관리한다. 세부 기능은 구현 단계에서 메서드로 분리한다.
 
 책임:
 
 - browser/context/page 생성
 - run_id 기준 세션 조회
 - 세션 종료
-
-### FixedNavigator
-
-네이버지도 이동과 데이터 추출의 기본 경로다. LLM을 사용하지 않는다.
-
-책임:
-
 - 후보 장소 검색
-- 후보 정규화에 필요한 원천 정보 제공
-- 장소 상세 route 진입
-- 사진 URL 추출
-- 리뷰 텍스트 추출
+- 광고/중복/ID 없는 후보 제외
+- `CandidatePlace` 목록 반환
+- 상세 페이지 진입
+- 카테고리, 주소, 거리 추출
+- 사진 URL 목록 추출
+- 리뷰 텍스트 목록과 리뷰 수 추출
+- 고정 경로 실패 시 복구 agent 호출
+- 성공 시 `PlaceDetail` 반환
+- 실패 시 실패 사유 반환
 
 ### NavigationRecoveryAgent
 
-fixed navigator 실패 시에만 호출되는 제한적 agent다.
+`BrowserService`의 고정 경로 추출이 실패했을 때만 호출되는 제한적 agent다. 복구 계획을 state에 저장하지 않고, 복구 시도 결과만 반환한다.
 
 입력 정보:
 
-- 현재 목표
+- 실패한 목표
+- 현재 페이지 상태 요약
 - 현재 URL
 - frame URL 목록
-- 최근 오류
-- 허용된 action 목록
+- 최근 실패 사유
 
 출력 정보:
 
-- 복구 진단
-- 선택한 action
-- 이유
+- 복구 성공 시 `PlaceDetail`
+- 복구 실패 시 실패 사유
 
-### NavigationActionExecutor
+### PhotoAnalysisAgent
 
-agent가 선택한 복구 action을 같은 Playwright page에 적용한다.
-
-책임:
-
-- escape
-- popup close
-- reload
-- direct route retry
-- 실패 확정
-
-### PhotoAnalyzer
-
-사진 분석 agent 호출을 감싼 인터페이스다.
+사진 URL 목록과 사진 평가 기준으로 사진 점수와 이유를 만든다.
 
 입력 정보:
 
@@ -508,9 +499,9 @@ agent가 선택한 복구 action을 같은 Playwright page에 적용한다.
 
 - `PhotoAnalysis`
 
-### ReviewAnalyzer
+### ReviewAnalysisAgent
 
-리뷰 분석 agent 호출을 감싼 인터페이스다.
+리뷰 목록과 리뷰 평가 기준으로 리뷰 점수와 이유를 만든다.
 
 입력 정보:
 
@@ -522,11 +513,31 @@ agent가 선택한 복구 action을 같은 Playwright page에 적용한다.
 
 - `ReviewAnalysis`
 
-### ScoreCalculator
+### PlaceScoringService
 
-LLM을 사용하지 않는 순수 계산 로직이다.
+사진/리뷰 분석 결과를 결합해 최종 장소 점수를 계산한다. LLM을 사용하지 않는다.
 
 책임:
 
 - 사진 점수와 리뷰 점수 가중합 계산
 - 점수 없음/부분 분석 상황 처리
+- `PlaceResult(status="analyzed")` 생성
+
+### PlaceResultService
+
+분석, 제외, 실패 결과를 `PlaceResult` 형식으로 통일한다.
+
+책임:
+
+- `FilterDecision`을 `PlaceResult(status="excluded")`로 변환
+- 추출/분석 실패를 `PlaceResult(status="failed")`로 변환
+- 분석 결과와 최종 점수를 `PlaceResult(status="analyzed")`로 변환
+
+### ReportService
+
+실행 결과 목록을 최종 리포트로 만든다.
+
+책임:
+
+- `PlaceResult` 목록 정렬
+- 실행 상태와 오류를 포함해 `RunReport` 생성
