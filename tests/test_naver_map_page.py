@@ -7,6 +7,8 @@ from datespot_agent.browser.errors import (
     BrowserNavigationError,
 )
 from datespot_agent.browser.naver_map import BLOCK_TEXT_PATTERN, NaverMapPage
+from datespot_agent.browser.parsers import CandidateTarget
+from datespot_agent.models import CandidatePlace
 
 
 class FakePacer:
@@ -54,6 +56,115 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(BrowserNavigationError):
             await navigator.set_zoom(15)
+
+
+class NaverMapDetailContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_detail_result_limits_photos_and_reviews_and_restores_list(self):
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = type(
+            "Page",
+            (),
+            {
+                "frames": [
+                    type(
+                        "Frame",
+                        (),
+                        {
+                            "url": "https://pcmap.place.naver.com/restaurant/1150149433/home"
+                        },
+                    )()
+                ]
+            },
+        )()
+        navigator.pacer = FakePacer()
+        navigator._blocked_response = None
+        restore_calls = 0
+        navigator.open_candidate = self._async_value(None)
+        navigator.extract_home = self._async_value(
+            ("일식당", "서울 강남구 도산대로 15", 1234)
+        )
+        navigator.extract_interior_photos = self._async_value(
+            [f"https://img/{index}.jpg" for index in range(7)]
+        )
+        navigator.extract_recent_reviews = self._async_value(
+            [f"리뷰 {index}" for index in range(60)]
+        )
+
+        async def restore(*_args, **_kwargs):
+            nonlocal restore_calls
+            restore_calls += 1
+
+        navigator.restore_search_list = restore
+
+        detail = await navigator.extract_place_detail(
+            CandidatePlace(place_id="1150149433", name="치보 신사점"),
+            CandidateTarget(
+                place_id="1150149433",
+                name="치보 신사점",
+                dom_index=1,
+            ),
+        )
+
+        self.assertEqual(detail.review_count, 1234)
+        self.assertEqual(len(detail.photo_urls), 5)
+        self.assertEqual(len(detail.reviews), 50)
+        self.assertEqual(restore_calls, 1)
+
+    async def test_zero_review_count_is_normal_empty_data(self):
+        navigator = object.__new__(NaverMapPage)
+
+        self.assertEqual(
+            await navigator.extract_recent_reviews("1150149433", 0),
+            [],
+        )
+
+    async def test_access_block_does_not_restore_panel_or_make_more_requests(self):
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = type(
+            "Page",
+            (),
+            {
+                "frames": [
+                    type(
+                        "Frame",
+                        (),
+                        {
+                            "url": "https://pcmap.place.naver.com/restaurant/1150149433/home"
+                        },
+                    )()
+                ]
+            },
+        )()
+        restore_calls = 0
+
+        async def blocked(*_args, **_kwargs):
+            raise BrowserAccessBlockedError("429")
+
+        async def restore(*_args, **_kwargs):
+            nonlocal restore_calls
+            restore_calls += 1
+
+        navigator.open_candidate = blocked
+        navigator.restore_search_list = restore
+
+        with self.assertRaises(BrowserAccessBlockedError):
+            await navigator.extract_place_detail(
+                CandidatePlace(place_id="1150149433", name="치보 신사점"),
+                CandidateTarget(
+                    place_id="1150149433",
+                    name="치보 신사점",
+                    dom_index=1,
+                ),
+            )
+
+        self.assertEqual(restore_calls, 0)
+
+    @staticmethod
+    def _async_value(value):
+        async def call(*_args, **_kwargs):
+            return value
+
+        return call
 
 
 if __name__ == "__main__":
