@@ -7,6 +7,7 @@ from datespot_agent.analysis.errors import (
     AnalysisResponseError,
 )
 from datespot_agent.analysis.photo import PhotoAnalysisAgent
+from datespot_agent.analysis.review import ReviewAnalysisAgent
 
 __all__ = [
     "AnalysisError",
@@ -14,4 +15,5 @@ __all__ = [
     "AnalysisRequestError",
     "AnalysisResponseError",
     "PhotoAnalysisAgent",
+    "ReviewAnalysisAgent",
 ]
