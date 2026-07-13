@@ -69,7 +69,6 @@ search:
 filters:
   categories: ["양식", "일식"]
   min_review_count: 50
-  max_distance_m: 700         # 기준 역으로부터 반경(m)
 
 # 점수 가중치 (합 = 1.0)
 weights:

@@ -27,7 +27,7 @@ class RunConfigTests(unittest.TestCase):
                 "location": "강남역",
                 "searchKeyword": "일식",
                 "maxPlaces": 3,
-                "filters": {"minReviewCount": 50, "maxDistanceM": 700},
+                "filters": {"minReviewCount": 50},
                 "weights": {"photoPercent": 60, "reviewPercent": 40},
             }
         )
@@ -82,14 +82,33 @@ class RunConfigTests(unittest.TestCase):
 
         self.assertEqual(second.filters.categories, [])
 
+    def test_distance_filter_is_not_part_of_run_config(self):
+        with self.assertRaises(ValidationError):
+            RunConfig.model_validate(
+                {
+                    "location": "신사역",
+                    "searchKeyword": "일식",
+                    "filters": {"maxDistanceM": 700},
+                }
+            )
+
 
 class PlaceAndAnalysisModelTests(unittest.TestCase):
+    def test_distance_is_not_part_of_place_detail(self):
+        with self.assertRaises(ValidationError):
+            PlaceDetail.model_validate(
+                {
+                    "placeId": "1720070048",
+                    "name": "우니도",
+                    "distanceM": 520,
+                }
+            )
+
     def test_place_detail_supports_aliases_and_independent_lists(self):
         detail = PlaceDetail.model_validate(
             {
                 "placeId": "1720070048",
                 "name": "우니도",
-                "distanceM": 520,
                 "photoUrls": ["https://example.com/1.jpg"],
                 "reviewCount": 128,
             }
@@ -98,7 +117,6 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
 
         detail.reviews.append("조용해요")
 
-        self.assertEqual(detail.distance_m, 520)
         self.assertEqual(other.reviews, [])
         self.assertEqual(
             detail.model_dump(by_alias=True)["photoUrls"],

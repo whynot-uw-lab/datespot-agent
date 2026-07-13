@@ -15,6 +15,7 @@
 - 정의되지 않은 모델 필드는 거부하고 문자열 입력의 앞뒤 공백을 제거한다.
 - 점수는 `0`부터 `10`까지의 정수다.
 - `RunConfig.max_places`는 `1`부터 `10`까지의 정수다.
+- 거리 기반 필터와 장소 거리 필드는 모델 계약에 포함하지 않는다.
 - 가중치 비율은 `0`부터 `100`까지의 정수이며 합계는 반드시 `100`이다.
 - 리스트 필드는 독립적인 `default_factory=list` 기본값을 사용한다.
 - `RunReport`에 저장되는 datetime은 timezone을 포함하며 UTC로 정규화한다.
@@ -56,7 +57,7 @@ class RunConfigTests(unittest.TestCase):
                 "location": "강남역",
                 "searchKeyword": "일식",
                 "maxPlaces": 3,
-                "filters": {"minReviewCount": 50, "maxDistanceM": 700},
+                "filters": {"minReviewCount": 50},
                 "weights": {"photoPercent": 60, "reviewPercent": 40},
             }
         )
@@ -111,6 +112,16 @@ class RunConfigTests(unittest.TestCase):
 
         self.assertEqual(second.filters.categories, [])
 
+    def test_distance_filter_is_not_part_of_run_config(self):
+        with self.assertRaises(ValidationError):
+            RunConfig.model_validate(
+                {
+                    "location": "신사역",
+                    "searchKeyword": "일식",
+                    "filters": {"maxDistanceM": 700},
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -158,7 +169,6 @@ class CamelModel(BaseModel):
 class Filters(CamelModel):
     categories: list[str] = Field(default_factory=list)
     min_review_count: int = Field(default=0, ge=0)
-    max_distance_m: int | None = Field(default=None, ge=0)
 
 
 class Weights(CamelModel):
@@ -200,7 +210,7 @@ class RunConfig(CamelModel):
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-예상 결과: `Ran 4 tests`, `OK`.
+예상 결과: `Ran 5 tests`, `OK`.
 
 - [ ] **5단계: 실행 설정 규격 커밋**
 
@@ -242,12 +252,21 @@ from datespot_agent.models import (
 
 ```python
 class PlaceAndAnalysisModelTests(unittest.TestCase):
+    def test_distance_is_not_part_of_place_detail(self):
+        with self.assertRaises(ValidationError):
+            PlaceDetail.model_validate(
+                {
+                    "placeId": "1720070048",
+                    "name": "우니도",
+                    "distanceM": 520,
+                }
+            )
+
     def test_place_detail_supports_aliases_and_independent_lists(self):
         detail = PlaceDetail.model_validate(
             {
                 "placeId": "1720070048",
                 "name": "우니도",
-                "distanceM": 520,
                 "photoUrls": ["https://example.com/1.jpg"],
                 "reviewCount": 128,
             }
@@ -256,7 +275,6 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
 
         detail.reviews.append("조용해요")
 
-        self.assertEqual(detail.distance_m, 520)
         self.assertEqual(other.reviews, [])
         self.assertEqual(
             detail.model_dump(by_alias=True)["photoUrls"],
@@ -308,7 +326,6 @@ class PlaceDetail(CamelModel):
     name: str = Field(min_length=1)
     category: str | None = None
     address: str | None = None
-    distance_m: int | None = Field(default=None, ge=0)
     photo_urls: list[str] = Field(default_factory=list)
     reviews: list[str] = Field(default_factory=list)
     review_count: int = Field(default=0, ge=0)
@@ -337,7 +354,7 @@ class FilterDecision(CamelModel):
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-예상 결과: `Ran 7 tests`, `OK`.
+예상 결과: `Ran 9 tests`, `OK`.
 
 - [ ] **5단계: 타입이 지정된 장소 및 분석 데이터 커밋**
 
@@ -535,7 +552,7 @@ class RunReport(CamelModel):
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-예상 결과: `Ran 11 tests`, `OK`.
+예상 결과: `Ran 13 tests`, `OK`.
 
 - [ ] **5단계: 결과 및 리포트 규격 커밋**
 
@@ -641,7 +658,7 @@ class GraphState(CamelModel):
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-예상 결과: `Ran 13 tests`, `OK`.
+예상 결과: `Ran 15 tests`, `OK`.
 
 - [ ] **5단계: 직렬화 가능한 그래프 상태 커밋**
 
@@ -774,7 +791,7 @@ def check_config() -> str:
 uv run python -m unittest discover -s tests -p 'test_models.py' -v
 ```
 
-예상 결과: `Ran 14 tests`, `OK`.
+예상 결과: `Ran 16 tests`, `OK`.
 
 - [ ] **6단계: 전체 단위 회귀 테스트 실행**
 
@@ -784,7 +801,7 @@ uv run python -m unittest discover -s tests -p 'test_models.py' -v
 uv run python -m unittest discover -s tests -v
 ```
 
-예상 결과: `Ran 46 tests`, `OK`.
+예상 결과: `Ran 48 tests`, `OK`.
 
 - [ ] **7단계: 환경 스모크 테스트 실행**
 
@@ -816,8 +833,8 @@ git commit -m "refactor: align config with agent core models"
 
 ## 완료 조건
 
-- [ ] `tests/test_models.py`의 모델 규격 테스트 14개 통과.
-- [ ] 전체 단위 테스트 46개 통과, 실패 0개.
+- [ ] `tests/test_models.py`의 모델 규격 테스트 16개 통과.
+- [ ] 전체 단위 테스트 48개 통과, 실패 0개.
 - [ ] 환경 스모크 테스트 종료 코드 `0`.
 - [ ] `git diff --check` 공백 오류 없음.
 - [ ] 실행 및 워크플로 모델 정의 위치는 `src/datespot_agent/models.py` 하나뿐임.

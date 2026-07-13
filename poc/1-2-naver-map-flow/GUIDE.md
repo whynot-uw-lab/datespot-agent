@@ -37,7 +37,7 @@
 
 ### 4. 목록 추출
 
-- `#searchIframe`에서 장소명, 카테고리, 주소, 거리, 영업 상태 텍스트 확인 가능.
+- `#searchIframe`에서 장소명, 카테고리, 주소, 영업 상태 텍스트 확인 가능.
 - 결과 항목 클릭은 child span pointer intercept가 있어 DOM node click fallback 필요.
 
 ### 5. 첫 번째 장소 선택

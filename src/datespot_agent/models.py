@@ -28,7 +28,6 @@ class CamelModel(BaseModel):
 class Filters(CamelModel):
     categories: list[str] = Field(default_factory=list)
     min_review_count: int = Field(default=0, ge=0)
-    max_distance_m: int | None = Field(default=None, ge=0)
 
 
 class Weights(CamelModel):
@@ -72,7 +71,6 @@ class PlaceDetail(CamelModel):
     name: str = Field(min_length=1)
     category: str | None = None
     address: str | None = None
-    distance_m: int | None = Field(default=None, ge=0)
     photo_urls: list[str] = Field(default_factory=list)
     reviews: list[str] = Field(default_factory=list)
     review_count: int = Field(default=0, ge=0)
