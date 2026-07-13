@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+  <body>
+    <button id="photo">사진</button>
+    <button id="review">리뷰</button>
+    <button aria-label="페이지 닫기">닫기</button>
+    <main id="content">
+      <h1>치보 신사점</h1>
+      <p>일식당</p>
+      <p>서울 강남구 도산대로 15</p>
+      <p>방문자 리뷰 1,234</p>
+    </main>
+    <script>
+      const content = document.querySelector('#content');
+      document.querySelector('#photo').onclick = () => {
+        content.innerHTML = [
+          '<button id="interior">내부</button>',
+          '<section id="photos"></section>',
+        ].join('');
+        document.querySelector('#interior').onclick = () => {
+          document.querySelector('#photos').innerHTML = Array.from(
+            {length: 7},
+            (_, index) =>
+              `<img alt="INTERIOR_${index}" src="https://img/${index}.jpg">`,
+          ).join('');
+        };
+      };
+      document.querySelector('#review').onclick = () => {
+        content.innerHTML = [
+          '<button role="option" id="recent">최신순</button>',
+          '<ul id="cards"></ul>',
+          '<button id="more">펼쳐서 더보기</button>',
+        ].join('');
+        let count = 0;
+        const append = () => {
+          for (let index = 0; index < 10; index += 1) {
+            document.querySelector('#cards').insertAdjacentHTML(
+              'beforeend',
+              `<li class="place_apply_pui"><div class="pui__vn15t2">리뷰 ${count++}</div></li>`,
+            );
+          }
+          if (count >= 50) {
+            document.querySelector('#more')?.remove();
+          }
+        };
+        append();
+        document.querySelector('#recent').onclick = () => {
+          document.querySelector('#recent').setAttribute(
+            'aria-selected',
+            'true',
+          );
+        };
+        document.querySelector('#more').onclick = append;
+      };
+      document.querySelector('[aria-label="페이지 닫기"]').onclick = () => {
+        parent.postMessage({closeEntry: true}, '*');
+      };
+    </script>
+  </body>
+</html>
