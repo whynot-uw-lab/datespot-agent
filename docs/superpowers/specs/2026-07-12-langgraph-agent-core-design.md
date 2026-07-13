@@ -438,6 +438,72 @@ LangGraph node 사이를 이동하는 최소 실행 state다. 2-2에서는 Pydan
 
 라우팅 결정은 별도 모델로 만들지 않는다. `route_after_*` 함수의 문자열 반환값으로 처리한다.
 
+## 2-2 구현 설계
+
+### 모듈 경계
+
+2-2의 실행 설정, 장소 데이터, 분석 결과, 리포트, LangGraph state는
+`src/datespot_agent/models.py` 한 파일에 둔다. 현재 모델 수와 의존 관계가 단순하므로
+패키지를 여러 파일로 나누지 않는다.
+
+`src/datespot_agent/config.py`는 환경변수 기반 `Settings`를 계속 담당한다. 기존 PoC의
+import 호환을 위해 `Filters`, `Weights`, `ScoringCriteria`, `RunConfig`를
+`datespot_agent.models`에서 다시 export하고, `SearchConfig`는 `RunConfig`의 별칭으로
+유지한다. 같은 의미의 모델을 두 모듈에 중복 정의하지 않는다.
+
+2-2 `RunConfig`에는 명세에 정의된 필드만 둔다. 기존 `SearchConfig`의 `Throttle`은
+포함하지 않으며, 딜레이와 속도 제한의 실행 설정은 LangGraph 실행 루프를 구현할 때
+별도 경계에서 확정한다.
+
+### 공통 Pydantic 규칙
+
+모든 2-2 모델은 공통 `CamelModel`을 상속한다.
+
+- alias generator로 `snake_case` 필드의 `camelCase` alias를 생성한다.
+- `populate_by_name=True`로 `snake_case`와 `camelCase` 입력을 모두 허용한다.
+- `model_dump(by_alias=True)`로 `camelCase` JSON payload를 만든다.
+- 알 수 없는 입력 필드는 거부한다.
+- 문자열 입력의 앞뒤 공백을 제거한다.
+- 리스트 기본값은 모두 `default_factory=list`로 생성한다.
+- 별도 커스텀 예외 없이 Pydantic `ValidationError`를 사용한다.
+
+### 필드 검증
+
+- `RunConfig.location`, `RunConfig.search_keyword`, 분석 이유, 장소 ID와 장소명은 빈
+  문자열을 허용하지 않는다.
+- `RunConfig.max_places`는 `1`부터 `10`까지 허용한다.
+- `Filters.min_review_count`와 값이 있는 `Filters.max_distance_m`는 `0` 이상이다.
+- `Weights.photo_percent`와 `Weights.review_percent`는 각각 `0`부터 `100`까지이며,
+  합은 반드시 `100`이다.
+- 사진, 리뷰, 최종 점수는 정수 `0`부터 `10`까지다.
+- `PlaceResult`는 상태별 필수 필드만 교차 검증한다. `analyzed`는 `final_score`,
+  `excluded`는 비어 있지 않은 `exclusion_reason`, `failed`는 비어 있지 않은
+  `failure_reason`이 필요하다. 부분 분석을 위해 사진/리뷰 점수는 선택 필드로 둔다.
+- `RunReport.created_at`은 timezone이 있는 값만 허용하고 UTC로 정규화한다.
+- `GraphState`는 선언된 직렬화 가능 필드 외 입력을 거부하므로 Playwright live object를
+  저장할 수 없다.
+
+### 호환성 변경
+
+기존 `SearchConfig` 호출부는 `search_keyword`를 함께 전달해야 한다. 기본 분석 수는
+`30`에서 `10`으로 바뀌고, 가중치는 `photo`/`review` 소수 대신
+`photo_percent`/`review_percent` 정수를 사용한다. 1-1 환경 스모크 테스트와 안내 문서는
+이 새 규격에 맞춘다.
+
+### 테스트 경계
+
+`tests/test_models.py`에서 외부 API나 브라우저 없이 다음을 검증한다.
+
+- `snake_case`/`camelCase` 입력과 `camelCase` 직렬화
+- 실행 설정 범위와 가중치 합계
+- 점수 범위와 상태별 `PlaceResult` 필수값
+- 리스트 기본값의 인스턴스 분리
+- `RunReport.created_at` timezone 검증과 UTC 정규화
+- `GraphState` 기본값, 중첩 모델 직렬화, 미정의 필드 거부
+- `config.SearchConfig` 호환 별칭
+
+기존 `unittest` 전체와 1-1 환경 스모크 테스트를 회귀 검증한다.
+
 ## 인터페이스 초안
 
 구체 함수 시그니처는 아직 정하지 않는다. node가 의존할 외부 능력의 경계만 정한다.
