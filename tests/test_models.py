@@ -225,5 +225,15 @@ class GraphStateModelTests(unittest.TestCase):
             )
 
 
+class ConfigCompatibilityTests(unittest.TestCase):
+    def test_search_config_is_run_config_alias(self):
+        from datespot_agent.config import SearchConfig
+
+        self.assertIs(SearchConfig, RunConfig)
+        config = SearchConfig(location="신사역", search_keyword="음식점")
+        self.assertEqual(config.max_places, 10)
+        self.assertEqual(config.weights.photo_percent, 50)
+
+
 if __name__ == "__main__":
     unittest.main()

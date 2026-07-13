@@ -34,12 +34,13 @@ def check_config() -> str:
     from datespot_agent.config import SearchConfig, get_settings
 
     settings = get_settings()
-    cfg = SearchConfig(location="강남역")
-    assert cfg.max_places == 30
-    assert abs(cfg.weights.photo + cfg.weights.review - 1.0) < 1e-6
+    cfg = SearchConfig(location="강남역", search_keyword="음식점")
+    assert cfg.max_places == 10
+    assert cfg.weights.photo_percent + cfg.weights.review_percent == 100
     return (
         f"설정 로드 (model={settings.model}, headless={settings.headless}, "
-        f"max_places={cfg.max_places}, weights={cfg.weights.photo}/{cfg.weights.review})"
+        f"max_places={cfg.max_places}, "
+        f"weights={cfg.weights.photo_percent}/{cfg.weights.review_percent})"
     )
 
 

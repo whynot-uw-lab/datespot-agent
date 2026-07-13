@@ -86,7 +86,7 @@ uv run python poc/1-1-env/smoke_test.py
 ### 검증 항목
 
 1. **imports** — 핵심 패키지 import 가능 여부
-2. **config** — `datespot_agent.config` 의 `Settings` / `SearchConfig` 로드 및 기본값(가중치 합=1.0, max_places=30) 확인
+2. **config** — `datespot_agent.config`의 `Settings` / `SearchConfig` 호환 별칭 로드 및 2단계 기본값(가중치 합=100, max_places=10) 확인
 3. **playwright** — Chromium 헤드리스 기동 + 페이지 렌더링
 
 ### 기대 출력
