@@ -151,11 +151,14 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
             await navigator.set_zoom(15)
 
     async def test_station_route_uses_url_condition_not_load_lifecycle(self):
+        calls = {"click": 0, "evaluate": 0}
+
         class StationHandle:
             def __init__(self, page) -> None:
                 self.page = page
 
             async def evaluate(self, _script: str) -> None:
+                calls["evaluate"] += 1
                 self.page.url = (
                     "https://map.naver.com/p/subway-station/1907"
                 )
@@ -172,7 +175,10 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
                 return 1
 
             async def click(self, **_kwargs) -> None:
-                return None
+                calls["click"] += 1
+                self.page.url = (
+                    "https://map.naver.com/p/subway-station/1907"
+                )
 
             async def element_handle(self, **_kwargs):
                 return StationHandle(self.page)
@@ -218,8 +224,9 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         await navigator.select_station("신사역")
 
         self.assertIn("subway-station/1907", page.url)
+        self.assertEqual(calls, {"click": 1, "evaluate": 0})
 
-    async def test_candidate_open_uses_dom_click(self):
+    async def test_candidate_open_uses_locator_click(self):
         calls = {"click": 0, "evaluate": 0}
 
         class CandidateHandle:
@@ -284,7 +291,7 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertEqual(calls, {"click": 0, "evaluate": 1})
+        self.assertEqual(calls, {"click": 1, "evaluate": 0})
 
 
 class NaverMapDetailContractTests(unittest.IsolatedAsyncioTestCase):

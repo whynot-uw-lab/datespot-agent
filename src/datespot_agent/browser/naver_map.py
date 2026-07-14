@@ -203,12 +203,6 @@ class NaverMapPage:
         await self._assert_access_allowed()
         return result
 
-    async def _dom_click(self, locator: Locator) -> None:
-        handle = await locator.element_handle(timeout=10_000)
-        if handle is None:
-            raise BrowserNavigationError("DOM click 대상을 찾지 못함")
-        await handle.evaluate("(element) => element.click()")
-
     async def _wait_frame(
         self,
         pattern: re.Pattern[str],
@@ -278,7 +272,9 @@ class NaverMapPage:
             raise BrowserNavigationError(
                 f"역 검색 결과를 찾지 못함: {location}"
             )
-        await self._mutate(lambda: self._dom_click(station.first))
+        await self._mutate(
+            lambda: station.first.click(timeout=10_000)
+        )
         await self._wait_page_url(re.compile(r"subway-station/"))
 
     async def set_zoom(self, target: int = 15) -> None:
@@ -394,7 +390,7 @@ class NaverMapPage:
             .filter(has_text=target.name)
             .first
         )
-        await self._mutate(lambda: self._dom_click(link))
+        await self._mutate(lambda: link.click(timeout=10_000))
         entry = await self._entry_frame(target.place_id)
         if f"/{target.place_id}/" not in entry.url:
             raise BrowserExtractionError(
