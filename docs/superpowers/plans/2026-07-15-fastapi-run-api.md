@@ -1021,6 +1021,23 @@ class ApiAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["runId"], "run_api")
 
+    def test_saved_failed_report_returns_200(self):
+        self.runtime.coordinator.report = RunReport(
+            run_id="run_api",
+            status=RunStatus.FAILED,
+            config=RunConfig(location="성수역", search_keyword="일식"),
+            created_at=NOW,
+        )
+
+        status_response = self.client.get("/runs/run_api")
+        report_response = self.client.get("/runs/run_api/report")
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json()["status"], "failed")
+        self.assertTrue(status_response.json()["reportAvailable"])
+        self.assertEqual(report_response.status_code, 200)
+        self.assertEqual(report_response.json()["status"], "failed")
+
     def test_terminal_failure_without_report_returns_unavailable(self):
         status = self.runtime.coordinator.get_status("run_api")
         status.status = RunJobStatus.FAILED
