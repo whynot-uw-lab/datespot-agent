@@ -6,7 +6,7 @@
 
 **Architecture:** FastAPI lifespan이 `AppRuntime`과 `RunCoordinator`를 시작·종료함. Coordinator는 메모리 registry와 `asyncio.Queue`를 소유하고 기존 `GraphRunService`와 `JsonReportStore`를 순차 조합함. API route는 HTTP 계약 변환만 담당함.
 
-**Tech Stack:** Python 3.13, FastAPI 0.139+, Uvicorn 0.51+, HTTPX 0.28+, Pydantic v2, asyncio, unittest, uv
+**Tech Stack:** Python 3.13, FastAPI 0.139+, Uvicorn 0.51+, HTTPX2 2.5+, Pydantic v2, asyncio, unittest, uv
 
 ## Global Constraints
 
@@ -869,7 +869,7 @@ git commit -m "feat: assemble API runtime"
 Run:
 
 ```bash
-uv add 'fastapi>=0.139.0' 'uvicorn>=0.51.0' 'httpx>=0.28.1'
+uv add 'fastapi>=0.139.0' 'uvicorn>=0.51.0' 'httpx2>=2.5.0'
 ```
 
 Expected: `pyproject.toml` and `uv.lock` update; Python 3.13 environment resolves.
@@ -1166,7 +1166,7 @@ git commit -m "feat: expose FastAPI run endpoints"
 - Consumes: `uvicorn datespot_agent.api.app:app`
 - Produces: documented local FastAPI workflow and completed roadmap item
 
-- [ ] **Step 1: Update README**
+- [x] **Step 1: Update README**
 
 Add:
 
@@ -1185,13 +1185,13 @@ Document `DATESPOT_REPORTS_ROOT`, `DATESPOT_CHROME_EXECUTABLE_PATH`,
 `DATESPOT_BROWSER_USER_DATA_DIR`, memory-only state, one FIFO worker, and local-only scope.
 Mark `FastAPI 실행 API` complete and rename the inbox item to saved-report list/search.
 
-- [ ] **Step 2: Run the complete automated suite**
+- [x] **Step 2: Run the complete automated suite**
 
 Run: `uv run python -m unittest discover -s tests -p 'test_*.py'`
 
 Expected: all tests pass.
 
-- [ ] **Step 3: Start the real API on loopback**
+- [x] **Step 3: Start the real API on loopback**
 
 Run:
 
@@ -1201,7 +1201,7 @@ uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 8000
 
 Expected: lifespan completes and server listens on `127.0.0.1:8000`.
 
-- [ ] **Step 4: Submit and poll one real run**
+- [x] **Step 4: Submit and poll one real run**
 
 Run:
 
@@ -1217,14 +1217,14 @@ Poll `GET /runs/{run_id}` until `completed` or `failed`, then call
 Expected: `POST` returns `202`; status reaches a terminal state; saved report endpoint returns
 `200`; JSON file exists under its UTC date path and validates with `RunReport`.
 
-- [ ] **Step 5: Stop the API and verify resource cleanup**
+- [x] **Step 5: Stop the API and verify resource cleanup**
 
 Send `Ctrl-C` to Uvicorn.
 
 Expected: lifespan shutdown completes, API port closes, launched Chrome process exits, and no
 report temp files remain.
 
-- [ ] **Step 6: Review scope and commit docs**
+- [x] **Step 6: Review scope and commit docs**
 
 Run: `git status --short && git diff --check && git diff origin/main...HEAD --stat`
 

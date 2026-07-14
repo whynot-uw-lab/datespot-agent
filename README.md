@@ -76,6 +76,39 @@ uv run python tests/run_graph_live.py
 종료 코드는 실행 완료 `0`, 그래프 실패 `2`, 리포트 저장 실패 `3`이다.
 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트에는 포함하지 않는다.
 
+### FastAPI 실행 API
+
+`.env`에 `OPENAI_API_KEY`를 설정한 뒤 로컬 loopback에서 실행한다.
+
+```bash
+uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 8000
+```
+
+제공 엔드포인트:
+
+- `POST /runs`: 탐색 실행 접수 (`202 Accepted`)
+- `GET /runs/{run_id}`: queue 및 실행 상태 조회
+- `GET /runs/{run_id}/report`: 저장 완료된 리포트 조회
+- `GET /health`: coordinator 상태 조회
+
+실행 접수 예시:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/runs \
+  -H 'content-type: application/json' \
+  -d '{"location":"성수역","searchKeyword":"일식","maxPlaces":1}'
+```
+
+경로는 환경변수로 변경할 수 있다.
+
+- `DATESPOT_REPORTS_ROOT`: JSON 리포트 루트, 기본 `reports`
+- `DATESPOT_CHROME_EXECUTABLE_PATH`: Google Chrome 실행 파일 경로
+- `DATESPOT_BROWSER_USER_DATA_DIR`: API 전용 Chrome 프로필 경로
+
+실행 상태는 프로세스 메모리에만 유지되므로 서버 재시작 시 초기화된다. 작업은 단일 FIFO
+worker가 한 번에 하나씩 처리한다. 현재 API는 인증·CORS가 없는 로컬 전용이며 외부에
+노출하지 않는다.
+
 ---
 
 ## 개발 로드맵
@@ -120,10 +153,10 @@ uv run python tests/run_graph_live.py
 
 ### 3단계: 백엔드 로직 구현 (1~2주)
 
-- [ ] FastAPI 실행 API: 탐색 설정 입력 → 에이전트 실행
+- [x] FastAPI 실행 API: 탐색 설정 입력 → 에이전트 실행
 - [ ] WebSocket/SSE로 에이전트 판단 로그·리포트 갱신 실시간 push
 - [ ] CDP 브라우저 스트림을 프론트로 중계
-- [ ] 리포트 파일 저장 / "인박스" 저장 로직
+- [ ] 저장된 리포트 목록·검색 API
 
 ### 4단계: 프론트엔드 (~2주)
 
