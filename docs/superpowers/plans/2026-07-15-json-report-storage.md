@@ -29,7 +29,7 @@
 - Create: `src/datespot_agent/reporting/json_store.py`
 - Create: `tests/test_json_report_store.py`
 
-- [ ] **Step 1: Write failing path, format, round-trip, validation, and failure-contract tests**
+- [x] **Step 1: Write failing path, format, round-trip, validation, and failure-contract tests**
 
 ```python
 class JsonReportStoreTest(unittest.TestCase):
@@ -93,13 +93,13 @@ class JsonReportStoreTest(unittest.TestCase):
             self.assertEqual(list(root.rglob("*.tmp")), [])
 ```
 
-- [ ] **Step 2: Run the new tests and confirm RED**
+- [x] **Step 2: Run the new tests and confirm RED**
 
 Run: `uv run python -m unittest tests.test_json_report_store -v`
 
 Expected: import failure because `datespot_agent.reporting` does not exist.
 
-- [ ] **Step 3: Implement the public error and store interface**
+- [x] **Step 3: Implement the public error and store interface**
 
 ```python
 # src/datespot_agent/reporting/errors.py
@@ -221,13 +221,13 @@ from datespot_agent.reporting.json_store import JsonReportStore
 __all__ = ["JsonReportStore", "ReportStorageError"]
 ```
 
-- [ ] **Step 4: Run focused tests and confirm GREEN**
+- [x] **Step 4: Run focused tests and confirm GREEN**
 
 Run: `uv run python -m unittest tests.test_json_report_store -v`
 
 Expected: all new tests pass.
 
-- [ ] **Step 5: Commit the core store**
+- [x] **Step 5: Commit the core store**
 
 ```bash
 git add src/datespot_agent/reporting tests/test_json_report_store.py
