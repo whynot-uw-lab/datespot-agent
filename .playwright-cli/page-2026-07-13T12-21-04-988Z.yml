@@ -1,0 +1,87 @@
+- generic [ref=e3]:
+  - generic:
+    - link "본문 바로가기" [ref=e4] [cursor=pointer]:
+      - /url: "#section_content"
+    - link "주 메뉴 바로가기" [ref=e6] [cursor=pointer]:
+      - /url: "#header"
+  - banner [ref=e8]:
+    - heading [level=1] [ref=e9]:
+      - link "네이버지도" [ref=e10] [cursor=pointer]:
+        - /url: https://www.naver.com
+    - navigation [ref=e12]:
+      - list [ref=e13]:
+        - listitem [ref=e14]:
+          - button "지도 홈 선택됨" [ref=e15] [cursor=pointer]:
+            - generic [ref=e21]: 지도 홈
+            - generic [ref=e22]: 선택됨
+        - listitem [ref=e23]:
+          - button "길찾기" [ref=e24] [cursor=pointer]
+        - listitem [ref=e30]:
+          - button "버스" [ref=e31] [cursor=pointer]
+        - listitem [ref=e37]:
+          - button "지하철" [ref=e38] [cursor=pointer]
+        - listitem [ref=e44]:
+          - button "기차" [ref=e45] [cursor=pointer]
+        - listitem [ref=e51]:
+          - button "new 저장" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: new
+            - generic [ref=e59]: 저장
+        - listitem [ref=e60]:
+          - button "더보기" [ref=e61] [cursor=pointer]
+    - generic [ref=e68]:
+      - strong [ref=e69]: 사용자 링크
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - link "로그인" [ref=e72] [cursor=pointer]:
+            - /url: https://nid.naver.com/nidlogin.login
+        - listitem [ref=e74]:
+          - link "서비스 더보기" [ref=e75] [cursor=pointer]:
+            - /url: javascript:;
+  - generic:
+    - application [ref=e80]:
+      - region "Map" [ref=e171]
+      - generic [ref=e83]:
+        - img "NAVER" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]: 100m
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - button "검색" [ref=e93] [cursor=pointer]
+        - button "삭제" [ref=e1271] [cursor=pointer]
+        - combobox [ref=e836]: 일식
+      - generic [ref=e967]:
+        - status [ref=e968]
+        - generic [ref=e970]:
+          - heading "검색" [level=2] [ref=e971]
+          - generic [ref=e1273] [cursor=pointer]: loading
+          - iframe [ref=e1280]:
+
+          - button "loading" [ref=e1281] [cursor=pointer]
+      - button "패널 접기" [expanded] [ref=e123] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e125]:
+                - button "일반지도" [ref=e126] [cursor=pointer]
+                - button "위성지도" [ref=e128] [cursor=pointer]
+                - button "지형지도" [ref=e130] [cursor=pointer]
+              - generic [ref=e132]:
+                - button "테마" [ref=e133] [cursor=pointer]
+                - button "저장" [ref=e135] [cursor=pointer]
+                - button "지적편집도" [ref=e137] [cursor=pointer]
+                - button "거리뷰" [ref=e139] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "반경측정" [ref=e142] [cursor=pointer]
+                - button "면적측정" [ref=e144] [cursor=pointer]
+                - button "거리측정" [ref=e146] [cursor=pointer]
+              - generic [ref=e148]:
+                - button "다운로드" [ref=e149] [cursor=pointer]
+                - button "인쇄" [ref=e151] [cursor=pointer]
+                - button "공유하기" [ref=e153] [cursor=pointer]
+            - generic:
+              - button "접속위치" [ref=e157] [cursor=pointer]
+              - generic [ref=e163]:
+                - button "확대" [ref=e164] [cursor=pointer]
+                - button "축소" [ref=e167] [cursor=pointer]
+  - status [ref=e169]

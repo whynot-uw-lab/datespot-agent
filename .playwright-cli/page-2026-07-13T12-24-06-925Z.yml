@@ -1,0 +1,662 @@
+- generic [ref=e3]:
+  - generic:
+    - link "본문 바로가기" [ref=e4] [cursor=pointer]:
+      - /url: "#section_content"
+    - link "주 메뉴 바로가기" [ref=e6] [cursor=pointer]:
+      - /url: "#header"
+  - banner [ref=e8]:
+    - heading [level=1] [ref=e9]:
+      - link "네이버지도" [ref=e10] [cursor=pointer]:
+        - /url: https://www.naver.com
+    - navigation [ref=e12]:
+      - list [ref=e13]:
+        - listitem [ref=e14]:
+          - button "지도 홈 선택됨" [ref=e15] [cursor=pointer]:
+            - generic [ref=e21]: 지도 홈
+            - generic [ref=e22]: 선택됨
+        - listitem [ref=e23]:
+          - button "길찾기" [ref=e24] [cursor=pointer]
+        - listitem [ref=e30]:
+          - button "버스" [ref=e31] [cursor=pointer]
+        - listitem [ref=e37]:
+          - button "지하철" [ref=e38] [cursor=pointer]
+        - listitem [ref=e44]:
+          - button "기차" [ref=e45] [cursor=pointer]
+        - listitem [ref=e51]:
+          - button "new 저장" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: new
+            - generic [ref=e59]: 저장
+        - listitem [ref=e60]:
+          - button "더보기" [ref=e61] [cursor=pointer]
+    - generic [ref=e68]:
+      - strong [ref=e69]: 사용자 링크
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - link "로그인" [ref=e72] [cursor=pointer]:
+            - /url: https://nid.naver.com/nidlogin.login
+        - listitem [ref=e74]:
+          - link "서비스 더보기" [ref=e75] [cursor=pointer]:
+            - /url: javascript:;
+  - generic:
+    - application [ref=e80]:
+      - generic [ref=e170]:
+        - region "Map" [ref=e171]
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e1931] [cursor=pointer]:
+                - generic [ref=e1932]:
+                  - img "음식점"
+                - strong [ref=e1934]: 유나기
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1939] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+              - generic [ref=e1944] [cursor=pointer]:
+                - generic [ref=e1945]:
+                  - img "음식점"
+                - strong [ref=e1947]: 더 리버사이드 호텔 카와베 스키야키
+              - generic [ref=e1949] [cursor=pointer]:
+                - generic [ref=e1950]:
+                  - img "음식점"
+                - strong [ref=e1952]: 소바 나오
+              - generic: 플레이스 마커
+              - generic [ref=e1956] [cursor=pointer]:
+                - img "음식점"
+              - generic [ref=e1958] [cursor=pointer]:
+                - generic [ref=e1959]:
+                  - img "음식점"
+                - strong [ref=e1961]: 멘쇼쿠
+              - generic [ref=e1963] [cursor=pointer]:
+                - generic [ref=e1964]:
+                  - img "음식점"
+                - strong [ref=e1966]: 히쇼 논현역점
+              - generic: 플레이스 마커
+              - generic: "2"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1980] [cursor=pointer]:
+                - img "음식점"
+              - generic [ref=e1982] [cursor=pointer]:
+                - generic [ref=e1983]:
+                  - img "음식점"
+                - strong [ref=e1985]: 멘야하나비 신사점
+              - generic [ref=e2098] [cursor=pointer]:
+                - generic [ref=e2099]:
+                  - img "음식점"
+                - strong [ref=e2101]: 오레노유메 신사점
+              - generic: 플레이스 마커
+              - generic [ref=e1989] [cursor=pointer]:
+                - generic [ref=e1990]:
+                  - img "음식점"
+                - strong [ref=e1992]: 바르미 스시샤브 반포점
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2006] [cursor=pointer]:
+                - generic [ref=e2007]:
+                  - img "음식점"
+                - strong [ref=e2009]: 후라토식당 신사점
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2014] [cursor=pointer]:
+                - generic [ref=e2015]:
+                  - img "음식점"
+                - strong [ref=e2017]: 카토 일식카츠
+              - generic: 플레이스 마커
+              - generic [ref=e2020] [cursor=pointer]:
+                - generic [ref=e2021]:
+                  - img "음식점"
+                - strong [ref=e2023]: 긴자료코 신사본점
+              - generic: 플레이스 마커
+              - generic [ref=e2026] [cursor=pointer]:
+                - generic [ref=e2027]:
+                  - img "음식점"
+                - strong [ref=e2029]: 백소정 잠원메이플자이점
+              - generic: 플레이스 마커
+              - generic [ref=e2033] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2039] [cursor=pointer]:
+                - generic [ref=e2040]:
+                  - img "음식점"
+                - strong [ref=e2042]: 신사우동
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2047] [cursor=pointer]:
+                - generic [ref=e2048]:
+                  - img "음식점"
+                - strong [ref=e2050]: 란가츠
+              - generic [ref=e2053] [cursor=pointer]:
+                - img "음식점"
+              - generic [ref=e2056] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2060] [cursor=pointer]:
+                - generic [ref=e2061]:
+                  - img "음식점"
+                - strong [ref=e2103]: 두사라 현
+              - generic [ref=e2064] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e2068] [cursor=pointer]:
+                - generic [ref=e2069]:
+                  - img "음식점"
+                - strong [ref=e2071]: 압구정사카에스시
+              - generic [ref=e2105] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+            - generic:
+              - generic [ref=e2075] [cursor=pointer]:
+                - generic [ref=e2076]:
+                  - img "음식점"
+                - strong [ref=e2078]: 고부시 논현점
+              - generic [ref=e2080] [cursor=pointer]:
+                - generic [ref=e2081]:
+                  - img "음식점"
+                - strong [ref=e2083]: 멘츠루 신사점
+              - generic: 플레이스 마커
+              - generic: "2"
+              - generic: 플레이스 마커
+            - generic [ref=e2106] [cursor=pointer]:
+              - img "음식점" [ref=e2108]
+              - strong [ref=e2110]: 치보 신사점
+            - button "사각모양의 아이콘은 광고가 적용된 장소입니다." [ref=e2095] [cursor=pointer]:
+              - generic [ref=e2096]: 사각모양의 아이콘은
+              - generic [ref=e2097]: 광고가 적용된 장소입니다.
+      - generic [ref=e83]:
+        - img "NAVER" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]: 100m
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - button "검색" [ref=e93] [cursor=pointer]
+        - button "삭제" [ref=e1271] [cursor=pointer]
+        - combobox [ref=e836]: 일식
+      - generic [ref=e967]:
+        - status [ref=e968]
+        - generic [ref=e970]:
+          - heading "검색" [level=2] [ref=e971]
+          - iframe [active] [ref=e1920]:
+            - generic [ref=f21e4]:
+              - generic [ref=f21e5]:
+                - generic [ref=f21e10]:
+                  - button "전체필터" [ref=f21e12] [cursor=pointer]
+                  - button "영업중" [ref=f21e17] [cursor=pointer]
+                  - button "예약" [ref=f21e19] [cursor=pointer]
+                  - button "플레이스 플러스" [ref=f21e23] [cursor=pointer]
+                  - button "쿠폰" [ref=f21e28] [cursor=pointer]
+                  - button "포장주문" [ref=f21e32] [cursor=pointer]
+                - generic [ref=f21e37]:
+                  - button "주차" [ref=f21e39] [cursor=pointer]
+                  - button "콜키지유료" [ref=f21e41] [cursor=pointer]
+                  - button "인테리어" [ref=f21e43] [cursor=pointer]
+                  - button "특별한메뉴" [ref=f21e45] [cursor=pointer]
+                  - button "사진맛집" [ref=f21e47] [cursor=pointer]
+                  - button "더보기" [ref=f21e561] [cursor=pointer]
+              - generic [ref=f21e64]:
+                - list [ref=f21e66]:
+                  - listitem [ref=f21e67]:
+                    - generic [ref=f21e68]:
+                      - button "고부시 논현점 예약 톡톡 쿠폰 이자카야" [ref=f21e70] [cursor=pointer]:
+                        - text: 고부시 논현점
+                        - generic [ref=f21e71]:
+                          - generic [ref=f21e72]: 예약
+                          - generic [ref=f21e77]: 톡톡
+                          - generic [ref=f21e82]: 쿠폰
+                        - text: 이자카야
+                      - button "장소 정하고 칭찬 받고 싶다면" [ref=f21e88] [cursor=pointer]
+                      - generic [ref=f21e89]:
+                        - button "영업 중 별점 4.87 리뷰 885 휠체어 출입 가능" [ref=f21e90] [cursor=pointer]:
+                          - text: 영업 중
+                          - generic [ref=f21e91]:
+                            - generic [ref=f21e94]: 별점
+                            - text: "4.87"
+                          - generic [ref=f21e95]: 리뷰 885
+                          - generic [ref=f21e96]: 휠체어 출입 가능
+                        - button "광고" [ref=f21e101] [cursor=pointer]
+                      - button "저장" [ref=f21e107] [cursor=pointer]
+                    - generic [ref=f21e617]:
+                      - generic [ref=f21e620]:
+                        - button [ref=f21e622] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e623]
+                        - button [ref=f21e625] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e626]
+                        - button [ref=f21e628] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e629]
+                        - button [ref=f21e631] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e632]
+                        - button [ref=f21e634] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e635]
+                        - button [ref=f21e637] [cursor=pointer]:
+                          - img "고부시 논현점" [ref=f21e638]
+                        - button [ref=f21e639] [cursor=pointer]
+                      - generic: 플레이스 플러스
+                    - generic [ref=f21e114]:
+                      - button "주간 인기 많은 메뉴 아사히생맥주, 산토리하이볼, 모둠꼬치7종, 레몬사와, 명란" [ref=f21e116] [cursor=pointer]:
+                        - strong [ref=f21e117]: 주간 인기 많은 메뉴
+                        - generic [ref=f21e118]: 아사히생맥주, 산토리하이볼, 모둠꼬치7종, 레몬사와, 명란
+                      - button "connect+ 혜택 리뷰 쓰고 포인트 적립까지" [ref=f21e120] [cursor=pointer]:
+                        - strong [ref=f21e121]: connect+ 혜택
+                        - generic [ref=f21e122]: 리뷰 쓰고 포인트 적립까지
+                    - generic [ref=f21e126]:
+                      - button "모든 메뉴 맛있어여 제 픽은 야끼소바! 하이볼과 사와도 완전 맛있습니다 가성비 맛집으로 추천해요" [ref=f21e128] [cursor=pointer]
+                      - button "넘넘 맛있는 일식집! 모츠나베가 땡겨서 방문했는데 미소맛이 맵지 않고 구수하니 맛있었어요." [ref=f21e132] [cursor=pointer]
+                      - button "친구들이랑 방문했는데 자몽 하이볼 너무 맛있어요 ! 일식 요리 먹고싶을 때 또 와야겠어요" [ref=f21e136] [cursor=pointer]
+                  - listitem [ref=f21e139]:
+                    - generic [ref=f21e140]:
+                      - button "멘츠루 신사점 톡톡 쿠폰 일본식라면" [ref=f21e142] [cursor=pointer]:
+                        - text: 멘츠루 신사점
+                        - generic [ref=f21e143]:
+                          - generic [ref=f21e144]: 톡톡
+                          - generic [ref=f21e149]: 쿠폰
+                        - text: 일본식라면
+                      - button "가로수길 줄서는 라멘 맛집!" [ref=f21e155] [cursor=pointer]
+                      - generic [ref=f21e156]:
+                        - button "곧 영업 종료 별점 4.92 리뷰 8,301 휠체어 출입 가능" [ref=f21e157] [cursor=pointer]:
+                          - text: 곧 영업 종료
+                          - generic [ref=f21e158]:
+                            - generic [ref=f21e161]: 별점
+                            - text: "4.92"
+                          - generic [ref=f21e162]: 리뷰 8,301
+                          - generic [ref=f21e163]: 휠체어 출입 가능
+                        - button "광고" [ref=f21e168] [cursor=pointer]
+                      - button "저장" [ref=f21e174] [cursor=pointer]
+                    - generic [ref=f21e643]:
+                      - generic [ref=f21e646]:
+                        - button [ref=f21e648] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e649]
+                        - button [ref=f21e651] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e652]
+                        - button [ref=f21e654] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e655]
+                        - button [ref=f21e657] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e658]
+                        - button [ref=f21e660] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e661]
+                        - button [ref=f21e663] [cursor=pointer]:
+                          - img "멘츠루 신사점" [ref=f21e664]
+                        - button [ref=f21e665] [cursor=pointer]
+                      - generic: 플레이스 플러스
+                    - button "주간 인기 많은 메뉴 파이탄(진한육수), 쇼유라멘, 매운쇼유라멘(해장라멘), 블랙쇼유라멘, 모츠라멘(소곱창라멘)" [ref=f21e183] [cursor=pointer]:
+                      - strong [ref=f21e184]: 주간 인기 많은 메뉴
+                      - generic [ref=f21e185]: 파이탄(진한육수), 쇼유라멘, 매운쇼유라멘(해장라멘), 블랙쇼유라멘, 모츠라멘(소곱창라멘)
+                    - generic [ref=f21e189]:
+                      - button "운동 후 방문! 매운소유라멘 칼칼하고 맛있어요! 해장으로도 좋을듯! 다들 친절하세요!" [ref=f21e191] [cursor=pointer]
+                      - button "라멘도 튀김도 너무너무 맛있어요! 추천드립니다!" [ref=f21e195] [cursor=pointer]
+                      - button "신사역맛집 가로수길 맛집 아부라소바 맛집입니다." [ref=f21e199] [cursor=pointer]
+                  - listitem [ref=f21e202]:
+                    - generic [ref=f21e203]:
+                      - button "으뜸스시 신사직영점 톡톡 쿠폰 초밥,롤" [ref=f21e205] [cursor=pointer]:
+                        - text: 으뜸스시 신사직영점
+                        - generic [ref=f21e206]:
+                          - generic [ref=f21e207]: 톡톡
+                          - generic [ref=f21e212]: 쿠폰
+                        - text: 초밥,롤
+                      - button "100가지 메뉴의 회전초밥맛집" [ref=f21e218] [cursor=pointer]
+                      - generic [ref=f21e219]:
+                        - button "영업 중 리뷰 2,666 휠체어 출입 가능 서울 강남구 신사동" [ref=f21e220] [cursor=pointer]:
+                          - text: 영업 중
+                          - generic [ref=f21e221]: 리뷰 2,666
+                          - generic [ref=f21e222]: 휠체어 출입 가능
+                          - text: 서울 강남구 신사동
+                        - button "광고" [ref=f21e227] [cursor=pointer]
+                      - button "저장" [ref=f21e233] [cursor=pointer]
+                    - generic [ref=f21e672]:
+                      - button [ref=f21e674] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e675]
+                      - button [ref=f21e677] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e678]
+                      - button [ref=f21e680] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e681]
+                      - button [ref=f21e683] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e684]
+                      - button [ref=f21e686] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e687]
+                      - button [ref=f21e689] [cursor=pointer]:
+                        - img "으뜸스시 신사직영점" [ref=f21e690]
+                      - button [ref=f21e691] [cursor=pointer]
+                    - generic [ref=f21e243]:
+                      - button "생일이라 친구랑 으뜸스시에 왔어요! 회전초밥인데 식은 초밥은 따끈하게 데워주시고 메뉴도 진짜 많아요" [ref=f21e245] [cursor=pointer]
+                      - button "신사에서 초밥먹고싶을때마다 오는곳 오랜만에 왔더니 한접시 2300원으로 인상됐더라고요!" [ref=f21e249] [cursor=pointer]
+                      - button "신사역가성비 최고 회전초밥 맛집 입니다. 특히 연어랑 육회 초밥이 입에서 살살 녹아요." [ref=f21e253] [cursor=pointer]
+                  - listitem [ref=f21e256]:
+                    - generic [ref=f21e257]:
+                      - button "치보 신사점 예약 쿠폰 일식당" [active] [ref=f21e259] [cursor=pointer]:
+                        - text: 치보 신사점
+                        - generic [ref=f21e260]:
+                          - generic [ref=f21e261]: 예약
+                          - generic [ref=f21e266]: 쿠폰
+                        - text: 일식당
+                      - button "네이버 예약시 평일 오픈런 이벤트! 쿠폰" [ref=f21e272] [cursor=pointer]
+                      - button "오늘 휴무 별점 4.86 리뷰 2,792 TV 생활의달인" [ref=f21e274] [cursor=pointer]:
+                        - text: 오늘 휴무
+                        - generic [ref=f21e275]:
+                          - generic [ref=f21e278]: 별점
+                          - text: "4.86"
+                        - generic [ref=f21e279]: 리뷰 2,792
+                        - generic [ref=f21e280]:
+                          - generic [ref=f21e281]: TV
+                          - text: 생활의달인
+                      - button "저장" [ref=f21e285] [cursor=pointer]
+                      - generic [ref=f21e697]:
+                        - button "출발" [ref=f21e698] [cursor=pointer]
+                        - button "도착" [ref=f21e699] [cursor=pointer]
+                    - generic [ref=f21e700]:
+                      - generic [ref=f21e703]:
+                        - button [ref=f21e705] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e706]
+                        - button [ref=f21e708] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e709]
+                        - button "치보 신사점 dragdrag" [ref=f21e711] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e712]
+                          - generic [ref=f21e713]: dragdrag
+                        - button "치보 신사점 midas9151" [ref=f21e717] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e718]
+                          - generic [ref=f21e719]: midas9151
+                        - button "치보 신사점 주먹왕" [ref=f21e723] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e724]
+                          - generic [ref=f21e725]: 주먹왕
+                        - button "치보 신사점 jsh****" [ref=f21e729] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e730]
+                          - generic [ref=f21e731]: jsh****
+                        - button "치보 신사점 클로버7069" [ref=f21e735] [cursor=pointer]:
+                          - img "치보 신사점" [ref=f21e736]
+                          - generic [ref=f21e737]: 클로버7069
+                        - button [ref=f21e740] [cursor=pointer]
+                      - generic: 플레이스 플러스
+                    - button "주간 인기 많은 메뉴 삿포로 생맥주, 히로시마야끼 (hiroshima), 믹스야끼소바 mix yakisoba, (★쉐프추천) 미소참깨야끼소바, 도톤보리야끼 Dotonboriyaki" [ref=f21e294] [cursor=pointer]:
+                      - strong [ref=f21e295]: 주간 인기 많은 메뉴
+                      - generic [ref=f21e296]: 삿포로 생맥주, 히로시마야끼 (hiroshima), 믹스야끼소바 mix yakisoba, (★쉐프추천) 미소참깨야끼소바, 도톤보리야끼 Dotonboriyaki
+                    - generic [ref=f21e300]:
+                      - button "해물야끼우동은 중화풍 요리인듯 일식인듯 생맥과 잘 어울리는맛. 가격도 크게부담없고 저도 담에 청모할때 치보로 캐치테이블 예약하구 오랴구요^\\\\^💖" [ref=f21e302] [cursor=pointer]
+                      - button "일식이 먹고 싶어서 오게 되었는데 오꼬노미야끼랑 야끼소바 둘 다 너무 맛있어요~!" [ref=f21e306] [cursor=pointer]
+                      - button "진짜 일식 오코노미야끼랑 야끼소바 너무 땡겼는데 간만에 너무 맛있게 잘먹고갑니다!" [ref=f21e310] [cursor=pointer]
+                  - listitem [ref=f21e313]:
+                    - generic [ref=f21e314]:
+                      - button "유나기 예약 톡톡 일식당" [ref=f21e316] [cursor=pointer]:
+                        - text: 유나기
+                        - generic [ref=f21e317]:
+                          - generic [ref=f21e318]: 예약
+                          - generic [ref=f21e323]: 톡톡
+                        - text: 일식당
+                      - button "영업 중 별점 4.8 리뷰 825" [ref=f21e329] [cursor=pointer]:
+                        - text: 영업 중
+                        - generic [ref=f21e330]:
+                          - generic [ref=f21e333]: 별점
+                          - text: "4.8"
+                        - generic [ref=f21e334]: 리뷰 825
+                      - button "저장" [ref=f21e335] [cursor=pointer]
+                    - generic [ref=f21e747]:
+                      - button [ref=f21e749] [cursor=pointer]:
+                        - img "유나기" [ref=f21e750]
+                      - button [ref=f21e752] [cursor=pointer]:
+                        - img "유나기" [ref=f21e753]
+                      - button "유나기 Juuuung" [ref=f21e755] [cursor=pointer]:
+                        - img "유나기" [ref=f21e756]
+                        - generic [ref=f21e757]: Juuuung
+                      - button "유나기 드디어 백수" [ref=f21e761] [cursor=pointer]:
+                        - img "유나기" [ref=f21e762]
+                        - generic [ref=f21e763]: 드디어 백수
+                      - button "유나기 그랑지 재원" [ref=f21e767] [cursor=pointer]:
+                        - img "유나기" [ref=f21e768]
+                        - generic [ref=f21e769]: 그랑지 재원
+                      - button "유나기 hee****" [ref=f21e773] [cursor=pointer]:
+                        - img "유나기" [ref=f21e774]
+                        - generic [ref=f21e775]: hee****
+                      - button "유나기 미식원정" [ref=f21e779] [cursor=pointer]:
+                        - img "유나기" [ref=f21e780]
+                        - generic [ref=f21e781]: 미식원정
+                      - button [ref=f21e784] [cursor=pointer]
+                    - button "connect+ 혜택 리뷰 쓰고 포인트 적립까지" [ref=f21e344] [cursor=pointer]:
+                      - strong [ref=f21e345]: connect+ 혜택
+                      - generic [ref=f21e346]: 리뷰 쓰고 포인트 적립까지
+                    - generic [ref=f21e350]:
+                      - button "두번 드세여~ 참치 육회와 사케를 마시고 있는데 맛있는 일식 덴푸라를 서비스로 주셔서 잘 먹었습니다" [ref=f21e352] [cursor=pointer]
+                      - button "첫 방문 이후 생각나서 다시 찾았습니다 그 사이에 히츠마부시는 여러곳에서 접했는데 역시 유나기가 최고네요" [ref=f21e356] [cursor=pointer]
+                      - button "진짜 너무 맛있게 먹었습니다! 장어는 겉바속촉에 쫀득하고 다양한 방법으로 먹을 수 있어 좋았어요" [ref=f21e360] [cursor=pointer]
+                  - listitem [ref=f21e363]:
+                    - generic [ref=f21e364]:
+                      - button "스시소기초밥,롤" [ref=f21e366] [cursor=pointer]
+                      - button "영업 중 리뷰 984 친절한 셰프와 함께하는 특별한 식사" [ref=f21e368] [cursor=pointer]:
+                        - text: 영업 중
+                        - generic [ref=f21e369]: 리뷰 984
+                        - text: 친절한 셰프와 함께하는 특별한 식사
+                      - button "저장" [ref=f21e370] [cursor=pointer]
+                    - generic [ref=f21e380]:
+                      - button "신선한 재료를 사용하면서, 가성비 좋고 아낌없이 손님들에게 내주는 통 큰 셰프님이 계시는 강남 일식 오마카세 스시소기를 예약 후 방문해서 디너를 먹었습니다." [ref=f21e382] [cursor=pointer]
+                      - button "강남 신사역에 가성비 좋은 오마카세가 있는줄 몰랐어요! 점심코너도 궁금해지는 맛이었어요 ㅎㅎ" [ref=f21e386] [cursor=pointer]
+                      - button "꽃새우 달달하고 고등어랑 참치는 진짜 인생 스시예요 다음에 친구랑 또 방문하기로 했아요" [ref=f21e390] [cursor=pointer]
+                  - listitem [ref=f21e393]:
+                    - generic [ref=f21e394]:
+                      - button "미미면가 가로수길점일식당" [ref=f21e396] [cursor=pointer]
+                      - button "곧 영업 종료 별점 4.28 리뷰 5,926 미쉐린 서울 2026" [ref=f21e398] [cursor=pointer]:
+                        - text: 곧 영업 종료
+                        - generic [ref=f21e399]:
+                          - generic [ref=f21e402]: 별점
+                          - text: "4.28"
+                        - generic [ref=f21e403]: 리뷰 5,926
+                        - text: 미쉐린 서울 2026
+                      - button "저장" [ref=f21e404] [cursor=pointer]
+                    - generic [ref=f21e414]:
+                      - button "따뜻한거 차가운거 다 완전 맛있음 평일 점심에 웨이팅 없이 방문했음 또또또 방문예정 강추" [ref=f21e416] [cursor=pointer]
+                      - button "신사오면 무조건 갑니다 감기기운이 있어서 온소바로 먹었는데 역시 냉소바가 진리네요 물론 온소바도 맛있고요!" [ref=f21e420] [cursor=pointer]
+                      - button "소바로 미슐랭 받은 집이에요! 국물 진짜 너무 깔끔하고 음식들이 다 정갈해요. 너무 맛있음 ㄷㄷ" [ref=f21e424] [cursor=pointer]
+                  - listitem [ref=f21e427]:
+                    - generic [ref=f21e428]:
+                      - button "초코동일식당" [ref=f21e430] [cursor=pointer]
+                      - button "곧 영업 종료 별점 4.5 리뷰 466" [ref=f21e432] [cursor=pointer]:
+                        - text: 곧 영업 종료
+                        - generic [ref=f21e433]:
+                          - generic [ref=f21e436]: 별점
+                          - text: "4.5"
+                        - generic [ref=f21e437]: 리뷰 466
+                      - button "저장" [ref=f21e438] [cursor=pointer]
+                    - generic [ref=f21e448]:
+                      - button "회퀄리티가 미쳐씀 너무 맛있구 다채로워서 대만족 가로수길 일식 맛집 인정" [ref=f21e450] [cursor=pointer]
+                      - button "정갈한 일식 한 상을 먹을 수 있어요!" [ref=f21e454] [cursor=pointer]
+                      - button "정갈하고 깔끔한 일식 한 상을 드시고 싶으시다면 요기로 가시면 될 듯 합니다!!!" [ref=f21e458] [cursor=pointer]
+                  - listitem [ref=f21e461]:
+                    - button [ref=f21e462] [cursor=pointer]:
+                      - img "네이버 뷔페 페스타 최대 40% 할인 혜택 뷔페특가 + 단독쿠폰 + 카드할인까지" [ref=f21e463]
+                  - listitem [ref=f21e464]:
+                    - generic [ref=f21e465]:
+                      - button "양산도 신사점 예약 톡톡 쿠폰 일식당" [ref=f21e467] [cursor=pointer]:
+                        - text: 양산도 신사점
+                        - generic [ref=f21e468]:
+                          - generic [ref=f21e469]: 예약
+                          - generic [ref=f21e474]: 톡톡
+                          - generic [ref=f21e479]: 쿠폰
+                        - text: 일식당
+                      - button "70년 전통 히츠마부시 전문점" [ref=f21e485] [cursor=pointer]
+                      - generic [ref=f21e486]:
+                        - button "새로오픈 영업 종료 별점 4.88 리뷰 151 휠체어 출입 가능" [ref=f21e487] [cursor=pointer]:
+                          - text: 새로오픈 영업 종료
+                          - generic [ref=f21e488]:
+                            - generic [ref=f21e491]: 별점
+                            - text: "4.88"
+                          - generic [ref=f21e492]: 리뷰 151
+                          - generic [ref=f21e493]: 휠체어 출입 가능
+                        - button "광고" [ref=f21e498] [cursor=pointer]
+                      - button "저장" [ref=f21e504] [cursor=pointer]
+                    - button "주간 인기 많은 메뉴 히츠마부시, 특 히츠마부시, 특 가지장어덮밥, 가지장어덮밥, 장새고만두(6P)" [ref=f21e513] [cursor=pointer]:
+                      - strong [ref=f21e514]: 주간 인기 많은 메뉴
+                      - generic [ref=f21e515]: 히츠마부시, 특 히츠마부시, 특 가지장어덮밥, 가지장어덮밥, 장새고만두(6P)
+                    - generic [ref=f21e519]:
+                      - button "남자친구랑 방문했어요 장어덮밥과 함께 계란찜 미니 모밀, 샐러드가 정갈하게 나와서 대접받는 느낌을 줍니다." [ref=f21e521] [cursor=pointer]
+                      - button "너무 잘 먹고 갑니다. 남편하고 맛있게 먹고 가요. 장어를 좋아해서 일식을 자주 먹으러 다녀요. 추천해요" [ref=f21e525] [cursor=pointer]
+                      - button "쌀도 맛있고 장어도 맛있어요! 장국도 맛있고 모밀도 계란 찜 도 다 맛있습니당" [ref=f21e529] [cursor=pointer]
+                - generic [ref=f21e546]:
+                  - button "이전페이지" [disabled] [ref=f21e547]
+                  - button "1" [ref=f21e551] [cursor=pointer]
+                  - button "2" [ref=f21e552] [cursor=pointer]
+                  - button "다음페이지" [ref=f21e553] [cursor=pointer]
+      - generic [ref=e2111]:
+        - status [ref=e2112]
+        - generic [ref=e2114]:
+          - iframe [ref=e2116]:
+            - generic [ref=f23e4]:
+              - banner [ref=f23e5]:
+                - heading "치보 신사점" [level=1] [ref=f23e6]
+                - button "페이지 닫기" [ref=f23e7] [cursor=pointer]
+              - main [ref=f23e12]:
+                - generic [ref=f23e14]:
+                  - generic [ref=f23e15]: 플레이스 플러스
+                  - generic [ref=f23e20]: 치보 신사점
+                  - generic [ref=f23e22]:
+                    - generic [ref=f23e23]:
+                      - text: 일식당
+                      - generic [ref=f23e24]:
+                        - generic [ref=f23e27]: 별점
+                        - text: "4.86"
+                      - button "리뷰 2,792" [ref=f23e29] [cursor=pointer]
+                    - generic [ref=f23e30]:
+                      - text: 상큼한 하이볼과 함께하는 즐거운 식사
+                      - button "AI 요약" [ref=f23e31] [cursor=pointer]
+                  - generic [ref=f23e39]:
+                    - button "출발" [ref=f23e41] [cursor=pointer]
+                    - button "도착" [ref=f23e43] [cursor=pointer]
+                    - button "예약" [ref=f23e45] [cursor=pointer]
+                    - button "거리뷰" [ref=f23e49] [cursor=pointer]
+                    - link "공유" [ref=f23e53] [cursor=pointer]:
+                      - /url: "#"
+                    - button "알림받기" [ref=f23e57] [cursor=pointer]
+                  - list [ref=f23e63]:
+                    - listitem [ref=f23e64]:
+                      - button [ref=f23e65] [cursor=pointer]
+                    - listitem [ref=f23e66]:
+                      - button "야몽야몽" [ref=f23e67] [cursor=pointer]
+                    - listitem [ref=f23e71]:
+                      - button [ref=f23e72] [cursor=pointer]
+                    - listitem [ref=f23e73]:
+                      - button "내부" [ref=f23e74] [cursor=pointer]
+                    - listitem [ref=f23e77]:
+                      - button "음식·음료" [ref=f23e78] [cursor=pointer]
+                    - listitem [ref=f23e81]:
+                      - button "야끼소바" [ref=f23e82] [cursor=pointer]
+                    - listitem [ref=f23e85]:
+                      - button "야끼소바빵" [ref=f23e86] [cursor=pointer]
+                    - listitem [ref=f23e89]:
+                      - button "부타동" [ref=f23e90] [cursor=pointer]
+                    - listitem [ref=f23e93]:
+                      - button "하이볼" [ref=f23e94] [cursor=pointer]
+                    - listitem [ref=f23e97]:
+                      - button "오코노미야끼" [ref=f23e98] [cursor=pointer]
+                    - listitem [ref=f23e101]:
+                      - button [ref=f23e102] [cursor=pointer]
+                - tablist [ref=f23e107]:
+                  - generic [ref=f23e110]:
+                    - tab "홈" [selected] [ref=f23e111] [cursor=pointer]
+                    - tab "소식" [ref=f23e113] [cursor=pointer]
+                    - tab "메뉴" [ref=f23e115] [cursor=pointer]
+                    - tab "예약" [ref=f23e117] [cursor=pointer]
+                    - tab "리뷰" [ref=f23e119] [cursor=pointer]
+                    - tab "사진" [ref=f23e121] [cursor=pointer]
+                    - tab "정보" [ref=f23e123] [cursor=pointer]
+                - generic [ref=f23e127]:
+                  - generic [ref=f23e129]:
+                    - generic [ref=f23e130]:
+                      - strong [ref=f23e131]:
+                        - generic [ref=f23e134]: 주소
+                      - generic [ref=f23e135]:
+                        - button [ref=f23e136] [cursor=pointer]
+                        - generic [ref=f23e140]:
+                          - generic [ref=f23e141]: "3"
+                          - generic [ref=f23e143]: 신분당
+                          - text: 신사역 8번 출구에서 228m
+                          - generic [ref=f23e145]: 미터
+                    - generic [ref=f23e146]:
+                      - strong [ref=f23e147]:
+                        - generic [ref=f23e150]: 찾아가는길
+                      - generic [ref=f23e151]: "[신사역 맛집 치보 찾아오시는 길] <도보/지하철 이용 시> 강남 신사역 8번출구에서 도보 약 3분 소요되며, 228m거리에 위치하고 있습니다. 가로수길과 인접하여 도보 약 5분 소요되며, 326m거리에 위치하고 있습니다. <버스 이용 시> -신사역6번출구 (신사중학교 방면) 버스정류장에서 하차 후 도보 약 3분 소요되며, 256m거리에 위치하고 있습니다. -신사동 (한남대교(가상)방면) 버스정류장에서 하차 후 도보 약 3분 소요되며, 253m거리에 위치하고 있습니다. -신사역8번출구.가로수길 (신사역4번출구방면) 버스정류장에서 하차 후 도보 약 3분 소요되며, 248m거리에 위치하고 있습니다. <자동차 이용 시> 서울 강남구 강남대로154길 21 1층 101호 치보 강남신사점"
+                    - generic [ref=f23e154]:
+                      - strong [ref=f23e155]:
+                        - generic [ref=f23e158]: 영업시간
+                      - button "오늘 휴무 매주 월요일 휴무 펼쳐보기" [ref=f23e160] [cursor=pointer]:
+                        - generic [ref=f23e162]:
+                          - generic [ref=f23e163]:
+                            - emphasis [ref=f23e164]: 오늘 휴무
+                            - generic [ref=f23e165]:
+                              - time [ref=f23e166]: 매주 월요일 휴무
+                              - generic [ref=f23e167]: 매주 월요일 휴무
+                          - generic [ref=f23e168]: 펼쳐보기
+                    - generic [ref=f23e172]:
+                      - strong [ref=f23e173]:
+                        - generic [ref=f23e176]: 전화번호
+                      - generic [ref=f23e177]:
+                        - text: 0507-1432-1973
+                        - button "안내" [ref=f23e178] [cursor=pointer]
+                        - button "복사" [ref=f23e183] [cursor=pointer]
+                    - generic [ref=f23e184]:
+                      - strong [ref=f23e185]:
+                        - generic [ref=f23e188]: 홈페이지
+                      - button "https://www.instagram.com/chibo1973sinsa" [ref=f23e191] [cursor=pointer]
+                    - generic [ref=f23e192]:
+                      - strong [ref=f23e193]:
+                        - generic [ref=f23e196]: TV방송정보
+                      - generic [ref=f23e200]:
+                        - text: 생활의달인 935회,
+                        - time [ref=f23e201]: 24.05.13.
+                        - generic [ref=f23e202]: 2024년 5월 13일
+                        - text: 오코노미야끼
+                    - generic [ref=f23e203]:
+                      - strong [ref=f23e204]:
+                        - generic [ref=f23e207]: 편의
+                      - generic [ref=f23e208]: 단체 이용 가능, 무선 인터넷, 예약, 대기공간, 남/녀 화장실 구분
+                  - button "정보 더보기" [ref=f23e212] [cursor=pointer]:
+                    - generic [ref=f23e213]: 정보
+                    - generic [ref=f23e214]: 더보기
+              - contentinfo [ref=f23e217]:
+                - generic [ref=f23e218]:
+                  - button "이용약관" [ref=f23e219] [cursor=pointer]
+                  - button "고객센터" [ref=f23e220] [cursor=pointer]
+                  - button "리뷰운영정책" [ref=f23e221] [cursor=pointer]
+                  - button "신고센터" [ref=f23e222] [cursor=pointer]
+                - button "네이버" [ref=f23e224] [cursor=pointer]
+          - button "loading" [ref=e2117] [cursor=pointer]
+        - button "패널 접기" [expanded] [ref=e2123] [cursor=pointer]
+      - button "패널 접기" [expanded] [ref=e123] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e125]:
+                - button "일반지도" [ref=e126] [cursor=pointer]
+                - button "위성지도" [ref=e128] [cursor=pointer]
+                - button "지형지도" [ref=e130] [cursor=pointer]
+              - generic [ref=e132]:
+                - button "테마" [ref=e133] [cursor=pointer]
+                - button "저장" [ref=e135] [cursor=pointer]
+                - button "지적편집도" [ref=e137] [cursor=pointer]
+                - button "거리뷰" [ref=e139] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "반경측정" [ref=e142] [cursor=pointer]
+                - button "면적측정" [ref=e144] [cursor=pointer]
+                - button "거리측정" [ref=e146] [cursor=pointer]
+              - generic [ref=e148]:
+                - button "다운로드" [ref=e149] [cursor=pointer]
+                - button "인쇄" [ref=e151] [cursor=pointer]
+                - button "공유하기" [ref=e153] [cursor=pointer]
+            - generic:
+              - button "접속위치" [ref=e157] [cursor=pointer]
+              - generic [ref=e163]:
+                - button "확대" [ref=e164] [cursor=pointer]
+                - button "축소" [ref=e167] [cursor=pointer]
+  - status [ref=e169]

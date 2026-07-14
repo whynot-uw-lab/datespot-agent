@@ -1,0 +1,357 @@
+- generic [ref=e3]:
+  - generic:
+    - link "본문 바로가기" [ref=e4] [cursor=pointer]:
+      - /url: "#section_content"
+    - link "주 메뉴 바로가기" [ref=e6] [cursor=pointer]:
+      - /url: "#header"
+  - banner [ref=e8]:
+    - heading [level=1] [ref=e9]:
+      - link "네이버지도" [ref=e10] [cursor=pointer]:
+        - /url: https://www.naver.com
+    - navigation [ref=e12]:
+      - list [ref=e13]:
+        - listitem [ref=e14]:
+          - button "지도 홈 선택됨" [ref=e15] [cursor=pointer]:
+            - generic [ref=e21]: 지도 홈
+            - generic [ref=e22]: 선택됨
+        - listitem [ref=e23]:
+          - button "길찾기" [ref=e24] [cursor=pointer]
+        - listitem [ref=e30]:
+          - button "버스" [ref=e31] [cursor=pointer]
+        - listitem [ref=e37]:
+          - button "지하철" [ref=e38] [cursor=pointer]
+        - listitem [ref=e44]:
+          - button "기차" [ref=e45] [cursor=pointer]
+        - listitem [ref=e51]:
+          - button "new 저장" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: new
+            - generic [ref=e59]: 저장
+        - listitem [ref=e60]:
+          - button "더보기" [ref=e61] [cursor=pointer]
+    - generic [ref=e68]:
+      - strong [ref=e69]: 사용자 링크
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - link "로그인" [ref=e72] [cursor=pointer]:
+            - /url: https://nid.naver.com/nidlogin.login
+        - listitem [ref=e74]:
+          - link "서비스 더보기" [ref=e75] [cursor=pointer]:
+            - /url: javascript:;
+  - generic:
+    - application [ref=e80]:
+      - generic [ref=e170]:
+        - region "Map" [ref=e171]
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e1574] [cursor=pointer]:
+                - generic [ref=e1575]:
+                  - img "음식점"
+                - strong [ref=e1577]: 더 리버사이드 호텔 카와베 스키야키
+              - generic [ref=e1579] [cursor=pointer]:
+                - generic [ref=e1580]:
+                  - img "음식점"
+                - strong [ref=e1582]: 소바 나오
+              - generic [ref=e1584] [cursor=pointer]:
+                - generic [ref=e1585]:
+                  - img "음식점"
+                - strong [ref=e1587]: 멘야하나비 신사점
+              - generic [ref=e1589] [cursor=pointer]:
+                - generic [ref=e1590]:
+                  - img "음식점"
+                - strong [ref=e1592]: 긴자료코 신사본점
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1606] [cursor=pointer]:
+                - img "음식점"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1619] [cursor=pointer]:
+                - img "음식점"
+              - generic [ref=e1623] [cursor=pointer]:
+                - generic [ref=e1624]:
+                  - img "음식점"
+                - strong [ref=e1626]: 준카츠
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+      - generic [ref=e83]:
+        - img "NAVER" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]: 100m
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - button "검색" [ref=e93] [cursor=pointer]
+        - button "삭제" [ref=e1271] [cursor=pointer]
+        - combobox [ref=e836]: 일식
+      - generic [ref=e967]:
+        - status [ref=e968]
+        - generic [ref=e970]:
+          - heading "검색" [level=2] [ref=e971]
+          - iframe [ref=e1566]:
+            - generic [ref=f17e4]:
+              - generic [ref=f17e5]:
+                - generic [ref=f17e10]:
+                  - button "전체필터" [ref=f17e12] [cursor=pointer]
+                  - button "영업중" [ref=f17e17] [cursor=pointer]
+                  - button "예약" [ref=f17e19] [cursor=pointer]
+                  - button "플레이스 플러스" [ref=f17e23] [cursor=pointer]
+                  - button "쿠폰" [ref=f17e28] [cursor=pointer]
+                  - button "포장주문" [ref=f17e32] [cursor=pointer]
+                - generic [ref=f17e37]:
+                  - button "주차" [ref=f17e39] [cursor=pointer]
+                  - button "바테이블" [ref=f17e41] [cursor=pointer]
+                  - button "인테리어" [ref=f17e43] [cursor=pointer]
+                  - button "특별한메뉴" [ref=f17e45] [cursor=pointer]
+                  - button "사진맛집" [ref=f17e47] [cursor=pointer]
+                  - button "더보기" [ref=f17e423] [cursor=pointer]
+              - generic [ref=f17e64]:
+                - list [ref=f17e66]:
+                  - listitem [ref=f17e67]:
+                    - generic [ref=f17e68]:
+                      - button "더 리버사이드 호텔 카와베 스키야키 네이버페이 예약 일식당" [ref=f17e70] [cursor=pointer]:
+                        - text: 더 리버사이드 호텔 카와베 스키야키
+                        - generic [ref=f17e71]:
+                          - generic [ref=f17e72]: 네이버페이
+                          - generic [ref=f17e77]: 예약
+                        - text: 일식당
+                      - button "오늘 휴무 별점 4.47 리뷰 650" [ref=f17e83] [cursor=pointer]:
+                        - text: 오늘 휴무
+                        - generic [ref=f17e84]:
+                          - generic [ref=f17e87]: 별점
+                          - text: "4.47"
+                        - generic [ref=f17e88]: 리뷰 650
+                      - button "저장" [ref=f17e89] [cursor=pointer]
+                    - generic [ref=f17e430]:
+                      - button [ref=f17e432] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e433]
+                      - button [ref=f17e435] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e436]
+                      - button "더 리버사이드 호텔 카와베 스키야키 해피꿀쪽이" [ref=f17e438] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e439]
+                        - generic [ref=f17e440]: 해피꿀쪽이
+                      - button "더 리버사이드 호텔 카와베 스키야키 h2****" [ref=f17e444] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e445]
+                        - generic [ref=f17e446]: h2****
+                      - button "더 리버사이드 호텔 카와베 스키야키 구르미8887" [ref=f17e450] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e451]
+                        - generic [ref=f17e452]: 구르미8887
+                      - button "더 리버사이드 호텔 카와베 스키야키 hot****" [ref=f17e456] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e457]
+                        - generic [ref=f17e458]: hot****
+                      - button "더 리버사이드 호텔 카와베 스키야키 None" [ref=f17e462] [cursor=pointer]:
+                        - img "더 리버사이드 호텔 카와베 스키야키" [ref=f17e463]
+                        - generic [ref=f17e464]: None
+                      - button [ref=f17e467] [cursor=pointer]
+                    - generic [ref=f17e99]:
+                      - button "일반 샤브샤브보다 비싸다고 생각할 수 있지만, 리필하면서 고기 퀄리티 생각하면 절대 비싼 가격이 아닌듯." [ref=f17e101] [cursor=pointer]
+                      - button "맛있고 질 좋은 고기. 채소도 신선함. 직원들이 매우 친절함. 데이트 하기 좋음." [ref=f17e105] [cursor=pointer]
+                      - button "당연 맛은 너무 맛있었고 특히 고기질이 너무 좋았습니다." [ref=f17e109] [cursor=pointer]
+                  - listitem [ref=f17e112]:
+                    - generic [ref=f17e113]:
+                      - button "소바 나오우동,소바" [ref=f17e115] [cursor=pointer]
+                      - button "영업 종료 별점 4.86 리뷰 112" [ref=f17e117] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e118]:
+                          - generic [ref=f17e121]: 별점
+                          - text: "4.86"
+                        - generic [ref=f17e122]: 리뷰 112
+                      - button "저장" [ref=f17e123] [cursor=pointer]
+                    - generic [ref=f17e474]:
+                      - button [ref=f17e476] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e477]
+                      - button [ref=f17e479] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e480]
+                      - button "소바 나오 mvp4933" [ref=f17e482] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e483]
+                        - generic [ref=f17e484]: mvp4933
+                      - button "소바 나오 이제 그만 만나자" [ref=f17e488] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e489]
+                        - generic [ref=f17e490]: 이제 그만 만나자
+                      - button "소바 나오 뚜비뚜비6218" [ref=f17e494] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e495]
+                        - generic [ref=f17e496]: 뚜비뚜비6218
+                      - button "소바 나오 떠름" [ref=f17e500] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e501]
+                        - generic [ref=f17e502]: 떠름
+                      - button "소바 나오 e_c****" [ref=f17e506] [cursor=pointer]:
+                        - img "소바 나오" [ref=f17e507]
+                        - generic [ref=f17e508]: e_c****
+                      - button [ref=f17e511] [cursor=pointer]
+                    - generic [ref=f17e133]:
+                      - button "온소바,냉소바 모두 너무 맛있게 먹고 왔어요 재료들이 모두 신선하고 좋은 느낌이에요" [ref=f17e135] [cursor=pointer]
+                      - button "정말 간만에 맛있는 소바 잘 먹었습니다. 소바도 너무 깔끔하게 단백한 맛이었습니다." [ref=f17e139] [cursor=pointer]
+                      - button "운이 좋게 다찌에 앉아서 쉐프님 요리하시는거걸 구경하면서 식사할수 있었어요. 조용하고 분위기 너무 좋아요!" [ref=f17e143] [cursor=pointer]
+                  - listitem [ref=f17e146]:
+                    - generic [ref=f17e147]:
+                      - button "멘야하나비 신사점 예약 쿠폰 일본식라면" [ref=f17e149] [cursor=pointer]:
+                        - text: 멘야하나비 신사점
+                        - generic [ref=f17e150]:
+                          - generic [ref=f17e151]: 예약
+                          - generic [ref=f17e156]: 쿠폰
+                        - text: 일본식라면
+                      - button "리뷰 작성시 아지다마 무료 쿠폰" [ref=f17e162] [cursor=pointer]
+                      - button "영업 종료 별점 4.63 리뷰 4,808 휠체어 출입 가능 TV 맛있는녀석들" [ref=f17e164] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e165]:
+                          - generic [ref=f17e168]: 별점
+                          - text: "4.63"
+                        - generic [ref=f17e169]: 리뷰 4,808
+                        - generic [ref=f17e170]: 휠체어 출입 가능
+                        - generic [ref=f17e175]:
+                          - generic [ref=f17e176]: TV
+                          - text: 맛있는녀석들
+                      - button "저장" [ref=f17e180] [cursor=pointer]
+                    - generic [ref=f17e190]:
+                      - button "신사에 마제소바 맛있는 곳이 있다고해서 와봤어요! 마제소바랑 타이완라멘, 가라아게 주문했어요" [ref=f17e192] [cursor=pointer]
+                      - button "도니꾸 마제소바 추천해요 삼겹살 차슈 토핑이 두툼한데 정말 부드럽고 맛있어요!" [ref=f17e196] [cursor=pointer]
+                      - button "마제소바와 가라아게 시켜서 먹었는데, 마제소바는 면이 찰지고 가라아게는 튀김옷이 바삭했어요!" [ref=f17e200] [cursor=pointer]
+                  - listitem [ref=f17e203]:
+                    - generic [ref=f17e204]:
+                      - button "긴자료코 신사본점돈가스" [ref=f17e206] [cursor=pointer]
+                      - button "영업 종료 리뷰 617 서울 서초구 잠원동" [ref=f17e208] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e209]: 리뷰 617
+                        - text: 서울 서초구 잠원동
+                      - button "저장" [ref=f17e210] [cursor=pointer]
+                    - generic [ref=f17e220]:
+                      - button "<신사역 혼밥하기 좋은 일식> 최근에 오픈한 집으로 부담없이 혼자먹기 편하고 메뉴들도 먹어보고 싶은 메뉴들이 많이 있음 돈까스 연어덮밥이 메인메뉴이며 다른메뉴들도 다들 맛있어보임" [ref=f17e222] [cursor=pointer]
+                      - button "최근에 먹은 일식 중에서 가장 만족스러웠습니다." [ref=f17e226] [cursor=pointer]
+                      - button "본점인 만큼 청결도가 무척 뛰어났고 음식의 퀄리티와 튀김 수준이 높았다." [ref=f17e230] [cursor=pointer]
+                  - listitem [ref=f17e233]:
+                    - generic [ref=f17e234]:
+                      - button "일일시호일일본식라면" [ref=f17e236] [cursor=pointer]
+                      - button "영업 종료 리뷰 529 매운맛에 중독되는 츠케멘 한그릇" [ref=f17e238] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e239]: 리뷰 529
+                        - text: 매운맛에 중독되는 츠케멘 한그릇
+                      - button "저장" [ref=f17e240] [cursor=pointer]
+                    - generic [ref=f17e250]:
+                      - button "매운 츠케멘m 밥 리필까지 할 정도로 맛있음." [ref=f17e252] [cursor=pointer]
+                      - button "매운맛은 확실히 매콤해요! 둘다 특,라지 사이즈로 시켰는데 든든하게 잘 먹었습니다 ㅎㅎ" [ref=f17e256] [cursor=pointer]
+                      - button "추천받아서 왔는데 최애라멘집 될 것 같아요. 츠케맨도 별미였어요:) 사장님도 정말 친절하세요" [ref=f17e260] [cursor=pointer]
+                  - listitem [ref=f17e263]:
+                    - button [ref=f17e264] [cursor=pointer]:
+                      - img "올 여름 휴가비, 네이버가 쏜다! 6천명에게 드리는 역대급 선물" [ref=f17e265]
+                  - listitem [ref=f17e266]:
+                    - generic [ref=f17e267]:
+                      - button "다락소바우동,소바" [ref=f17e269] [cursor=pointer]
+                      - button "영업 종료 리뷰 17 휠체어 출입 가능 신선한 재료로 만든 글루텐 프리 소바" [ref=f17e271] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e272]: 리뷰 17
+                        - generic [ref=f17e273]: 휠체어 출입 가능
+                        - text: 신선한 재료로 만든 글루텐 프리 소바
+                      - button "저장" [ref=f17e278] [cursor=pointer]
+                    - generic [ref=f17e288]:
+                      - button "얼마전에 생긴 소바집인데 깔끔하고 맛있어요. 자주 방문하고 있어요" [ref=f17e290] [cursor=pointer]
+                      - button "편안하고 시원하고 맛있는 소바였어요" [ref=f17e294] [cursor=pointer]
+                  - listitem [ref=f17e297]:
+                    - generic [ref=f17e298]:
+                      - button "로미야이자카야" [ref=f17e300] [cursor=pointer]
+                      - button "영업 중 별점 4.73 리뷰 1,020" [ref=f17e302] [cursor=pointer]:
+                        - text: 영업 중
+                        - generic [ref=f17e303]:
+                          - generic [ref=f17e306]: 별점
+                          - text: "4.73"
+                        - generic [ref=f17e307]: 리뷰 1,020
+                      - button "저장" [ref=f17e308] [cursor=pointer]
+                    - generic [ref=f17e318]:
+                      - button "신사역에서 저녁에 분위기있는 일식요리 드시고 싶은 분들은 여기 식당 추천드립니다." [ref=f17e320] [cursor=pointer]
+                      - button "오리목살무침 먹으러 갔다가 제대로 만족하고 왔어요 다음에 가면 오리목살무침은 또 시킬 것 같아용!" [ref=f17e324] [cursor=pointer]
+                      - button "먹느라 음식사진은 야끼소바만 찍었는데 다른 음식들도 맛있었어요" [ref=f17e328] [cursor=pointer]
+                  - listitem [ref=f17e331]:
+                    - generic [ref=f17e332]:
+                      - button "슈엔이자카야" [ref=f17e334] [cursor=pointer]
+                      - button "영업 중 별점 4.47 리뷰 261" [ref=f17e336] [cursor=pointer]:
+                        - text: 영업 중
+                        - generic [ref=f17e337]:
+                          - generic [ref=f17e340]: 별점
+                          - text: "4.47"
+                        - generic [ref=f17e341]: 리뷰 261
+                      - button "저장" [ref=f17e342] [cursor=pointer]
+                    - generic [ref=f17e352]:
+                      - button "도미머리구이를 족발뜯어먹듯이 속속 발라먹어버렸네요 알바생분도 완전 친절해요 3" [ref=f17e354] [cursor=pointer]
+                      - button "야끼교자, 모찌리도후, 닭다리살 숯불구이 다 맛잇쪄영" [ref=f17e358] [cursor=pointer]
+                      - button "일본 느낌 낭낭하고 조용하고 분위기 좋아서 대화하기 좋았어요! 조개술찜 진짜 맛있어요 해장으로 최고!" [ref=f17e362] [cursor=pointer]
+                  - listitem [ref=f17e365]:
+                    - generic [ref=f17e366]:
+                      - button "돈가스신사 쿠폰 돈가스" [ref=f17e368] [cursor=pointer]:
+                        - text: 돈가스신사
+                        - generic [ref=f17e369]: 쿠폰
+                        - text: 돈가스
+                      - button "알림받기 하면 4시이후+2인이상 음료수 쿠폰" [ref=f17e376] [cursor=pointer]
+                      - button "영업 종료 별점 4.32 리뷰 253" [ref=f17e378] [cursor=pointer]:
+                        - text: 영업 종료
+                        - generic [ref=f17e379]:
+                          - generic [ref=f17e382]: 별점
+                          - text: "4.32"
+                        - generic [ref=f17e383]: 리뷰 253
+                      - button "저장" [ref=f17e384] [cursor=pointer]
+                    - generic [ref=f17e394]:
+                      - button "늦은 점심에 방문해서 신사정식 주문했어요. 매장 깔끔 청결하고 응대 친절하셔요." [ref=f17e396] [cursor=pointer]
+                      - button "짱맛이에오 안심돈까스랑 반우동 나오는 숙녀정식먹었어요! 양이 이렇게 많을 줄 몰랐오요 ㅎㅎ" [ref=f17e400] [cursor=pointer]
+                      - button "옛날 돈까스가 너무 먹고 싶어서 찾아보다가 처음으로 방문하였습니다." [ref=f17e404] [cursor=pointer]
+                - generic [ref=f17e409]:
+                  - button "이전페이지" [disabled] [ref=f17e410]
+                  - button "1" [ref=f17e414] [cursor=pointer]
+                  - button "다음페이지" [disabled] [ref=f17e415]
+      - button "패널 접기" [expanded] [ref=e123] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - list [ref=e1457]:
+              - listitem [ref=e1458]:
+                - button "음식점" [ref=e1459] [cursor=pointer]
+              - listitem [ref=e1462]:
+                - button "카페" [ref=e1463] [cursor=pointer]
+              - listitem [ref=e1466]:
+                - button "팝업스토어" [ref=e1467] [cursor=pointer]
+              - listitem [ref=e1470]:
+                - button "주변 키워드 더보기" [ref=e1471] [cursor=pointer]
+            - generic [ref=e1473]:
+              - button "맑음 30° 기온 미세 좋음 초미세 좋음 폭염 주의보" [ref=e1474] [cursor=pointer]:
+                - generic [ref=e1475]:
+                  - generic [ref=e1476]:
+                    - generic [ref=e1477]: 맑음
+                    - generic [ref=e1479]:
+                      - text: 30°
+                      - generic [ref=e1480]: 기온
+                  - generic [ref=e1481]:
+                    - generic [ref=e1484]:
+                      - text: 미세
+                      - generic [ref=e1485]: 좋음
+                    - generic [ref=e1488]:
+                      - text: 초미세
+                      - generic [ref=e1489]: 좋음
+                - strong [ref=e1490]: 폭염 주의보
+              - text: "|"
+          - button "현 지도에서 검색" [ref=e1629] [cursor=pointer]
+          - generic:
+            - generic:
+              - generic [ref=e125]:
+                - button "일반지도" [ref=e126] [cursor=pointer]
+                - button "위성지도" [ref=e128] [cursor=pointer]
+                - button "지형지도" [ref=e130] [cursor=pointer]
+              - generic [ref=e132]:
+                - button "테마" [ref=e133] [cursor=pointer]
+                - button "저장" [ref=e135] [cursor=pointer]
+                - button "지적편집도" [ref=e137] [cursor=pointer]
+                - button "거리뷰" [ref=e139] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "반경측정" [ref=e142] [cursor=pointer]
+                - button "면적측정" [ref=e144] [cursor=pointer]
+                - button "거리측정" [ref=e146] [cursor=pointer]
+              - generic [ref=e148]:
+                - button "다운로드" [ref=e149] [cursor=pointer]
+                - button "인쇄" [ref=e151] [cursor=pointer]
+                - button "공유하기" [ref=e153] [cursor=pointer]
+            - generic:
+              - button "접속위치" [ref=e157] [cursor=pointer]
+              - generic [ref=e163]:
+                - button "확대" [ref=e164] [cursor=pointer]
+                - button "축소" [active] [ref=e167] [cursor=pointer]
+  - status [ref=e169]

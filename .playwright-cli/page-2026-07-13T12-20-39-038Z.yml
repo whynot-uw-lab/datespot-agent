@@ -1,0 +1,738 @@
+- generic [ref=e3]:
+  - generic:
+    - link "본문 바로가기" [ref=e4] [cursor=pointer]:
+      - /url: "#section_content"
+    - link "주 메뉴 바로가기" [ref=e6] [cursor=pointer]:
+      - /url: "#header"
+  - banner [ref=e8]:
+    - heading [level=1] [ref=e9]:
+      - link "네이버지도" [ref=e10] [cursor=pointer]:
+        - /url: https://www.naver.com
+    - navigation [ref=e12]:
+      - list [ref=e13]:
+        - listitem [ref=e14]:
+          - button "지도 홈 선택됨" [ref=e15] [cursor=pointer]:
+            - generic [ref=e21]: 지도 홈
+            - generic [ref=e22]: 선택됨
+        - listitem [ref=e23]:
+          - button "길찾기" [ref=e24] [cursor=pointer]
+        - listitem [ref=e30]:
+          - button "버스" [ref=e31] [cursor=pointer]
+        - listitem [ref=e37]:
+          - button "지하철" [ref=e38] [cursor=pointer]
+        - listitem [ref=e44]:
+          - button "기차" [ref=e45] [cursor=pointer]
+        - listitem [ref=e51]:
+          - button "new 저장" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: new
+            - generic [ref=e59]: 저장
+        - listitem [ref=e60]:
+          - button "더보기" [ref=e61] [cursor=pointer]
+    - generic [ref=e68]:
+      - strong [ref=e69]: 사용자 링크
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - link "로그인" [ref=e72] [cursor=pointer]:
+            - /url: https://nid.naver.com/nidlogin.login
+        - listitem [ref=e74]:
+          - link "서비스 더보기" [ref=e75] [cursor=pointer]:
+            - /url: javascript:;
+  - generic:
+    - application [ref=e80]:
+      - region "Map" [ref=e171]
+      - generic [ref=e83]:
+        - img "NAVER" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]: 100m
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - button "검색" [ref=e93] [cursor=pointer]
+        - generic [ref=e94]:
+          - generic [ref=e95] [cursor=pointer]: 네이버지도 검색
+          - combobox "네이버지도 검색" [ref=e96]
+      - generic [ref=e98]:
+        - status [ref=e99]
+        - generic [ref=e101]:
+          - heading "지도 홈" [level=2] [ref=e102]
+          - generic [ref=e103]:
+            - heading "공지사항" [level=3] [ref=e104]
+            - generic [ref=e106]:
+              - link "지도 업데이트 안내 - 도보 코스 만들기, GPX 파일 다운로드/조회 (v6.8.0 이상) 새창열기":
+                - /url: https://blog.naver.com/PostView.naver?blogId=naver_map&navType=tl&logNo=224345144737
+                - generic: 지도 업데이트 안내 - 도보 코스 만들기, GPX 파일 다운로드/조회 (v6.8.0 이상)
+                - generic: 새창열기
+              - link "네이버지도 앱에서 주문 시, Live Activity로 알려 드려요! 새창열기" [ref=e831] [cursor=pointer]:
+                - /url: https://blog.naver.com/PostView.naver?blogId=naver_map&navType=tl&logNo=224299247284
+                - generic [ref=e832]: 네이버지도 앱에서 주문 시, Live Activity로 알려 드려요!
+                - generic [ref=e833]: 새창열기
+              - link "지도앱 업데이트 안내 - 실시간 도보 길안내 (v6.7.0) 새창열기":
+                - /url: https://blog.naver.com/PostView.naver?blogId=naver_map&navType=tl&logNo=224317612191
+                - generic: 지도앱 업데이트 안내 - 실시간 도보 길안내 (v6.7.0)
+                - generic: 새창열기
+          - generic [ref=e173]:
+            - button "강남구 세곡동" [ref=e174] [cursor=pointer]
+            - button "오류신고" [ref=e175] [cursor=pointer]
+          - generic [ref=e114]:
+            - iframe [ref=e179]:
+              - generic [ref=f9e3]:
+                - button "AD" [ref=f9e5] [cursor=pointer]
+                - link "새 창 광고 이미지 대구, 유일무이의 랜드마크 당신이 처음 만나는 하이엔드 주거" [ref=f9e7] [cursor=pointer]:
+                  - /url: https://g.tivan.naver.com/gfa/vspyqCPrV4a9voBcSP9UAGUERxB1JwVbmvF5tR7HDYRFl0VjGw-bOB6eKPCC607XY91ugG799v-eTHrkWD4vy9dNJIqaRIO-4tm7YKvbwWfDfsfZs0RfrPErD2CUJn_fSBfro_qS9yysAF2ry_Ao-cQyED1a8hXSM3DrDxviPXQ1V5kHmGX2Ow7Sij7tTkKLNrt9JrqZ253OBGn2BGZkGC-MDv601FV4VuKFN0tejl7fXkPM9tD5sZ01YpEe4wH9MtgsFm8IjTtGh0Bwt7iM1-ITrzeabfsAgR3c66aS9hTBS0f38KnUvMgg6V_pZhYTPn14nf-5dgzT4g7G8k-bzy10jdWCINo02OwzE8kF4ytvHPghvzJwVhGfB-WuE0nTR0BZmfyUvWJ01YgNPH210EWyF1kk_gyBwtuEbVkXpmkm3TAe4JVGPsZ3SsGqM_2SerWTQjVOmKFJXH708KhsuN-2tZw-vUzy-_XnK7yLBaDV4hLg3893jwMH5nqlH3oVke7p8M5NF_uLXS5U1OTJOHzRQJpeUivsAJoybbUT43sDboE4xXR-EdiUS2p-hYTN0-5VIqxm6zQDZNwrFNfgA67Rwhy5m7GPf_5_m244Xns7MbTBsk1rd3QYqnXhDENTV_uGZJMy7If_Ds710i2pGolYPoAyaPA8OcsPtmYUylrFZjUsC5PDsCnFLFiFUwahhCA_EMB74HmUGR5HGbwwJUObb7yAC02OOFnEvsZWRd3eyPxSPWmbIKjuFkG8NREon2rX1bTlN-NL_DCFieOkyP6J--wffx_X6ATbNJlaAww6JyUSX5QcZS5FAh4YNYJtlhrouqy4woNy5CI3Fc22YrjdoDa8oQnxn2XmlMKSw0LtVJI685ViO2AaTdpNy0KcASVZ1hdICB_Ee2IpoT4H6BN5Kt73B4wd26iiOgj7ycN6h0FnXXmsr8N5YxUX1HJehgOvYKI5_wFGgcS96vM1VFpHMwYJ9j8yF7IJH-R1eHFrEJLPt5snDX8t-tVWmn3CvnfmWRnvgNSuZGRmI2XYMHe1rjT3NXNgKm0OS8sUYtexr389sygg1CB7h1c9HvQIXGX3OhqGApoFBXpx29IyyWi0sLkn1s7F6SMT9cGgeFD8fdwPHgQWm0qLY7xmcX1SYp-onJp0Rv2wfcoLGE7Y-XhYAWNXkvhQ270H7TL-j9_1ROpVzW4mgALnbKsBgpRJd3qW98kalOqswI0Wc2j8tGjnYhCwuNAWUSUXQI2eX1u5pCnDhhLrw4FtH3dUv_ezeK8Ja8C0NHifrUU-DCeALPp5fV063zzl6fd4tUA9hbPZrXHOFhEDVNFo8BojdfSwKbXRei7Ze6ztqEcJ2vbJ_DaiLdSi5hB1q5-NqjSaizRRngU56xcYK8pXsxs8tZ7b/
+                  - generic [ref=f9e8]: 새 창
+                  - generic [ref=f9e9]:
+                    - img "광고 이미지" [ref=f9e12]
+                    - generic [ref=f9e15]:
+                      - strong [ref=f9e16]: 대구, 유일무이의 랜드마크
+                      - paragraph [ref=f9e17]: 당신이 처음 만나는 하이엔드 주거
+            - heading "Smart Around" [level=3] [ref=e115]
+            - generic [ref=e181]:
+              - heading "주변" [level=3] [ref=e182]
+              - button "심야 시간대 추천순 설정 펼치기" [ref=e183] [cursor=pointer]:
+                - strong [ref=e184]: 심야
+                - text: 시간대
+                - strong [ref=e185]: 추천순
+                - generic [ref=e186]: 설정 펼치기
+              - generic [ref=e187]:
+                - generic [ref=e188]:
+                  - button "은곡빵집 총 10개의 이미지 중 1번 이미지 은곡빵집베이커리 반려견과 함께 즐기는 베이커리 타임 리뷰 1210 / 평균 5,000원" [ref=e189] [cursor=pointer]:
+                    - generic [ref=e190]:
+                      - img "은곡빵집" [ref=e192]
+                      - generic [ref=e193]:
+                        - generic [ref=e194]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e195]:
+                          - emphasis [ref=e196]: "1"
+                          - text: /10
+                    - generic [ref=e197]:
+                      - generic [ref=e198]:
+                        - strong [ref=e199]: 은곡빵집
+                        - text: 베이커리
+                      - paragraph [ref=e200]: 반려견과 함께 즐기는 베이커리 타임
+                      - generic [ref=e201]:
+                        - generic [ref=e202]:
+                          - term [ref=e203]: 리뷰
+                          - definition [ref=e204]:
+                            - strong [ref=e205]: "1210"
+                        - generic [ref=e206]:
+                          - text: /
+                          - term [ref=e207]: 평균
+                          - definition [ref=e208]:
+                            - strong [ref=e209]: 5,000
+                            - text: 원
+                  - button "저장" [ref=e210] [cursor=pointer]
+                - button "이팅이팅 여기 케이크 진짜 너무 맛난다. 웬만한 프랜차이즈 까페 케익 보다 맛있음. 가격 대비 양도 많고, 과일도 듬뿍 들어가고, 생크림 레이어 + 치즈 레이어 조합도 환상적이고, 밑바닥은" [ref=e213] [cursor=pointer]:
+                  - generic [ref=e217]:
+                    - strong [ref=e218]: 이팅이팅
+                    - paragraph [ref=e219]: 여기 케이크 진짜 너무 맛난다. 웬만한 프랜차이즈 까페 케익 보다 맛있음. 가격 대비 양도 많고, 과일도 듬뿍 들어가고, 생크림 레이어 + 치즈 레이어 조합도 환상적이고, 밑바닥은
+              - generic [ref=e221]:
+                - button "오적회관 강남세곡점 총 10개의 이미지 중 1번 이미지 오적회관 강남세곡점한식 오적회관 강남세곡점은 직화로 정성껏 조리한 오징어볶음을 중심으로 따뜻한 한식을 편안하게 즐기실 수 있는 공간입니다 신선한 재료와 불향이 어우러진 메뉴를 통해 30대 40대 직장인분들의 리뷰 691 / 평균 15,000원" [ref=e222] [cursor=pointer]:
+                  - generic [ref=e223]:
+                    - img "오적회관 강남세곡점" [ref=e225]
+                    - generic [ref=e226]:
+                      - generic [ref=e227]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e228]:
+                        - emphasis [ref=e229]: "1"
+                        - text: /10
+                  - generic [ref=e230]:
+                    - generic [ref=e231]:
+                      - strong [ref=e232]: 오적회관 강남세곡점
+                      - text: 한식
+                    - paragraph [ref=e233]: 오적회관 강남세곡점은 직화로 정성껏 조리한 오징어볶음을 중심으로 따뜻한 한식을 편안하게 즐기실 수 있는 공간입니다 신선한 재료와 불향이 어우러진 메뉴를 통해 30대 40대 직장인분들의
+                    - generic [ref=e234]:
+                      - generic [ref=e235]:
+                        - term [ref=e236]: 리뷰
+                        - definition [ref=e237]:
+                          - strong [ref=e238]: "691"
+                      - generic [ref=e239]:
+                        - text: /
+                        - term [ref=e240]: 평균
+                        - definition [ref=e241]:
+                          - strong [ref=e242]: 15,000
+                          - text: 원
+                - button "저장" [ref=e243] [cursor=pointer]
+              - generic [ref=e246]:
+                - button "고순이감자탕 세곡점 총 10개의 이미지 중 1번 이미지 고순이감자탕 세곡점한식 하루의 피로를 풀어주는 얼큰 감자탕 리뷰 48 / 평균 10,000원" [ref=e247] [cursor=pointer]:
+                  - generic [ref=e248]:
+                    - img "고순이감자탕 세곡점" [ref=e250]
+                    - generic [ref=e251]:
+                      - generic [ref=e252]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e253]:
+                        - emphasis [ref=e254]: "1"
+                        - text: /10
+                  - generic [ref=e255]:
+                    - generic [ref=e256]:
+                      - strong [ref=e257]: 고순이감자탕 세곡점
+                      - text: 한식
+                    - paragraph [ref=e258]: 하루의 피로를 풀어주는 얼큰 감자탕
+                    - generic [ref=e259]:
+                      - generic [ref=e260]:
+                        - term [ref=e261]: 리뷰
+                        - definition [ref=e262]:
+                          - strong [ref=e263]: "48"
+                      - generic [ref=e264]:
+                        - text: /
+                        - term [ref=e265]: 평균
+                        - definition [ref=e266]:
+                          - strong [ref=e267]: 10,000
+                          - text: 원
+                - button "저장" [ref=e268] [cursor=pointer]
+              - generic [ref=e271]:
+                - button "고기반햄반김치찌개&김치찜 세곡점 총 10개의 이미지 중 1번 이미지 고기반햄반김치찌개&김치찜 세곡점한식 푸짐한 양과 깊은 맛의 김치찌개 리뷰 180 / 평균 5,000원" [ref=e272] [cursor=pointer]:
+                  - generic [ref=e273]:
+                    - img "고기반햄반김치찌개&김치찜 세곡점" [ref=e275]
+                    - generic [ref=e276]:
+                      - generic [ref=e277]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e278]:
+                        - emphasis [ref=e279]: "1"
+                        - text: /10
+                  - generic [ref=e280]:
+                    - generic [ref=e281]:
+                      - strong [ref=e282]: 고기반햄반김치찌개&김치찜 세곡점
+                      - text: 한식
+                    - paragraph [ref=e283]: 푸짐한 양과 깊은 맛의 김치찌개
+                    - generic [ref=e284]:
+                      - generic [ref=e285]:
+                        - term [ref=e286]: 리뷰
+                        - definition [ref=e287]:
+                          - strong [ref=e288]: "180"
+                      - generic [ref=e289]:
+                        - text: /
+                        - term [ref=e290]: 평균
+                        - definition [ref=e291]:
+                          - strong [ref=e292]: 5,000
+                          - text: 원
+                - button "저장" [ref=e293] [cursor=pointer]
+              - generic [ref=e295]:
+                - generic [ref=e296]:
+                  - button "카페 두레브 세곡점 총 10개의 이미지 중 1번 이미지 카페 두레브 세곡점카페 수제 팥빙수와 함께하는 시원한 휴식 별점 4.43 / 리뷰 1076 / 평균 20,000원" [ref=e297] [cursor=pointer]:
+                    - generic [ref=e298]:
+                      - img "카페 두레브 세곡점" [ref=e300]
+                      - generic [ref=e301]:
+                        - generic [ref=e302]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e303]:
+                          - emphasis [ref=e304]: "1"
+                          - text: /10
+                    - generic [ref=e305]:
+                      - generic [ref=e306]:
+                        - strong [ref=e307]: 카페 두레브 세곡점
+                        - text: 카페
+                      - paragraph [ref=e308]: 수제 팥빙수와 함께하는 시원한 휴식
+                      - generic [ref=e309]:
+                        - generic [ref=e310]:
+                          - term [ref=e311]:
+                            - generic [ref=e312]: 별점
+                          - definition [ref=e314]:
+                            - strong [ref=e315]: "4.43"
+                        - generic [ref=e316]:
+                          - text: /
+                          - term [ref=e317]: 리뷰
+                          - definition [ref=e318]:
+                            - strong [ref=e319]: "1076"
+                        - generic [ref=e320]:
+                          - text: /
+                          - term [ref=e321]: 평균
+                          - definition [ref=e322]:
+                            - strong [ref=e323]: 20,000
+                            - text: 원
+                  - button "저장" [ref=e324] [cursor=pointer]
+                - 'button "빛희 #세곡동카페 동네 카페 카페 두레브 세곡점 영업시간 매일 8:00 - 22:00 라스트오더 21:50 브런치 8:00 - 20:00 요즘은 세곡동에서 카페가 많이 생겨서 넘 좋다." [ref=e327] [cursor=pointer]':
+                  - generic [ref=e331]:
+                    - strong [ref=e332]: 빛희
+                    - paragraph [ref=e333]: "#세곡동카페 동네 카페 카페 두레브 세곡점 영업시간 매일 8:00 - 22:00 라스트오더 21:50 브런치 8:00 - 20:00 요즘은 세곡동에서 카페가 많이 생겨서 넘 좋다."
+              - generic [ref=e335]:
+                - button "비에이블스터디카페 세곡센터 총 1개의 이미지 중 1번 이미지 비에이블스터디카페 세곡센터스터디카페 서울특별시 강남구 세곡동 590 라온프라이빗시티강남 2층 205호 리뷰 31 / 평균 58,000원" [ref=e336] [cursor=pointer]:
+                  - generic [ref=e337]:
+                    - img "비에이블스터디카페 세곡센터" [ref=e339]
+                    - generic [ref=e340]:
+                      - generic [ref=e341]: 총 1개의 이미지 중 1번 이미지
+                      - generic [ref=e342]:
+                        - emphasis [ref=e343]: "1"
+                        - text: /1
+                  - generic [ref=e344]:
+                    - generic [ref=e345]:
+                      - strong [ref=e346]: 비에이블스터디카페 세곡센터
+                      - text: 스터디카페
+                    - paragraph [ref=e347]: 서울특별시 강남구 세곡동 590 라온프라이빗시티강남 2층 205호
+                    - generic [ref=e348]:
+                      - generic [ref=e349]:
+                        - term [ref=e350]: 리뷰
+                        - definition [ref=e351]:
+                          - strong [ref=e352]: "31"
+                      - generic [ref=e353]:
+                        - text: /
+                        - term [ref=e354]: 평균
+                        - definition [ref=e355]:
+                          - strong [ref=e356]: 58,000
+                          - text: 원
+                - button "저장" [ref=e357] [cursor=pointer]
+              - generic [ref=e360]:
+                - button "진도 사골순대국 총 7개의 이미지 중 1번 이미지 진도 사골순대국순대,순댓국 스마트오더 가능 예약 가능 세곡동의 따뜻한 쉼터, 진도사골순대국으로 오세요 안녕하세요! 진하고 깊은 사골 육수로 정성을 가득 담아내는 진도사골순대국입니다. 저희는 세곡동 대왕초등학교 근처에서 여러분의 든든 리뷰 20 / 평균 11,000원" [ref=e361] [cursor=pointer]:
+                  - generic [ref=e362]:
+                    - img "진도 사골순대국" [ref=e364]
+                    - generic [ref=e365]:
+                      - generic [ref=e366]: 총 7개의 이미지 중 1번 이미지
+                      - generic [ref=e367]:
+                        - emphasis [ref=e368]: "1"
+                        - text: /7
+                  - generic [ref=e369]:
+                    - generic [ref=e370]:
+                      - strong [ref=e371]: 진도 사골순대국
+                      - text: 순대,순댓국
+                      - emphasis [ref=e372]:
+                        - generic [ref=e373]: 스마트오더 가능
+                      - emphasis [ref=e374]:
+                        - generic [ref=e375]: 예약 가능
+                    - paragraph [ref=e376]: 세곡동의 따뜻한 쉼터, 진도사골순대국으로 오세요 안녕하세요! 진하고 깊은 사골 육수로 정성을 가득 담아내는 진도사골순대국입니다. 저희는 세곡동 대왕초등학교 근처에서 여러분의 든든
+                    - generic [ref=e377]:
+                      - generic [ref=e378]:
+                        - term [ref=e379]: 리뷰
+                        - definition [ref=e380]:
+                          - strong [ref=e381]: "20"
+                      - generic [ref=e382]:
+                        - text: /
+                        - term [ref=e383]: 평균
+                        - definition [ref=e384]:
+                          - strong [ref=e385]: 11,000
+                          - text: 원
+                - button "저장" [ref=e386] [cursor=pointer]
+              - generic [ref=e388]:
+                - generic [ref=e389]:
+                  - button "초원식당 총 3개의 이미지 중 1번 이미지 초원식당육류,고기요리 초원숯불갈비는 숯불갈비의 화려한 맛에 더해 넓은 주차장과 품위 있고 아늑한 실내 인테리어에 넉넉한 인심까지 초원숯불갈비는 우리의 입맛과 눈길, 마음을 사로잡기에 충분합니다. 가족단 리뷰 428 / 평균 9,000원" [ref=e390] [cursor=pointer]:
+                    - generic [ref=e391]:
+                      - img "초원식당" [ref=e393]
+                      - generic [ref=e394]:
+                        - generic [ref=e395]: 총 3개의 이미지 중 1번 이미지
+                        - generic [ref=e396]:
+                          - emphasis [ref=e397]: "1"
+                          - text: /3
+                    - generic [ref=e398]:
+                      - generic [ref=e399]:
+                        - strong [ref=e400]: 초원식당
+                        - text: 육류,고기요리
+                      - paragraph [ref=e401]: 초원숯불갈비는 숯불갈비의 화려한 맛에 더해 넓은 주차장과 품위 있고 아늑한 실내 인테리어에 넉넉한 인심까지 초원숯불갈비는 우리의 입맛과 눈길, 마음을 사로잡기에 충분합니다. 가족단
+                      - generic [ref=e402]:
+                        - generic [ref=e403]:
+                          - term [ref=e404]: 리뷰
+                          - definition [ref=e405]:
+                            - strong [ref=e406]: "428"
+                        - generic [ref=e407]:
+                          - text: /
+                          - term [ref=e408]: 평균
+                          - definition [ref=e409]:
+                            - strong [ref=e410]: 9,000
+                            - text: 원
+                  - button "저장" [ref=e411] [cursor=pointer]
+                - 'button "욘다 서울공항 근처 #초원식당 원래 #김치찌개 가 메인인 곳인데 삼겹살도 판다 약간 주소는 강남인데 가보면 강남의 옛모습이 남아있는곳 아마도 서울공항때문에 개발이 안되는거 같기도 하다." [ref=e414] [cursor=pointer]':
+                  - generic [ref=e418]:
+                    - strong [ref=e419]: 욘다
+                    - paragraph [ref=e420]: "서울공항 근처 #초원식당 원래 #김치찌개 가 메인인 곳인데 삼겹살도 판다 약간 주소는 강남인데 가보면 강남의 옛모습이 남아있는곳 아마도 서울공항때문에 개발이 안되는거 같기도 하다."
+              - generic [ref=e422]:
+                - button "세곡커피 총 10개의 이미지 중 1번 이미지 세곡커피디저트 사장님의 밝은 인사가 반기는 카페 리뷰 47 / 평균 5,000원" [ref=e423] [cursor=pointer]:
+                  - generic [ref=e424]:
+                    - img "세곡커피" [ref=e426]
+                    - generic [ref=e427]:
+                      - generic [ref=e428]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e429]:
+                        - emphasis [ref=e430]: "1"
+                        - text: /10
+                  - generic [ref=e431]:
+                    - generic [ref=e432]:
+                      - strong [ref=e433]: 세곡커피
+                      - text: 디저트
+                    - paragraph [ref=e434]: 사장님의 밝은 인사가 반기는 카페
+                    - generic [ref=e435]:
+                      - generic [ref=e436]:
+                        - term [ref=e437]: 리뷰
+                        - definition [ref=e438]:
+                          - strong [ref=e439]: "47"
+                      - generic [ref=e440]:
+                        - text: /
+                        - term [ref=e441]: 평균
+                        - definition [ref=e442]:
+                          - strong [ref=e443]: 5,000
+                          - text: 원
+                - button "저장" [ref=e444] [cursor=pointer]
+              - generic [ref=e446]:
+                - generic [ref=e447]:
+                  - button "설빙 강남세곡점 총 5개의 이미지 중 1번 이미지 설빙 강남세곡점빙수 건물 지하에 무료주차 가능합니다. (1시간30분 무료) 리뷰 436 / 평균 10,000원" [ref=e448] [cursor=pointer]:
+                    - generic [ref=e449]:
+                      - img "설빙 강남세곡점" [ref=e451]
+                      - generic [ref=e452]:
+                        - generic [ref=e453]: 총 5개의 이미지 중 1번 이미지
+                        - generic [ref=e454]:
+                          - emphasis [ref=e455]: "1"
+                          - text: /5
+                    - generic [ref=e456]:
+                      - generic [ref=e457]:
+                        - strong [ref=e458]: 설빙 강남세곡점
+                        - text: 빙수
+                      - paragraph [ref=e459]: 건물 지하에 무료주차 가능합니다. (1시간30분 무료)
+                      - generic [ref=e460]:
+                        - generic [ref=e461]:
+                          - term [ref=e462]: 리뷰
+                          - definition [ref=e463]:
+                            - strong [ref=e464]: "436"
+                        - generic [ref=e465]:
+                          - text: /
+                          - term [ref=e466]: 평균
+                          - definition [ref=e467]:
+                            - strong [ref=e468]: 10,000
+                            - text: 원
+                  - button "저장" [ref=e469] [cursor=pointer]
+                - button "온맘다해 과즙 팡팡 메론빙수 맛집! '설빙 강남세곡점' 위치 ‣ 서울 강남구 헌릉로 569 강남리더스프라자 2층 204호 〔이마트에브리데이 건물 2층〕 영업시간 ‣ 평일 11:30 ~ 22" [ref=e472] [cursor=pointer]:
+                  - generic [ref=e476]:
+                    - strong [ref=e477]: 온맘다해
+                    - paragraph [ref=e478]: 과즙 팡팡 메론빙수 맛집! '설빙 강남세곡점' 위치 ‣ 서울 강남구 헌릉로 569 강남리더스프라자 2층 204호 〔이마트에브리데이 건물 2층〕 영업시간 ‣ 평일 11:30 ~ 22
+              - generic [ref=e479]:
+                - generic [ref=e480]:
+                  - button "스시 이루다 총 10개의 이미지 중 1번 이미지 스시 이루다일식 신선함이 살아있는 모듬 사시미의 매력 리뷰 256 / 평균 20,000원" [ref=e481] [cursor=pointer]:
+                    - generic [ref=e482]:
+                      - img "스시 이루다" [ref=e484]
+                      - generic [ref=e485]:
+                        - generic [ref=e486]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e487]:
+                          - emphasis [ref=e488]: "1"
+                          - text: /10
+                    - generic [ref=e489]:
+                      - generic [ref=e490]:
+                        - strong [ref=e491]: 스시 이루다
+                        - text: 일식
+                      - paragraph [ref=e492]: 신선함이 살아있는 모듬 사시미의 매력
+                      - generic [ref=e493]:
+                        - generic [ref=e494]:
+                          - term [ref=e495]: 리뷰
+                          - definition [ref=e496]:
+                            - strong [ref=e497]: "256"
+                        - generic [ref=e498]:
+                          - text: /
+                          - term [ref=e499]: 평균
+                          - definition [ref=e500]:
+                            - strong [ref=e501]: 20,000
+                            - text: 원
+                  - button "저장" [ref=e502] [cursor=pointer]
+                - button "리나 매장이 아담하다보니 서비스 초밥을 주는 포장도 좋을 것 같아요. 센스 만점 사장님 초밥 먹을 때 광어먹고 오오! 했는데 매장 앞에서 수조를 봤어요. 광어가 정말 크고 살아있어서 놀" [ref=e505] [cursor=pointer]:
+                  - generic [ref=e509]:
+                    - strong [ref=e510]: 리나
+                    - paragraph [ref=e511]: 매장이 아담하다보니 서비스 초밥을 주는 포장도 좋을 것 같아요. 센스 만점 사장님 초밥 먹을 때 광어먹고 오오! 했는데 매장 앞에서 수조를 봤어요. 광어가 정말 크고 살아있어서 놀
+              - generic [ref=e513]:
+                - button "은곡상회 본점 총 10개의 이미지 중 1번 이미지 은곡상회 본점한식 된장찌개와 김치말이국수의 완벽한 조화 리뷰 656 / 평균 15,000원" [ref=e514] [cursor=pointer]:
+                  - generic [ref=e515]:
+                    - img "은곡상회 본점" [ref=e517]
+                    - generic [ref=e518]:
+                      - generic [ref=e519]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e520]:
+                        - emphasis [ref=e521]: "1"
+                        - text: /10
+                  - generic [ref=e522]:
+                    - generic [ref=e523]:
+                      - strong [ref=e524]: 은곡상회 본점
+                      - text: 한식
+                    - paragraph [ref=e525]: 된장찌개와 김치말이국수의 완벽한 조화
+                    - generic [ref=e526]:
+                      - generic [ref=e527]:
+                        - term [ref=e528]: 리뷰
+                        - definition [ref=e529]:
+                          - strong [ref=e530]: "656"
+                      - generic [ref=e531]:
+                        - text: /
+                        - term [ref=e532]: 평균
+                        - definition [ref=e533]:
+                          - strong [ref=e534]: 15,000
+                          - text: 원
+                - button "저장" [ref=e535] [cursor=pointer]
+              - generic [ref=e537]:
+                - generic [ref=e538]:
+                  - button "형제왕족발보쌈 총 8개의 이미지 중 1번 이미지 형제왕족발보쌈족발,보쌈 예약 가능 1993년부터 강남구 세곡동에서 꾸준히 장사중입니다 감사합니다 리뷰 571 / 평균 10,000원" [ref=e539] [cursor=pointer]:
+                    - generic [ref=e540]:
+                      - img "형제왕족발보쌈" [ref=e542]
+                      - generic [ref=e543]:
+                        - generic [ref=e544]: 총 8개의 이미지 중 1번 이미지
+                        - generic [ref=e545]:
+                          - emphasis [ref=e546]: "1"
+                          - text: /8
+                    - generic [ref=e547]:
+                      - generic [ref=e548]:
+                        - strong [ref=e549]: 형제왕족발보쌈
+                        - text: 족발,보쌈
+                        - emphasis [ref=e550]:
+                          - generic [ref=e551]: 예약 가능
+                      - paragraph [ref=e552]: 1993년부터 강남구 세곡동에서 꾸준히 장사중입니다 감사합니다
+                      - generic [ref=e553]:
+                        - generic [ref=e554]:
+                          - term [ref=e555]: 리뷰
+                          - definition [ref=e556]:
+                            - strong [ref=e557]: "571"
+                        - generic [ref=e558]:
+                          - text: /
+                          - term [ref=e559]: 평균
+                          - definition [ref=e560]:
+                            - strong [ref=e561]: 10,000
+                            - text: 원
+                  - button "저장" [ref=e562] [cursor=pointer]
+                - button "겨리겨리소리소리 형제왕족발보쌈 서울 강남구 밤고개로 36길6 매일 11:30~23:30 전화번호 02 445 1552 포장 배달, 단체 이용가능 형제왕족발보쌈은 원래 배달음식 맛집으로 유명하다고해" [ref=e565] [cursor=pointer]:
+                  - generic [ref=e569]:
+                    - strong [ref=e570]: 겨리겨리소리소리
+                    - paragraph [ref=e571]: 형제왕족발보쌈 서울 강남구 밤고개로 36길6 매일 11:30~23:30 전화번호 02 445 1552 포장 배달, 단체 이용가능 형제왕족발보쌈은 원래 배달음식 맛집으로 유명하다고해
+              - generic [ref=e573]:
+                - button "한사리감자탕&뼈구이 세곡점 총 2개의 이미지 중 1번 이미지 한사리감자탕&뼈구이 세곡점한식 안녕하세요 한사리 감자탕&뼈구이 새곡점 입니다 ^^ 리뷰 22 / 평균 10,000원" [ref=e574] [cursor=pointer]:
+                  - generic [ref=e575]:
+                    - img "한사리감자탕&뼈구이 세곡점" [ref=e577]
+                    - generic [ref=e578]:
+                      - generic [ref=e579]: 총 2개의 이미지 중 1번 이미지
+                      - generic [ref=e580]:
+                        - emphasis [ref=e581]: "1"
+                        - text: /2
+                  - generic [ref=e582]:
+                    - generic [ref=e583]:
+                      - strong [ref=e584]: 한사리감자탕&뼈구이 세곡점
+                      - text: 한식
+                    - paragraph [ref=e585]: 안녕하세요 한사리 감자탕&뼈구이 새곡점 입니다 ^^
+                    - generic [ref=e586]:
+                      - generic [ref=e587]:
+                        - term [ref=e588]: 리뷰
+                        - definition [ref=e589]:
+                          - strong [ref=e590]: "22"
+                      - generic [ref=e591]:
+                        - text: /
+                        - term [ref=e592]: 평균
+                        - definition [ref=e593]:
+                          - strong [ref=e594]: 10,000
+                          - text: 원
+                - button "저장" [ref=e595] [cursor=pointer]
+              - generic [ref=e597]:
+                - generic [ref=e598]:
+                  - button "신정 총 10개의 이미지 중 1번 이미지 신정육류,고기요리 국수전골로 완성하는 가족 모임의 정석 리뷰 2059 / 평균 40,000원" [ref=e599] [cursor=pointer]:
+                    - generic [ref=e600]:
+                      - img "신정" [ref=e602]
+                      - generic [ref=e603]:
+                        - generic [ref=e604]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e605]:
+                          - emphasis [ref=e606]: "1"
+                          - text: /10
+                    - generic [ref=e607]:
+                      - generic [ref=e608]:
+                        - strong [ref=e609]: 신정
+                        - text: 육류,고기요리
+                      - paragraph [ref=e610]: 국수전골로 완성하는 가족 모임의 정석
+                      - generic [ref=e611]:
+                        - generic [ref=e612]:
+                          - term [ref=e613]: 리뷰
+                          - definition [ref=e614]:
+                            - strong [ref=e615]: "2059"
+                        - generic [ref=e616]:
+                          - text: /
+                          - term [ref=e617]: 평균
+                          - definition [ref=e618]:
+                            - strong [ref=e619]: 40,000
+                            - text: 원
+                  - button "저장" [ref=e620] [cursor=pointer]
+                - button "큐어 강남에서 숙박한 다음 날 점심으로 먹은 신정 오리구이 한우등심 국수전골 곱창전골 양갈비 오리구이는 3~4일전 예약필수. 그냥도 예약이 어렵다는 후기를 봐서 며칠전에 예약함. 막상" [ref=e623] [cursor=pointer]:
+                  - generic [ref=e627]:
+                    - strong [ref=e628]: 큐어
+                    - paragraph [ref=e629]: 강남에서 숙박한 다음 날 점심으로 먹은 신정 오리구이 한우등심 국수전골 곱창전골 양갈비 오리구이는 3~4일전 예약필수. 그냥도 예약이 어렵다는 후기를 봐서 며칠전에 예약함. 막상
+              - generic [ref=e630]:
+                - generic [ref=e631]:
+                  - button "춘천닭갈비 총 10개의 이미지 중 1번 이미지 춘천닭갈비닭갈비 특별 주문 간장맛 닭갈비의 감동 리뷰 234 / 평균 20,000원" [ref=e632] [cursor=pointer]:
+                    - generic [ref=e633]:
+                      - img "춘천닭갈비" [ref=e635]
+                      - generic [ref=e636]:
+                        - generic [ref=e637]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e638]:
+                          - emphasis [ref=e639]: "1"
+                          - text: /10
+                    - generic [ref=e640]:
+                      - generic [ref=e641]:
+                        - strong [ref=e642]: 춘천닭갈비
+                        - text: 닭갈비
+                      - paragraph [ref=e643]: 특별 주문 간장맛 닭갈비의 감동
+                      - generic [ref=e644]:
+                        - generic [ref=e645]:
+                          - term [ref=e646]: 리뷰
+                          - definition [ref=e647]:
+                            - strong [ref=e648]: "234"
+                        - generic [ref=e649]:
+                          - text: /
+                          - term [ref=e650]: 평균
+                          - definition [ref=e651]:
+                            - strong [ref=e652]: 20,000
+                            - text: 원
+                  - button "저장" [ref=e653] [cursor=pointer]
+                - button "챠밍 내부는 꽤 넓은 편이었고, 동그란 테이블이 있어요. 저희가 방문 했을 때는 손님이 한팀밖에 없었는데 다 먹을 때쯤에는 손님들이 많이 오더라구요 저는 처음 와보는데 다들 많이 방문하" [ref=e656] [cursor=pointer]:
+                  - generic [ref=e660]:
+                    - strong [ref=e661]: 챠밍
+                    - paragraph [ref=e662]: 내부는 꽤 넓은 편이었고, 동그란 테이블이 있어요. 저희가 방문 했을 때는 손님이 한팀밖에 없었는데 다 먹을 때쯤에는 손님들이 많이 오더라구요 저는 처음 와보는데 다들 많이 방문하
+              - generic [ref=e663]:
+                - generic [ref=e664]:
+                  - button "배스킨라빈스 강남은곡마을 총 10개의 이미지 중 1번 이미지 배스킨라빈스 강남은곡마을아이스크림 스마트오더 가능 배스킨라빈스 강남은곡마을(명변)점입니다. 네이버 스마트주문에서 간편하게 주문하세요! 리뷰 1127 / 평균 13,000원" [ref=e665] [cursor=pointer]:
+                    - generic [ref=e666]:
+                      - img "배스킨라빈스 강남은곡마을" [ref=e668]
+                      - generic [ref=e669]:
+                        - generic [ref=e670]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e671]:
+                          - emphasis [ref=e672]: "1"
+                          - text: /10
+                    - generic [ref=e673]:
+                      - generic [ref=e674]:
+                        - strong [ref=e675]: 배스킨라빈스 강남은곡마을
+                        - text: 아이스크림
+                        - emphasis [ref=e676]:
+                          - generic [ref=e677]: 스마트오더 가능
+                      - paragraph [ref=e678]: 배스킨라빈스 강남은곡마을(명변)점입니다. 네이버 스마트주문에서 간편하게 주문하세요!
+                      - generic [ref=e679]:
+                        - generic [ref=e680]:
+                          - term [ref=e681]: 리뷰
+                          - definition [ref=e682]:
+                            - strong [ref=e683]: "1127"
+                        - generic [ref=e684]:
+                          - text: /
+                          - term [ref=e685]: 평균
+                          - definition [ref=e686]:
+                            - strong [ref=e687]: 13,000
+                            - text: 원
+                  - button "저장" [ref=e688] [cursor=pointer]
+                - button "사노비 베스킨라빈스 강남은곡마을 점은 뉴 점포답게 깨끗하고 쾌적합니다. 은곡마을에 베스킨이 생기면 장사 잘 될 거 같다 라고 생각했는데 사람들 다 같은 생각하나 봐요 첫 오픈날 문전성시란" [ref=e691] [cursor=pointer]:
+                  - generic [ref=e695]:
+                    - strong [ref=e696]: 사노비
+                    - paragraph [ref=e697]: 베스킨라빈스 강남은곡마을 점은 뉴 점포답게 깨끗하고 쾌적합니다. 은곡마을에 베스킨이 생기면 장사 잘 될 거 같다 라고 생각했는데 사람들 다 같은 생각하나 봐요 첫 오픈날 문전성시란
+              - generic [ref=e699]:
+                - button "세곡초장 총 10개의 이미지 중 1번 이미지 세곡초장한식 1인막회로 즐기는 푸짐한 바다의 맛 리뷰 168 / 평균 30,000원" [ref=e700] [cursor=pointer]:
+                  - generic [ref=e701]:
+                    - img "세곡초장" [ref=e703]
+                    - generic [ref=e704]:
+                      - generic [ref=e705]: 총 10개의 이미지 중 1번 이미지
+                      - generic [ref=e706]:
+                        - emphasis [ref=e707]: "1"
+                        - text: /10
+                  - generic [ref=e708]:
+                    - generic [ref=e709]:
+                      - strong [ref=e710]: 세곡초장
+                      - text: 한식
+                    - paragraph [ref=e711]: 1인막회로 즐기는 푸짐한 바다의 맛
+                    - generic [ref=e712]:
+                      - generic [ref=e713]:
+                        - term [ref=e714]: 리뷰
+                        - definition [ref=e715]:
+                          - strong [ref=e716]: "168"
+                      - generic [ref=e717]:
+                        - text: /
+                        - term [ref=e718]: 평균
+                        - definition [ref=e719]:
+                          - strong [ref=e720]: 30,000
+                          - text: 원
+                - button "저장" [ref=e721] [cursor=pointer]
+              - generic [ref=e723]:
+                - generic [ref=e724]:
+                  - button "돌리고제주도야지 세곡점 총 10개의 이미지 중 1번 이미지 돌리고제주도야지 세곡점돼지고기구이 저희 돌리고 제주도야지 세곡점은 진짜 오리지널 제주도 생 돼지고기를 공수해 와서 100% 천연 야자숯에 구워 드실 수 있도록 해 드리고 있습니다. 당분간 일요일도 영업합니다. 리뷰 562 / 평균 20,000원" [ref=e725] [cursor=pointer]:
+                    - generic [ref=e726]:
+                      - img "돌리고제주도야지 세곡점" [ref=e728]
+                      - generic [ref=e729]:
+                        - generic [ref=e730]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e731]:
+                          - emphasis [ref=e732]: "1"
+                          - text: /10
+                    - generic [ref=e733]:
+                      - generic [ref=e734]:
+                        - strong [ref=e735]: 돌리고제주도야지 세곡점
+                        - text: 돼지고기구이
+                      - paragraph [ref=e736]: 저희 돌리고 제주도야지 세곡점은 진짜 오리지널 제주도 생 돼지고기를 공수해 와서 100% 천연 야자숯에 구워 드실 수 있도록 해 드리고 있습니다. 당분간 일요일도 영업합니다.
+                      - generic [ref=e737]:
+                        - generic [ref=e738]:
+                          - term [ref=e739]: 리뷰
+                          - definition [ref=e740]:
+                            - strong [ref=e741]: "562"
+                        - generic [ref=e742]:
+                          - text: /
+                          - term [ref=e743]: 평균
+                          - definition [ref=e744]:
+                            - strong [ref=e745]: 20,000
+                            - text: 원
+                  - button "저장" [ref=e746] [cursor=pointer]
+                - button "리나 사장님이 고기를 가져다 주시며 설명해주시는데 왜 야자수를 사용하는지 먹다보니 알겠더라구요. 오래도록 열기가 이어지고 덕분에 마지막엔 양념갈비를 먹었답니다:) 살짝 누그러든 숯불에" [ref=e749] [cursor=pointer]:
+                  - generic [ref=e753]:
+                    - strong [ref=e754]: 리나
+                    - paragraph [ref=e755]: 사장님이 고기를 가져다 주시며 설명해주시는데 왜 야자수를 사용하는지 먹다보니 알겠더라구요. 오래도록 열기가 이어지고 덕분에 마지막엔 양념갈비를 먹었답니다:) 살짝 누그러든 숯불에
+              - generic [ref=e756]:
+                - generic [ref=e757]:
+                  - button "잉카바베큐 총 10개의 이미지 중 1번 이미지 잉카바베큐치킨,닭강정 근본의 맛을 지키는 정직한 치킨 리뷰 177 / 평균 20,000원" [ref=e758] [cursor=pointer]:
+                    - generic [ref=e759]:
+                      - img "잉카바베큐" [ref=e761]
+                      - generic [ref=e762]:
+                        - generic [ref=e763]: 총 10개의 이미지 중 1번 이미지
+                        - generic [ref=e764]:
+                          - emphasis [ref=e765]: "1"
+                          - text: /10
+                    - generic [ref=e766]:
+                      - generic [ref=e767]:
+                        - strong [ref=e768]: 잉카바베큐
+                        - text: 치킨,닭강정
+                      - paragraph [ref=e769]: 근본의 맛을 지키는 정직한 치킨
+                      - generic [ref=e770]:
+                        - generic [ref=e771]:
+                          - term [ref=e772]: 리뷰
+                          - definition [ref=e773]:
+                            - strong [ref=e774]: "177"
+                        - generic [ref=e775]:
+                          - text: /
+                          - term [ref=e776]: 평균
+                          - definition [ref=e777]:
+                            - strong [ref=e778]: 20,000
+                            - text: 원
+                  - button "저장" [ref=e779] [cursor=pointer]
+                - button "소공녀 릴리 세곡동 맛집 잉카바베큐 오늘은 텃밭에 다녀왔다가 세곡동 대왕파출소 건너편에 있는 잉카바베큐집이 레이더에 들어와서 방문하게 되었다. 위치 세곡동 대왕파출소에서 맞은편으로 건너면 길가" [ref=e782] [cursor=pointer]:
+                  - generic [ref=e786]:
+                    - strong [ref=e787]: 소공녀 릴리
+                    - paragraph [ref=e788]: 세곡동 맛집 잉카바베큐 오늘은 텃밭에 다녀왔다가 세곡동 대왕파출소 건너편에 있는 잉카바베큐집이 레이더에 들어와서 방문하게 되었다. 위치 세곡동 대왕파출소에서 맞은편으로 건너면 길가
+      - button "패널 접기" [expanded] [ref=e123] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - list [ref=e790]:
+              - listitem [ref=e791]:
+                - button "음식점" [ref=e792] [cursor=pointer]
+              - listitem [ref=e795]:
+                - button "카페" [ref=e796] [cursor=pointer]
+              - listitem [ref=e799]:
+                - button "팝업스토어" [ref=e800] [cursor=pointer]
+              - listitem [ref=e803]:
+                - button "주변 키워드 더보기" [ref=e804] [cursor=pointer]
+            - generic [ref=e806]:
+              - button "맑음 31° 기온 미세 보통 초미세 좋음 폭염 주의보" [ref=e807] [cursor=pointer]:
+                - generic [ref=e808]:
+                  - generic [ref=e809]:
+                    - generic [ref=e810]: 맑음
+                    - generic [ref=e812]:
+                      - text: 31°
+                      - generic [ref=e813]: 기온
+                  - generic [ref=e814]:
+                    - generic [ref=e817]:
+                      - text: 미세
+                      - generic [ref=e818]: 보통
+                    - generic [ref=e821]:
+                      - text: 초미세
+                      - generic [ref=e822]: 좋음
+                - strong [ref=e823]: 폭염 주의보
+              - text: "|"
+          - generic:
+            - generic:
+              - generic [ref=e125]:
+                - button "일반지도" [ref=e126] [cursor=pointer]
+                - button "위성지도" [ref=e128] [cursor=pointer]
+                - button "지형지도" [ref=e130] [cursor=pointer]
+              - generic [ref=e132]:
+                - button "테마" [ref=e133] [cursor=pointer]
+                - button "저장" [ref=e135] [cursor=pointer]
+                - button "지적편집도" [ref=e137] [cursor=pointer]
+                - button "거리뷰" [ref=e139] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "반경측정" [ref=e142] [cursor=pointer]
+                - button "면적측정" [ref=e144] [cursor=pointer]
+                - button "거리측정" [ref=e146] [cursor=pointer]
+              - generic [ref=e148]:
+                - button "다운로드" [ref=e149] [cursor=pointer]
+                - button "인쇄" [ref=e151] [cursor=pointer]
+                - button "공유하기" [ref=e153] [cursor=pointer]
+            - generic:
+              - button "접속위치" [ref=e157] [cursor=pointer]
+              - generic [ref=e163]:
+                - button "확대" [ref=e164] [cursor=pointer]
+                - button "축소" [ref=e167] [cursor=pointer]
+  - status [ref=e169]

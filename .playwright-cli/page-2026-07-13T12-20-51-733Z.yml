@@ -1,0 +1,663 @@
+- generic [ref=e3]:
+  - generic:
+    - link "본문 바로가기" [ref=e4] [cursor=pointer]:
+      - /url: "#section_content"
+    - link "주 메뉴 바로가기" [ref=e6] [cursor=pointer]:
+      - /url: "#header"
+  - banner [ref=e8]:
+    - heading [level=1] [ref=e9]:
+      - link "네이버지도" [ref=e10] [cursor=pointer]:
+        - /url: https://www.naver.com
+    - navigation [ref=e12]:
+      - list [ref=e13]:
+        - listitem [ref=e14]:
+          - button "지도 홈 선택됨" [ref=e15] [cursor=pointer]:
+            - generic [ref=e21]: 지도 홈
+            - generic [ref=e22]: 선택됨
+        - listitem [ref=e23]:
+          - button "길찾기" [ref=e24] [cursor=pointer]
+        - listitem [ref=e30]:
+          - button "버스" [ref=e31] [cursor=pointer]
+        - listitem [ref=e37]:
+          - button "지하철" [ref=e38] [cursor=pointer]
+        - listitem [ref=e44]:
+          - button "기차" [ref=e45] [cursor=pointer]
+        - listitem [ref=e51]:
+          - button "new 저장" [ref=e52] [cursor=pointer]:
+            - generic [ref=e53]: new
+            - generic [ref=e59]: 저장
+        - listitem [ref=e60]:
+          - button "더보기" [ref=e61] [cursor=pointer]
+    - generic [ref=e68]:
+      - strong [ref=e69]: 사용자 링크
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - link "로그인" [ref=e72] [cursor=pointer]:
+            - /url: https://nid.naver.com/nidlogin.login
+        - listitem [ref=e74]:
+          - link "서비스 더보기" [ref=e75] [cursor=pointer]:
+            - /url: javascript:;
+  - generic:
+    - application [ref=e80]:
+      - generic [ref=e170]:
+        - region "Map" [ref=e171]
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e988] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e990] [cursor=pointer]:
+                - generic [ref=e991]:
+                  - img "플레이스"
+                - strong [ref=e993]: 카이센동 우니도 본점
+              - generic [ref=e995] [cursor=pointer]:
+                - generic [ref=e996]:
+                  - img "플레이스"
+                - strong [ref=e998]: 다미곱창 신사직영점
+              - generic [ref=e1001] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1004] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1006] [cursor=pointer]:
+                - generic [ref=e1007]:
+                  - img "플레이스"
+                - strong [ref=e1009]: 키세카츠 신사역점
+              - generic [ref=e1012] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1014] [cursor=pointer]:
+                - generic [ref=e1015]:
+                  - img "플레이스"
+                - strong [ref=e1017]: 청기와타운 신사역점
+              - generic [ref=e1019] [cursor=pointer]:
+                - generic [ref=e1020]:
+                  - img "플레이스"
+                - strong [ref=e1022]: 리파인 가로수길점
+              - generic: 플레이스 마커
+              - generic [ref=e1025] [cursor=pointer]:
+                - generic [ref=e1026]:
+                  - img "플레이스"
+                - strong [ref=e1028]: 산솔 신사본점
+              - generic [ref=e1031] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1033] [cursor=pointer]:
+                - generic [ref=e1034]:
+                  - img "플레이스"
+                - strong [ref=e1036]: 24시 청미돌판삼겹살
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1040] [cursor=pointer]:
+                - generic [ref=e1041]:
+                  - img "플레이스"
+                - strong [ref=e1043]: 노라스 신사
+              - generic [ref=e1045] [cursor=pointer]:
+                - generic [ref=e1046]:
+                  - img "플레이스"
+                - strong [ref=e1048]: 네기다이닝라운지
+              - generic: 플레이스 마커
+              - generic [ref=e1051] [cursor=pointer]:
+                - generic [ref=e1052]:
+                  - img "플레이스"
+                - strong [ref=e1054]: 카페 공명 신사 가로수길점
+              - generic [ref=e1057] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1060] [cursor=pointer]:
+                - img "플레이스"
+              - generic: 플레이스 마커
+              - generic [ref=e1064] [cursor=pointer]:
+                - img "플레이스"
+              - generic: 플레이스 마커
+              - generic: "2"
+              - generic [ref=e1072] [cursor=pointer]:
+                - img "플레이스"
+              - generic: 플레이스 마커
+              - generic [ref=e1075] [cursor=pointer]:
+                - generic [ref=e1076]:
+                  - img "플레이스"
+                - strong [ref=e1078]: 더이뻐의원
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1084] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1086] [cursor=pointer]:
+                - generic [ref=e1087]:
+                  - img "플레이스"
+                - strong [ref=e1089]: 본가장어 신사 본점
+              - generic [ref=e1092] [cursor=pointer]:
+                - img "플레이스"
+              - generic: 플레이스 마커
+              - generic [ref=e1096] [cursor=pointer]:
+                - img "플레이스"
+              - generic [ref=e1098] [cursor=pointer]:
+                - generic [ref=e1099]:
+                  - img "플레이스"
+                - strong [ref=e1101]: 테보
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: "2"
+              - generic [ref=e1109] [cursor=pointer]:
+                - generic [ref=e1110]:
+                  - img "플레이스"
+                - strong [ref=e1112]: 신사세레아의원
+              - generic [ref=e1115] [cursor=pointer]:
+                - img "플레이스"
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic [ref=e1133] [cursor=pointer]:
+                - generic [ref=e1134]:
+                  - img "플레이스"
+                - strong [ref=e1136]: 서울퍼틸리티여성의원
+              - generic: 플레이스 마커
+              - generic [ref=e1139] [cursor=pointer]:
+                - generic [ref=e1140]:
+                  - img "플레이스"
+                - strong [ref=e1142]: 춘식당 가로수길본점
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+              - generic: 플레이스 마커
+            - generic [ref=e1147] [cursor=pointer]:
+              - img "신사역 신분당선" [ref=e1149]
+              - strong [ref=e1151]: 신사역 신분당선
+      - generic [ref=e83]:
+        - img "NAVER" [ref=e85] [cursor=pointer]
+        - generic [ref=e86]: 100m
+    - generic [ref=e90]:
+      - generic [ref=e92]:
+        - button "검색" [ref=e93] [cursor=pointer]
+        - button "삭제" [ref=e964] [cursor=pointer]
+        - combobox [ref=e836]: 신사역
+      - generic [ref=e967]:
+        - status [ref=e968]
+        - generic [ref=e970]:
+          - heading "검색" [level=2] [ref=e971]
+          - iframe [active] [ref=e979]:
+            - generic [ref=f12e5]:
+              - list [ref=f12e7]:
+                - listitem [ref=f12e8]:
+                  - generic [ref=f12e10]:
+                    - button "신사역 신분당선지하철,전철" [active] [ref=f12e12] [cursor=pointer]
+                    - generic [ref=f12e15]:
+                      - generic [ref=f12e16]:
+                        - generic [ref=f12e17]: 현재 위치에서
+                        - text: 9.4km
+                      - button "서울 강남구 신사동 상세주소 열기" [ref=f12e19] [cursor=pointer]:
+                        - generic [ref=f12e20]: 서울 강남구 신사동
+                        - generic [ref=f12e21]: 상세주소 열기
+                  - generic [ref=f12e27]:
+                    - generic [ref=f12e29]:
+                      - button "출발" [ref=f12e30] [cursor=pointer]
+                      - button "도착" [ref=f12e31] [cursor=pointer]
+                    - button [ref=f12e33] [cursor=pointer]
+                - listitem [ref=f12e35]:
+                  - generic [ref=f12e37]:
+                    - button "신사역 3호선지하철,전철" [ref=f12e39] [cursor=pointer]
+                    - generic [ref=f12e42]:
+                      - generic [ref=f12e43]:
+                        - generic [ref=f12e44]: 현재 위치에서
+                        - text: 9.4km
+                      - button "서울 강남구 신사동 상세주소 열기" [ref=f12e46] [cursor=pointer]:
+                        - generic [ref=f12e47]: 서울 강남구 신사동
+                        - generic [ref=f12e48]: 상세주소 열기
+                  - generic [ref=f12e54]:
+                    - generic [ref=f12e56]:
+                      - button "출발" [ref=f12e57] [cursor=pointer]
+                      - button "도착" [ref=f12e58] [cursor=pointer]
+                    - button [ref=f12e60] [cursor=pointer]
+                - listitem [ref=f12e62]:
+                  - generic [ref=f12e63]:
+                    - button [ref=f12e65] [cursor=pointer]:
+                      - img "카이센동 우니도 본점" [ref=f12e67]
+                    - generic [ref=f12e68]:
+                      - button "카이센동 우니도 본점 쿠폰 일식당" [ref=f12e70] [cursor=pointer]:
+                        - text: 카이센동 우니도 본점
+                        - generic [ref=f12e71]: 쿠폰
+                        - text: 일식당
+                      - button "영업 종료 11:30에 영업 시작" [ref=f12e78] [cursor=pointer]
+                      - button "알림받기 하면 고로케1p또는 탄산음료제공 쿠폰" [ref=f12e80] [cursor=pointer]
+                      - generic [ref=f12e83]:
+                        - generic [ref=f12e84]:
+                          - generic [ref=f12e85]: 현재 위치에서
+                          - text: 9.7km
+                        - button "서울 강남구 신사동 상세주소 열기" [ref=f12e87] [cursor=pointer]:
+                          - generic [ref=f12e88]: 서울 강남구 신사동
+                          - generic [ref=f12e89]: 상세주소 열기
+                  - generic [ref=f12e95]:
+                    - generic [ref=f12e97]:
+                      - button "출발" [ref=f12e98] [cursor=pointer]
+                      - button "도착" [ref=f12e99] [cursor=pointer]
+                    - button [ref=f12e101] [cursor=pointer]
+                - listitem [ref=f12e103]:
+                  - generic [ref=f12e104]:
+                    - button [ref=f12e106] [cursor=pointer]:
+                      - img "다미곱창 신사직영점" [ref=f12e108]
+                    - generic [ref=f12e109]:
+                      - button "다미곱창 신사직영점 플레이스 플러스 톡톡 곱창,막창,양" [ref=f12e111] [cursor=pointer]:
+                        - text: 다미곱창 신사직영점
+                        - generic [ref=f12e112]:
+                          - generic [ref=f12e113]: 플레이스 플러스
+                          - generic [ref=f12e118]: 톡톡
+                        - text: 곱창,막창,양
+                      - button "새로오픈 영업 중 22:30에 라스트오더" [ref=f12e124] [cursor=pointer]
+                      - generic [ref=f12e127]:
+                        - generic [ref=f12e128]:
+                          - generic [ref=f12e129]: 현재 위치에서
+                          - text: 9.4km
+                        - button "서울 강남구 신사동 상세주소 열기" [ref=f12e131] [cursor=pointer]:
+                          - generic [ref=f12e132]: 서울 강남구 신사동
+                          - generic [ref=f12e133]: 상세주소 열기
+                        - generic [ref=f12e137]: 휠체어 출입 가능
+                  - generic [ref=f12e144]:
+                    - generic [ref=f12e146]:
+                      - button "출발" [ref=f12e147] [cursor=pointer]
+                      - button "도착" [ref=f12e148] [cursor=pointer]
+                    - button [ref=f12e150] [cursor=pointer]
+                    - button "예약" [ref=f12e153] [cursor=pointer]
+                - listitem [ref=f12e154]:
+                  - generic [ref=f12e155]:
+                    - button [ref=f12e157] [cursor=pointer]:
+                      - img "치보 신사점" [ref=f12e159]
+                    - generic [ref=f12e160]:
+                      - button "치보 신사점 플레이스 플러스 쿠폰 일식당" [ref=f12e162] [cursor=pointer]:
+                        - text: 치보 신사점
+                        - generic [ref=f12e163]:
+                          - generic [ref=f12e164]: 플레이스 플러스
+                          - generic [ref=f12e169]: 쿠폰
+                        - text: 일식당
+                      - button "오늘 휴무 매주 월요일 휴무" [ref=f12e175] [cursor=pointer]
+                      - button "네이버 예약시 평일 오픈런 이벤트! 쿠폰" [ref=f12e177] [cursor=pointer]
+                      - generic [ref=f12e180]:
+                        - generic [ref=f12e181]:
+                          - generic [ref=f12e182]: 현재 위치에서
+                          - text: 9.5km
+                        - button "서울 강남구 신사동 상세주소 열기" [ref=f12e184] [cursor=pointer]:
+                          - generic [ref=f12e185]: 서울 강남구 신사동
+                          - generic [ref=f12e186]: 상세주소 열기
+                  - generic [ref=f12e192]:
+                    - generic [ref=f12e194]:
+                      - button "출발" [ref=f12e195] [cursor=pointer]
+                      - button "도착" [ref=f12e196] [cursor=pointer]
+                    - button [ref=f12e198] [cursor=pointer]
+                    - button "예약" [ref=f12e201] [cursor=pointer]
+                - listitem [ref=f12e202]:
+                  - button [ref=f12e203] [cursor=pointer]:
+                    - img "올 여름 휴가비, 네이버가 쏜다! 6천명에게 드리는 역대급 선물" [ref=f12e204]
+                - listitem [ref=f12e205]:
+                  - generic [ref=f12e206]:
+                    - generic:
+                      - button
+                    - generic [ref=f12e207]:
+                      - button "고메램 신사점 플레이스 플러스 네이버페이 톡톡 쿠폰 양갈비" [ref=f12e209] [cursor=pointer]:
+                        - text: 고메램 신사점
+                        - generic [ref=f12e210]:
+                          - generic [ref=f12e211]: 플레이스 플러스
+                          - generic [ref=f12e216]: 네이버페이
+                          - generic [ref=f12e221]: 톡톡
+                          - generic [ref=f12e226]: 쿠폰
+                        - text: 양갈비
+                      - button "영업 중 22:00에 영업 종료" [ref=f12e232] [cursor=pointer]
+                      - button "초복 등심 제공 쿠폰 쿠폰 외" [ref=f12e234] [cursor=pointer]
+                      - generic [ref=f12e237]:
+                        - generic [ref=f12e238]:
+                          - generic [ref=f12e239]: 현재 위치에서
+                          - text: 9.5km
+                        - button "서울 강남구 신사동 상세주소 열기" [ref=f12e241] [cursor=pointer]:
+                          - generic [ref=f12e242]: 서울 강남구 신사동
+                          - generic [ref=f12e243]: 상세주소 열기
+                        - generic [ref=f12e247]: 휠체어 출입 가능
+                  - generic [ref=f12e254]:
+                    - generic [ref=f12e256]:
+                      - button "출발" [ref=f12e257] [cursor=pointer]
+                      - button "도착" [ref=f12e258] [cursor=pointer]
+                    - button [ref=f12e260] [cursor=pointer]
+                    - button "예약" [ref=f12e263] [cursor=pointer]
+                - listitem [ref=f12e264]:
+                  - generic [ref=f12e265]:
+                    - generic:
+                      - button
+                    - generic [ref=f12e266]:
+                      - button "키세카츠 신사역점 플레이스 플러스 톡톡 쿠폰 돈가스" [ref=f12e268] [cursor=pointer]:
+                        - text: 키세카츠 신사역점
+                        - generic [ref=f12e269]:
+                          - generic [ref=f12e270]: 플레이스 플러스
+                          - generic [ref=f12e275]: 톡톡
+                          - generic [ref=f12e280]: 쿠폰
+                        - text: 돈가스
+                      - button "영업 종료 11:00에 영업 시작" [ref=f12e286] [cursor=pointer]
+                      - button "알림받기 하면 멘치카츠 100% 공짜 쿠폰" [ref=f12e288] [cursor=pointer]
+                      - generic [ref=f12e291]:
+                        - generic [ref=f12e292]:
+                          - generic [ref=f12e293]: 현재 위치에서
+                          - text: 9.2km
+                        - button "서울 강남구 논현동 상세주소 열기" [ref=f12e295] [cursor=pointer]:
+                          - generic [ref=f12e296]: 서울 강남구 논현동
+                          - generic [ref=f12e297]: 상세주소 열기
+                  - generic [ref=f12e303]:
+                    - generic [ref=f12e305]:
+                      - button "출발" [ref=f12e306] [cursor=pointer]
+                      - button "도착" [ref=f12e307] [cursor=pointer]
+                    - button [ref=f12e309] [cursor=pointer]
+                    - button "예약" [ref=f12e312] [cursor=pointer]
+                - listitem [ref=f12e313]:
+                  - generic [ref=f12e314]:
+                    - generic:
+                      - button
+                    - generic [ref=f12e315]:
+                      - button "한사발포차 신사가로수길점 플레이스 플러스 요리주점" [ref=f12e317] [cursor=pointer]:
+                        - text: 한사발포차 신사가로수길점
+                        - generic [ref=f12e318]: 플레이스 플러스
+                        - text: 요리주점
+                      - button "영업 중 03:00에 영업 종료" [ref=f12e325] [cursor=pointer]
+                      - generic [ref=f12e328]:
+                        - generic [ref=f12e329]:
+                          - generic [ref=f12e330]: 현재 위치에서
+                          - text: 9.5km
+                        - button "서울 강남구 신사동 상세주소 열기" [ref=f12e332] [cursor=pointer]:
+                          - generic [ref=f12e333]: 서울 강남구 신사동
+                          - generic [ref=f12e334]: 상세주소 열기
+                  - generic [ref=f12e340]:
+                    - generic [ref=f12e342]:
+                      - button "출발" [ref=f12e343] [cursor=pointer]
+                      - button "도착" [ref=f12e344] [cursor=pointer]
+                    - button [ref=f12e346] [cursor=pointer]
+                    - button "예약" [ref=f12e349] [cursor=pointer]
+                - listitem [ref=f12e350]:
+                  - generic [ref=f12e351]:
+                    - generic:
+                      - button
+                    - generic [ref=f12e352]:
+                      - button "청기와타운 신사역점 플레이스 플러스 쿠폰 육류,고기요리" [ref=f12e354] [cursor=pointer]:
+                        - text: 청기와타운 신사역점
+                        - generic [ref=f12e355]:
+                          - generic [ref=f12e356]: 플레이스 플러스
+                          - generic [ref=f12e361]: 쿠폰
+                        - text: 육류,고기요리
+                      - button "영업 중 22:00에 라스트오더" [ref=f12e367] [cursor=pointer]
+                      - button "네이버 예약시 평일 선착순 회식비 지원 쿠폰 외" [ref=f12e369] [cursor=pointer]
+                      - generic [ref=f12e372]:
+                        - generic [ref=f12e373]:
+                          - generic [ref=f12e374]: 현재 위치에서
+                          - text: 9.3km
+                        - button "서울 강남구 논현동 상세주소 열기" [ref=f12e376] [cursor=pointer]:
+                          - generic [ref=f12e377]: 서울 강남구 논현동
+                          - generic [ref=f12e378]: 상세주소 열기
+                  - generic [ref=f12e384]:
+                    - generic [ref=f12e386]:
+                      - button "출발" [ref=f12e387] [cursor=pointer]
+                      - button "도착" [ref=f12e388] [cursor=pointer]
+                    - button [ref=f12e390] [cursor=pointer]
+                    - button "예약" [ref=f12e393] [cursor=pointer]
+              - generic [ref=f12e408]:
+                - button "이전페이지" [disabled] [ref=f12e409]
+                - button "1" [ref=f12e413] [cursor=pointer]
+                - button "2" [ref=f12e414] [cursor=pointer]
+                - button "3" [ref=f12e415] [cursor=pointer]
+                - button "4" [ref=f12e416] [cursor=pointer]
+                - button "5" [ref=f12e417] [cursor=pointer]
+                - button "다음페이지" [ref=f12e418] [cursor=pointer]
+      - generic [ref=e1152]:
+        - status [ref=e1153]
+        - iframe [ref=e1157]:
+          - generic [ref=f14e5]:
+            - banner [ref=f14e6]:
+              - button "이전" [ref=f14e7] [cursor=pointer]
+              - strong [ref=f14e17]: 신사역신분당선
+              - button "닫기" [ref=f14e18] [cursor=pointer]
+            - link [ref=f14e29] [cursor=pointer]
+            - generic [ref=f14e37]:
+              - generic [ref=f14e38]:
+                - heading "기본정보" [level=2] [ref=f14e39]
+                - link "신사역신분당선 수도권 지하철" [disabled] [ref=f14e41]:
+                  - strong [ref=f14e42]: 신사역
+                  - strong [ref=f14e43]: 신분당선
+                  - generic [ref=f14e44]: 수도권 지하철
+              - generic [ref=f14e45]:
+                - link "출발" [ref=f14e46] [cursor=pointer]
+                - link "도착" [ref=f14e47] [cursor=pointer]
+              - generic [ref=f14e49]:
+                - button "저장" [ref=f14e51] [cursor=pointer]
+                - button "거리뷰" [ref=f14e58] [cursor=pointer]
+                - button "공유" [ref=f14e69] [cursor=pointer]
+            - generic [ref=f14e71]:
+              - region "지하철 역 정보" [ref=f14e72]:
+                - button "이전 역" [disabled] [ref=f14e74]
+                - generic [ref=f14e78]:
+                  - generic [ref=f14e79]: 현재 역
+                  - generic [ref=f14e80]: 신
+                  - generic [ref=f14e81]: 분당선
+                  - generic [ref=f14e82]: 신사
+                - button "다음 역 논현" [ref=f14e84] [cursor=pointer]:
+                  - generic [ref=f14e85]:
+                    - generic [ref=f14e86]: 다음 역
+                    - text: 논현
+              - generic [ref=f14e91]:
+                - generic [ref=f14e92]:
+                  - strong [ref=f14e93]: 도착 정보
+                  - generic [ref=f14e94]:
+                    - text: 오후 9:20
+                    - button "새로고침" [ref=f14e95] [cursor=pointer]
+                - list [ref=f14e103]:
+                  - listitem [ref=f14e104]:
+                    - button [disabled] [ref=f14e106]:
+                      - strong [ref=f14e107]: 신사 방면
+                    - paragraph [ref=f14e109]: 종점
+                  - listitem [ref=f14e110]:
+                    - button "광교 방면 자세히보기" [ref=f14e112] [cursor=pointer]:
+                      - strong [ref=f14e113]: 광교 방면
+                      - generic [ref=f14e114]: 자세히보기
+                    - list [ref=f14e121]:
+                      - listitem [ref=f14e122]:
+                        - generic [ref=f14e123]: 광교
+                        - emphasis [ref=f14e126]: 2분
+                      - listitem [ref=f14e127]:
+                        - generic [ref=f14e128]: 광교
+                        - emphasis [ref=f14e131]: 9분
+              - generic [ref=f14e133]:
+                - button [ref=f14e135] [cursor=pointer]:
+                  - emphasis [ref=f14e141]: 전체 시간표
+                - button [ref=f14e143] [cursor=pointer]:
+                  - emphasis [ref=f14e150]: 첫차·막차
+              - generic [ref=f14e151]:
+                - heading "환승역" [level=3] [ref=f14e152]
+                - button "3 호선" [ref=f14e153] [cursor=pointer]:
+                  - generic [ref=f14e154]:
+                    - emphasis [ref=f14e155]: "3"
+                    - generic [ref=f14e156]: 호선
+                - button "신분당 선" [ref=f14e157] [cursor=pointer]:
+                  - generic [ref=f14e158]:
+                    - emphasis [ref=f14e159]: 신분당
+                    - generic [ref=f14e160]: 선
+            - generic [ref=f14e161]:
+              - generic [ref=f14e162]:
+                - heading "노선도" [level=2] [ref=f14e163]
+                - link "전체 노선도 보기" [ref=f14e164] [cursor=pointer]
+                - list [ref=f14e172]:
+                  - listitem [ref=f14e173]:
+                    - button "신사 현재" [ref=f14e174] [cursor=pointer]:
+                      - generic [ref=f14e177]:
+                        - text: 신사
+                        - generic [ref=f14e178]: 현재
+                  - listitem [ref=f14e179]:
+                    - button "논현" [ref=f14e180] [cursor=pointer]
+                  - listitem [ref=f14e184]:
+                    - button "신논현" [ref=f14e185] [cursor=pointer]
+                  - listitem [ref=f14e189]:
+                    - button "강남" [ref=f14e190] [cursor=pointer]
+                  - listitem [ref=f14e194]:
+                    - button "양재" [ref=f14e195] [cursor=pointer]
+                  - listitem [ref=f14e199]:
+                    - button "양재시민의숲" [ref=f14e200] [cursor=pointer]
+                  - listitem [ref=f14e204]:
+                    - button "청계산입구" [ref=f14e205] [cursor=pointer]
+                  - listitem [ref=f14e209]:
+                    - button "판교" [ref=f14e210] [cursor=pointer]
+                  - listitem [ref=f14e214]:
+                    - button "정자" [ref=f14e215] [cursor=pointer]
+                  - listitem [ref=f14e219]:
+                    - button "미금" [ref=f14e220] [cursor=pointer]
+                  - listitem [ref=f14e224]:
+                    - button "동천" [ref=f14e225] [cursor=pointer]
+                  - listitem [ref=f14e229]:
+                    - button "수지구청" [ref=f14e230] [cursor=pointer]
+                  - listitem [ref=f14e234]:
+                    - button "성복" [ref=f14e235] [cursor=pointer]
+                  - listitem [ref=f14e239]:
+                    - button "상현" [ref=f14e240] [cursor=pointer]
+                  - listitem [ref=f14e244]:
+                    - button "광교중앙" [ref=f14e245] [cursor=pointer]
+                  - listitem [ref=f14e249]:
+                    - button "광교" [ref=f14e250] [cursor=pointer]
+              - generic [ref=f14e254]:
+                - heading "출구정보" [level=2] [ref=f14e255]
+                - generic [ref=f14e257]:
+                  - tablist [ref=f14e260]:
+                    - tab "1 번" [selected] [ref=f14e262] [cursor=pointer]:
+                      - generic [ref=f14e263]: "1"
+                      - text: 번
+                    - tab "2 번" [ref=f14e265] [cursor=pointer]:
+                      - generic [ref=f14e266]: "2"
+                      - text: 번
+                    - tab "3 번" [ref=f14e268] [cursor=pointer]:
+                      - generic [ref=f14e269]: "3"
+                      - text: 번
+                    - tab "4 번" [ref=f14e271] [cursor=pointer]:
+                      - generic [ref=f14e272]: "4"
+                      - text: 번
+                    - tab "5 번" [ref=f14e274] [cursor=pointer]:
+                      - generic [ref=f14e275]: "5"
+                      - text: 번
+                    - tab "6 번" [ref=f14e277] [cursor=pointer]:
+                      - generic [ref=f14e278]: "6"
+                      - text: 번
+                    - tab "7 번" [ref=f14e280] [cursor=pointer]:
+                      - generic [ref=f14e281]: "7"
+                      - text: 번
+                    - tab "8 번" [ref=f14e283] [cursor=pointer]:
+                      - generic [ref=f14e284]: "8"
+                      - text: 번
+                  - generic [ref=f14e285]:
+                    - strong [ref=f14e286]: 장소 정보
+                    - generic [ref=f14e287]: 학동공원, 논현아파트, 서울본부세관 방면, 국민연금공단 서울남부지역본부, 논현1동
+                  - generic [ref=f14e289]:
+                    - strong [ref=f14e290]: 출구와 가까운 하차문
+                    - generic [ref=f14e291]:
+                      - term [ref=f14e292]: 신사 방면
+                      - definition [ref=f14e293]: 3-2, 4-3
+              - generic [ref=f14e294]:
+                - term [ref=f14e295]: 주소 및 전화번호
+                - definition [ref=f14e296]:
+                  - list [ref=f14e297]:
+                    - listitem [ref=f14e298]:
+                      - strong [ref=f14e299]: 주소
+                      - generic [ref=f14e301]:
+                        - generic [ref=f14e302]: 서울 강남구 도산대로 102
+                        - generic [ref=f14e303]:
+                          - link [ref=f14e305] [cursor=pointer]
+                          - link [ref=f14e311] [cursor=pointer]
+                    - listitem [ref=f14e316]:
+                      - strong [ref=f14e317]: 대표번호
+                      - generic [ref=f14e318]: 02-810-5870
+                    - listitem [ref=f14e320]:
+                      - strong [ref=f14e321]: 유실물센터
+                      - generic [ref=f14e322]: 031-8018-7777
+              - generic [ref=f14e324]:
+                - heading "역정보" [level=2] [ref=f14e325]
+                - generic [ref=f14e327]:
+                  - generic [ref=f14e328]:
+                    - term [ref=f14e329]: 시설정보
+                    - definition [ref=f14e330]:
+                      - list [ref=f14e331]:
+                        - listitem [ref=f14e332]:
+                          - generic [ref=f14e337]: 플랫폼
+                          - generic [ref=f14e338]: 양쪽
+                        - listitem [ref=f14e339]:
+                          - generic [ref=f14e344]: 화장실
+                          - generic [ref=f14e345]: 바깥
+                        - listitem [ref=f14e346]:
+                          - generic [ref=f14e351]: 내리는문
+                          - generic [ref=f14e352]: 왼쪽
+                        - listitem [ref=f14e353]:
+                          - generic [ref=f14e358]: 반대편
+                          - generic [ref=f14e359]: 연결됨
+                  - generic [ref=f14e360]:
+                    - term [ref=f14e361]: 편의시설
+                    - definition [ref=f14e362]:
+                      - list [ref=f14e363]:
+                        - listitem [ref=f14e364]:
+                          - generic [ref=f14e369]: 물품보관소
+                        - listitem [ref=f14e370]:
+                          - generic [ref=f14e375]: 유실물센터
+                        - listitem [ref=f14e376]:
+                          - generic [ref=f14e377]: 비활성
+                          - generic [ref=f14e382]: 자전거보관소
+                        - listitem [ref=f14e383]:
+                          - generic [ref=f14e384]: 비활성
+                          - generic [ref=f14e389]: 환승주차장
+                  - generic [ref=f14e390]:
+                    - term [ref=f14e391]: 교통약자 시설
+                    - definition [ref=f14e392]:
+                      - list [ref=f14e393]:
+                        - listitem [ref=f14e394]:
+                          - generic [ref=f14e399]: 수유실
+                        - listitem [ref=f14e400]:
+                          - generic [ref=f14e405]: 엘리베이터
+                        - listitem [ref=f14e406]:
+                          - generic [ref=f14e407]: 비활성
+                          - generic [ref=f14e412]: 장애인화장실
+                        - listitem [ref=f14e413]:
+                          - generic [ref=f14e414]: 비활성
+                          - generic [ref=f14e419]: 휠체어 리프트
+            - generic [ref=f14e420]:
+              - paragraph [ref=f14e423]: 도착 정보는 상황에 따라 실제 도착시간과 차이가 있을 수 있습니다.
+              - contentinfo [ref=f14e424]:
+                - link [ref=f14e426] [cursor=pointer]
+                - list [ref=f14e435]:
+                  - listitem [ref=f14e436]:
+                    - link "고객센터" [ref=f14e437] [cursor=pointer]
+                  - listitem [ref=f14e438]:
+                    - link "이용약관" [ref=f14e439] [cursor=pointer]
+                - link "NAVER" [ref=f14e441] [cursor=pointer]
+        - button "패널 접기" [expanded] [ref=e1158] [cursor=pointer]
+      - button "패널 접기" [expanded] [ref=e123] [cursor=pointer]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic [ref=e125]:
+                - button "일반지도" [ref=e126] [cursor=pointer]
+                - button "위성지도" [ref=e128] [cursor=pointer]
+                - button "지형지도" [ref=e130] [cursor=pointer]
+              - generic [ref=e132]:
+                - button "테마" [ref=e133] [cursor=pointer]
+                - button "저장" [ref=e135] [cursor=pointer]
+                - button "지적편집도" [ref=e137] [cursor=pointer]
+                - button "거리뷰" [ref=e139] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "반경측정" [ref=e142] [cursor=pointer]
+                - button "면적측정" [ref=e144] [cursor=pointer]
+                - button "거리측정" [ref=e146] [cursor=pointer]
+              - generic [ref=e148]:
+                - button "다운로드" [ref=e149] [cursor=pointer]
+                - button "인쇄" [ref=e151] [cursor=pointer]
+                - button "공유하기" [ref=e153] [cursor=pointer]
+            - generic:
+              - button "접속위치" [ref=e157] [cursor=pointer]
+              - generic [ref=e163]:
+                - button "확대" [ref=e164] [cursor=pointer]
+                - button "축소" [ref=e167] [cursor=pointer]
+  - status [ref=e169]
