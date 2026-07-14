@@ -36,15 +36,34 @@ uv run python poc/1-1-env/smoke_test.py
 ### 프로젝트 구조
 
 ```
-src/datespot_agent/   # 패키지 소스 (config.py: 설정 모델)
-poc/                  # 1단계 리스크 검증 — 세부 단계별 디렉토리
-  1-1-env/            #   각 단계: 스크립트 + README + output/(응답값·결과)
+src/datespot_agent/
+  analysis/           # 사진·리뷰 분석 Agent와 점수 계산
+  browser/            # 네이버지도 탐색과 브라우저 세션 관리
+  graph/              # LangGraph 실행 루프
+  config.py           # 환경 설정
+  models.py           # 실행 설정·상태·리포트 모델
+tests/
+  test_*.py           # 외부 호출 없는 자동 테스트
+  run_graph_live.py   # 네이버지도·OpenAI 수동 통합 실행기
+poc/                  # 1단계 리스크 검증 — 단계별 스크립트·결과
 reports/              # 생성된 리포트 (gitignore)
-docs/                 # 기획 문서
+docs/                 # 설계·구현 계획 문서
 ```
 
 > 1단계의 각 세부 단계(1-1, 1-2, …)는 `poc/<단계>/` 디렉토리로 독립 관리한다.
 > 스크립트·설명(README)·실행 결과(`output/`)를 그 안에 모은다.
+
+### LangGraph 실행 루프 수동 확인
+
+1. `tests/run_graph_live.py` 상단의 검색 지역·키워드·최대 장소 수·가중치·평가 기준을 수정한다.
+2. 필요하면 `MODEL_OVERRIDE`, `HEADED`, `OUTPUT_PATH`를 설정한다.
+3. `.env`에 `OPENAI_API_KEY`가 설정됐는지 확인한 뒤 실행한다.
+
+```bash
+uv run python tests/run_graph_live.py
+```
+
+`OUTPUT_PATH=None`이면 리포트 JSON을 stdout에 출력한다. 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트에는 포함하지 않는다.
 
 ---
 
@@ -57,7 +76,7 @@ docs/                 # 기획 문서
 문서에 없는 결정들을 먼저 확정해 개발이 흔들리지 않게 한다. → [docs/00-planning.md](poc/00-planning.md)
 
 - [x] **점수 체계 정의**: 0~10점, 최종 = 사진 × w + 리뷰 × w (가중치 UI 조정, 기본 50:50)
-- [x] **탐색 범위 제한**: 순차 처리(병렬 금지), 최대 30개(설정 가능), 딜레이 + 속도 제한
+- [x] **탐색 범위 제한**: 순차 처리(병렬 금지), 최대 10개(설정 가능), 딜레이 + 속도 제한
 - [x] **"실시간"의 수준 결정**: CDP 영상 스트리밍
 
 ### 1단계: 기술 리스크 검증 (PoC, 1~2주) ✅ 완료
@@ -79,12 +98,14 @@ docs/                 # 기획 문서
 
 설계 초안: [LangGraph + Agent Core Design](docs/superpowers/specs/2026-07-12-langgraph-agent-core-design.md)
 
+실행 루프 설계: [LangGraph 실행 루프 설계](docs/superpowers/specs/2026-07-14-langgraph-execution-loop-design.md)
+
 - [x] **2-1 설계 확정**: LangGraph node 흐름, state, 데이터 모델, 인터페이스 정의
 - [x] **2-2 데이터 모델 구현**: RunConfig, CandidatePlace, PlaceDetail, PhotoAnalysis, ReviewAnalysis, PlaceResult, RunReport, GraphState
 - [x] **2-3 BrowserService 연동**: 1-2 PoC의 네이버지도 검색/상세 추출 로직을 `BrowserService`로 정리
 - [x] **2-4 분석 계층 구현**: 사진 분석, 리뷰 분석, 기준 충족 판정, 점수 계산
-- [ ] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 분석 → 리포트 반영
-- [ ] **2-6 실패 처리**: 장소별 실패 기록, navigation recovery 최소 구조
+- [x] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 분석 → `analyzed`/`not_matched`/`failed` 리포트 반영
+- [ ] **2-6 실패 복구 고도화**: navigation recovery, 재시도 정책, retryable/terminal 오류 분류
 - [ ] **2-7 JSON 리포트 출력**: 분석/기준 미충족/실패 장소를 하나의 결과로 저장
 
 ### 3단계: 백엔드 로직 구현 (1~2주)
@@ -102,7 +123,7 @@ docs/                 # 기획 문서
 
 ### 5단계: 다듬기 (1주+)
 
-- [ ] 에러 복구 (장소 하나 실패해도 전체가 죽지 않게)
+- [ ] 에러 복구 고도화 (navigation recovery, 재시도 정책)
 - [ ] 비용/속도 최적화, 캐싱
 
 ---

@@ -299,13 +299,14 @@ src/datespot_agent/graph/
 └── service.py       # graph 조립, node, route, report 생성 node
 
 tests/
-└── test_graph_run_service.py
+└── run_graph_live.py  # 네이버지도/OpenAI 수동 통합 실행기
 ```
 
 구조 선택 이유:
 
 - node 수가 많아도 현재 의존성은 4개뿐이라 파일 하나에 유지 가능
 - `2-6`, `2-7`에서 실패 처리/파일 출력이 추가되면 그때 분리해도 늦지 않음
+- 실제 브라우저와 OpenAI를 연결한 실행 확인은 별도 수동 실행기로 분리
 - 현재 요청 기준 최소 변경에 맞음
 
 ## 6. 공개 인터페이스
@@ -470,7 +471,7 @@ place 전환 시 `select_current_place`에서 아래 필드를 반드시 초기�
 - place 단위 임시 필드 초기화
 
 이 node가 인덱스를 증가시키면 이후 failure가 나도 "이미 시도한 후보"로 간주하기
-쉬워진다. 2-6에서 `failed` append를 추가할 때도 같은 규칙을 유지할 수 있다.
+쉬워진다. 2-6에서 recovery와 재시도를 추가할 때도 같은 규칙을 유지할 수 있다.
 
 ### 8.11 extract_place_detail
 
@@ -569,8 +570,8 @@ place 전환 시 `select_current_place`에서 아래 필드를 반드시 초기�
 - `category`, `address`: `current_place_detail`이 있으면 함께 기록
 - `failure_reason`: `last_error`
 
-이 node는 별도 서비스 없이 graph 내부 helper로 시작한다. 2-6에서 실패 포맷 규칙이
-복잡해지면 `PlaceResultService`로 추출한다.
+이 node는 별도 서비스 없이 graph 내부 helper로 시작한다. 2-6에서 recovery 결과와
+재시도 이력까지 포함해 실패 포맷이 복잡해지면 `PlaceResultService`로 추출한다.
 
 ## 9. report 생성 node 설계
 
@@ -639,51 +640,47 @@ graph는 `GraphRunService` 초기화 시 1회 compile한다.
 
 이 변환을 `run()` 내부에 숨겨 외부에는 `RunReport`만 노출한다.
 
-## 12. 테스트 전략
+## 12. 검증 전략
 
-실사이트와 실제 OpenAI 호출 없이 fake 의존성으로 검증한다.
+2-5에서는 전용 graph 단위 테스트를 추가하지 않고, 기존 하위 계층 자동 테스트와
+수동 통합 실행으로 검증한다.
 
-### 12.1 기본 성공 흐름
+### 12.1 자동 회귀 검증 범위
 
-- 후보 3개 검색
-- `max_places=2`
-- 첫 장소 `analyzed`
-- 둘째 장소 `not_matched`
-- 최종 report는 `completed`
-- 결과 수 2개
-- 브라우저 정리 호출 확인
+- `RunConfig`, `GraphState`, `RunReport` 모델 계약
+- `BrowserService` 검색·상세 추출·세션 정리
+- 사진/리뷰 분석 Agent 입력·응답 처리
+- `PlaceScoringService`의 가중치·기준 충족 판정
+- 전체 기존 테스트 재실행
 
-### 12.2 후보 없음
+`GraphRunService` 자체의 fake 기반 단위 테스트는 2-5 범위에 포함하지 않는다.
 
-- 검색 결과 빈 배열
-- 분석 Agent 호출 없음
-- `completed` report 생성
-- 결과 배열 빈 상태 유지
+### 12.2 수동 통합 실행
 
-### 12.3 가중치 0% skip
+`tests/run_graph_live.py` 상단에서 아래 값을 직접 설정한다.
 
-- 사진 0%면 사진 Agent 호출 안 함
-- 리뷰 0%면 리뷰 Agent 호출 안 함
+- `LOCATION`, `SEARCH_KEYWORD`, `MAX_PLACES`
+- `PHOTO_PERCENT`, `REVIEW_PERCENT`
+- `PHOTO_CRITERIA`, `REVIEW_CRITERIA`
+- 필요 시 `MODEL_OVERRIDE`, `HEADED`, `OUTPUT_PATH`
 
-### 12.4 run-level failed 종료
+`.env`에 `OPENAI_API_KEY`를 설정한 뒤 실행한다.
 
-- `start_session` 또는 `search_candidates`에서 fake 오류 발생
-- `failed` report 생성
-- `errors`에 메시지 존재
-- 브라우저는 닫힘
+```bash
+uv run python tests/run_graph_live.py
+```
 
-### 12.5 place-level failed 계속 진행
+이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트 탐색에는
+포함하지 않는다. `OUTPUT_PATH=None`이면 최종 `RunReport` JSON을 stdout에 출력한다.
 
-- 첫 장소 `extract_place_detail` 실패
-- 첫 결과는 `failed`
-- 둘째 장소는 계속 분석
-- 최종 report는 `completed`
+### 12.3 수동 확인 항목
 
-### 12.6 후보 제한 책임 검증
-
-- 브라우저 서비스는 5개 후보 반환
-- `max_places=2`
-- 실제 extract 호출은 2회만 발생
+- 브라우저 세션 시작과 후보 검색 로그 출력
+- `max_places` 이하 후보를 순차 처리
+- 활성 가중치에 해당하는 사진/리뷰 분석 실행
+- 장소 결과를 `analyzed`, `not_matched`, `failed` 중 하나로 누적
+- 최종 report 상태와 결과 수 출력
+- 성공·실패와 무관한 브라우저 세션 정리 로그 출력
 
 ## 13. 2-6, 2-7 확장 포인트
 
@@ -701,14 +698,13 @@ graph는 `GraphRunService` 초기화 시 1회 compile한다.
 - 저장 경로와 파일명 규칙 확정
 - 파일 저장 실패를 run failure로 볼지 별도 후처리 오류로 볼지 결정
 
-## 14. 구현 순서 제안
+## 14. 구현 결과
 
-1. `GraphRunService` 뼈대와 `run()` 진입점 추가
-2. 성공 경로 graph compile
-3. `max_places` slice와 순차 loop 테스트 추가
-4. `not_matched`와 `failed` 누적 테스트 추가
-5. run-level failed report 생성 node 추가
-6. browser close 보장 테스트 추가
+1. `GraphRunService`와 `run()` 공개 진입점 추가
+2. `max_places` slice와 순차 후보 loop 구현
+3. 사진·리뷰 분석과 점수 계산 연결
+4. `analyzed`, `not_matched`, `failed` 결과 누적
+5. completed/failed report 생성과 브라우저 정리 보장
+6. `tests/run_graph_live.py` 수동 통합 실행기 추가
 
-이 순서면 2-5를 작은 단위로 닫을 수 있고, 이후 2-6이 기존 흐름을 갈아엎지 않고
-failure branch만 확장하면 된다.
+2-6은 현재 failure branch 앞에 recovery와 재시도 분기를 확장하는 방식으로 진행한다.
