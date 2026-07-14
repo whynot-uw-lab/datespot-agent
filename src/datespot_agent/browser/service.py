@@ -15,6 +15,10 @@ from playwright.async_api import (
     async_playwright,
 )
 
+from datespot_agent.browser.chrome_cdp import (
+    ChromeCdpLauncher,
+    ChromeCdpProcess,
+)
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
     BrowserExtractionError,
@@ -38,6 +42,7 @@ class BrowserSession:
     page: Page | None
     navigator: NaverMapPage
     candidate_targets: dict[str, CandidateTarget] = field(default_factory=dict)
+    cdp_process: ChromeCdpProcess | None = None
 
 
 class BrowserService:
@@ -49,12 +54,14 @@ class BrowserService:
         headless: bool = True,
         browser_channel: str | None = None,
         user_data_dir: Path | None = None,
+        cdp_launcher: ChromeCdpLauncher | None = None,
         pacer: InteractionPacer | None = None,
         log: Callable[[str], None] | None = None,
     ) -> None:
         self._headless = headless
         self._browser_channel = browser_channel
         self._user_data_dir = user_data_dir
+        self._cdp_launcher = cdp_launcher
         self._pacer = pacer or InteractionPacer()
         self._log = log
         self._sessions: dict[str, BrowserSession] = {}
@@ -62,7 +69,24 @@ class BrowserService:
     async def _launch_browser_context(
         self,
         runtime: Playwright,
-    ) -> tuple[Browser | None, BrowserContext]:
+    ) -> tuple[Browser | None, BrowserContext, ChromeCdpProcess | None]:
+        if self._cdp_launcher is not None:
+            cdp_process = await self._cdp_launcher.launch()
+            try:
+                browser = await runtime.chromium.connect_over_cdp(
+                    cdp_process.endpoint_url,
+                    no_defaults=True,
+                    is_local=True,
+                )
+                if not browser.contexts:
+                    raise BrowserSessionError(
+                        "CDP 브라우저 기본 컨텍스트를 찾지 못함"
+                    )
+                return browser, browser.contexts[0], cdp_process
+            except Exception:
+                await self._safe_close(cdp_process)
+                raise
+
         launch_options: dict[str, object] = {
             "headless": self._headless,
         }
@@ -80,10 +104,10 @@ class BrowserService:
                 **launch_options,
                 **context_options,
             )
-            return context.browser, context
+            return context.browser, context, None
         browser = await runtime.chromium.launch(**launch_options)
         context = await browser.new_context(**context_options)
-        return browser, context
+        return browser, context, None
 
     @staticmethod
     async def _initial_page(context: BrowserContext) -> Page:
@@ -111,8 +135,11 @@ class BrowserService:
         browser: Browser | None = None
         context: BrowserContext | None = None
         page: Page | None = None
+        cdp_process: ChromeCdpProcess | None = None
         try:
-            browser, context = await self._launch_browser_context(runtime)
+            browser, context, cdp_process = (
+                await self._launch_browser_context(runtime)
+            )
             page = await self._initial_page(context)
             navigator = NaverMapPage(
                 page,
@@ -127,11 +154,13 @@ class BrowserService:
                 context,
                 page,
                 navigator,
+                cdp_process=cdp_process,
             )
         except Exception:
             await self._safe_close(page)
             await self._safe_close(context)
             await self._safe_close(browser)
+            await self._safe_close(cdp_process)
             await self._safe_stop(runtime)
             raise
 
@@ -222,6 +251,7 @@ class BrowserService:
         await self._safe_close(session.page)
         await self._safe_close(session.context)
         await self._safe_close(session.browser)
+        await self._safe_close(session.cdp_process)
         await self._safe_stop(session.playwright)
 
     async def close_all(self) -> None:

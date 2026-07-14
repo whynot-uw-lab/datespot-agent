@@ -1,5 +1,6 @@
 """네이버지도 브라우저 자동화 계층."""
 
+from datespot_agent.browser.chrome_cdp import ChromeCdpLauncher
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
     BrowserExtractionError,
@@ -16,4 +17,5 @@ __all__ = [
     "BrowserService",
     "BrowserServiceError",
     "BrowserSessionError",
+    "ChromeCdpLauncher",
 ]

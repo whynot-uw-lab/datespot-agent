@@ -77,6 +77,7 @@ class FakeLaunchContext:
 class FakeLaunchBrowser:
     def __init__(self, context: FakeLaunchContext) -> None:
         self.context = context
+        self.contexts = [context]
 
     async def new_context(self, **options):
         self.context.context_options = options
@@ -89,6 +90,8 @@ class FakeChromium:
         self.persistent_context = persistent_context
         self.launch_calls = []
         self.persistent_calls = []
+        self.cdp_calls = []
+        self.cdp_error: Exception | None = None
 
     async def launch(self, **options):
         self.launch_calls.append(options)
@@ -98,10 +101,35 @@ class FakeChromium:
         self.persistent_calls.append((user_data_dir, options))
         return self.persistent_context
 
+    async def connect_over_cdp(self, endpoint_url, **options):
+        self.cdp_calls.append((endpoint_url, options))
+        if self.cdp_error is not None:
+            raise self.cdp_error
+        return self.browser
+
 
 class FakeRuntime:
     def __init__(self, chromium: FakeChromium) -> None:
         self.chromium = chromium
+
+
+class FakeCdpProcess:
+    def __init__(self) -> None:
+        self.endpoint_url = "http://127.0.0.1:43891"
+        self.close_calls = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+
+
+class FakeCdpLauncher:
+    def __init__(self, process: FakeCdpProcess) -> None:
+        self.process = process
+        self.launch_calls = 0
+
+    async def launch(self) -> FakeCdpProcess:
+        self.launch_calls += 1
+        return self.process
 
 
 class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -111,12 +139,13 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         chromium = FakeChromium(browser, FakeLaunchContext())
         service = BrowserService(headless=True)
 
-        launched_browser, launched_context = (
+        launched_browser, launched_context, cdp_process = (
             await service._launch_browser_context(FakeRuntime(chromium))
         )
         page = await service._initial_page(launched_context)
 
         self.assertIs(launched_browser, browser)
+        self.assertIsNone(cdp_process)
         self.assertEqual(chromium.launch_calls, [{"headless": True}])
         self.assertEqual(chromium.persistent_calls, [])
         self.assertEqual(
@@ -147,13 +176,14 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
                 browser_channel="chrome",
                 user_data_dir=profile_dir,
             )
-            launched_browser, launched_context = (
+            launched_browser, launched_context, cdp_process = (
                 await service._launch_browser_context(FakeRuntime(chromium))
             )
             page = await service._initial_page(launched_context)
 
             self.assertTrue(profile_dir.is_dir())
             self.assertIs(launched_browser, persistent_browser)
+            self.assertIsNone(cdp_process)
             self.assertEqual(chromium.launch_calls, [])
             self.assertEqual(
                 chromium.persistent_calls,
@@ -172,6 +202,52 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertIs(page, existing_page)
             self.assertEqual(context.new_page_calls, 0)
+
+    async def test_cdp_launch_reuses_default_context_without_overrides(self):
+        existing_page = object()
+        context = FakeLaunchContext(pages=[existing_page])
+        browser = FakeLaunchBrowser(context)
+        chromium = FakeChromium(browser, FakeLaunchContext())
+        cdp_process = FakeCdpProcess()
+        launcher = FakeCdpLauncher(cdp_process)
+        service = BrowserService(cdp_launcher=launcher)
+
+        launched_browser, launched_context, launched_process = (
+            await service._launch_browser_context(FakeRuntime(chromium))
+        )
+        page = await service._initial_page(launched_context)
+
+        self.assertEqual(launcher.launch_calls, 1)
+        self.assertEqual(
+            chromium.cdp_calls,
+            [
+                (
+                    cdp_process.endpoint_url,
+                    {"no_defaults": True, "is_local": True},
+                )
+            ],
+        )
+        self.assertIs(launched_browser, browser)
+        self.assertIs(launched_context, context)
+        self.assertIs(launched_process, cdp_process)
+        self.assertIs(page, existing_page)
+        self.assertEqual(chromium.launch_calls, [])
+        self.assertEqual(chromium.persistent_calls, [])
+
+    async def test_cdp_connect_failure_closes_external_chrome(self):
+        context = FakeLaunchContext()
+        browser = FakeLaunchBrowser(context)
+        chromium = FakeChromium(browser, FakeLaunchContext())
+        chromium.cdp_error = RuntimeError("CDP unavailable")
+        cdp_process = FakeCdpProcess()
+        service = BrowserService(
+            cdp_launcher=FakeCdpLauncher(cdp_process),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "CDP unavailable"):
+            await service._launch_browser_context(FakeRuntime(chromium))
+
+        self.assertEqual(cdp_process.close_calls, 1)
 
     async def test_search_uses_fixed_order_without_max_places_slice(self):
         service = BrowserService(pacer=FakePacer())
@@ -321,6 +397,38 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             calls,
             ["page", "context", "browser", "playwright"],
+        )
+
+    async def test_close_session_closes_external_chrome_before_runtime(self):
+        calls: list[str] = []
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        service = BrowserService(pacer=FakePacer())
+        service._sessions["run-1"] = BrowserSession(
+            Runtime(),
+            Closeable("browser"),
+            Closeable("context"),
+            Closeable("page"),
+            FakeNavigator(),
+            {},
+            Closeable("chrome"),
+        )
+
+        await service.close_session("run-1")
+
+        self.assertEqual(
+            calls,
+            ["page", "context", "browser", "chrome", "playwright"],
         )
 
 
