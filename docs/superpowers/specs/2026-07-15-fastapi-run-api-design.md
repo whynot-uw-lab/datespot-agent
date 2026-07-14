@@ -195,6 +195,9 @@ class RunCoordinator:
 - `JsonReportStore` 생성
 - `RunCoordinator` 생성
 
+조립 factory는 async이며, OpenAI client 생성 이후 조립이 실패하면 client를 닫고
+예외를 다시 전달한다.
+
 모듈 import 시 브라우저나 OpenAI client를 시작하지 않는다. 실제 객체 조립과 worker
 시작은 FastAPI lifespan 진입 시 수행한다.
 
@@ -203,7 +206,7 @@ class RunCoordinator:
 `create_app()` factory와 기본 `app` 객체를 제공한다.
 
 - 테스트는 가짜 coordinator factory를 주입
-- 운영 기본값은 `api.runtime`의 실제 factory 사용
+- 운영 기본값은 `api.runtime`의 async factory 사용
 - lifespan 진입 시 coordinator 생성·시작
 - lifespan 종료 시 coordinator 정지 후 `BrowserService.close_all()` 보장
 - route는 coordinator 호출과 HTTP 변환만 담당
@@ -400,11 +403,11 @@ DATESPOT_BROWSER_USER_DATA_DIR=~/.cache/datespot-agent/chrome-profile
 
 ## 10. 의존성
 
-프로젝트 의존성에 FastAPI 실행·테스트에 필요한 항목을 추가한다.
+프로젝트 의존성에 FastAPI 실행 항목을, 개발 의존성에 테스트 항목을 추가한다.
 
 - `fastapi`
 - `uvicorn`
-- `httpx`
+- 개발 전용 `httpx2` (Starlette `TestClient` backend)
 
 구체 버전 하한은 구현 시 현재 Python 3.13 호환 공식 릴리스를 확인해 고정한다.
 

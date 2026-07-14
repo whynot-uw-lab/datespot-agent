@@ -38,11 +38,16 @@ class FakeCoordinator:
     def get_status(self, run_id):
         if run_id == "missing":
             return None
+        job_status = RunJobStatus.QUEUED
+        if self.report is not None:
+            job_status = (
+                RunJobStatus.FAILED
+                if self.report.status is RunStatus.FAILED
+                else RunJobStatus.COMPLETED
+            )
         return RunStatusResponse(
             run_id=run_id,
-            status=(
-                RunJobStatus.COMPLETED if self.report else RunJobStatus.QUEUED
-            ),
+            status=job_status,
             config=RunConfig(location="성수역", search_keyword="일식"),
             created_at=NOW,
             report_available=self.report is not None,
@@ -74,6 +79,17 @@ class ApiAppTests(unittest.TestCase):
 
     def test_lifespan_starts_and_stops_runtime(self):
         self.runtime.start.assert_awaited_once()
+
+    def test_lifespan_accepts_async_runtime_factory(self):
+        runtime = FakeRuntime()
+
+        async def runtime_factory():
+            return runtime
+
+        with TestClient(create_app(runtime_factory)):
+            runtime.start.assert_awaited_once()
+
+        runtime.stop.assert_awaited_once()
 
     def test_lifespan_stops_runtime_when_startup_fails(self):
         runtime = FakeRuntime()
@@ -148,10 +164,14 @@ class ApiAppTests(unittest.TestCase):
             created_at=NOW,
         )
 
-        response = self.client.get("/runs/run_api/report")
+        status_response = self.client.get("/runs/run_api")
+        report_response = self.client.get("/runs/run_api/report")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "failed")
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(status_response.json()["status"], "failed")
+        self.assertTrue(status_response.json()["reportAvailable"])
+        self.assertEqual(report_response.status_code, 200)
+        self.assertEqual(report_response.json()["status"], "failed")
 
     def test_terminal_failure_without_report_returns_unavailable(self):
         status = self.runtime.coordinator.get_status("run_api")

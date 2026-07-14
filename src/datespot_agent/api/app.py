@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from inspect import isawaitable
 
 from fastapi import FastAPI, HTTPException, Request, status
 
@@ -19,7 +20,7 @@ from datespot_agent.api.runtime import AppRuntime, create_runtime
 from datespot_agent.models import RunConfig, RunReport
 
 
-RuntimeFactory = Callable[[], AppRuntime]
+RuntimeFactory = Callable[[], AppRuntime | Awaitable[AppRuntime]]
 
 
 def _detail(code: str, message: str) -> dict[str, str]:
@@ -29,7 +30,12 @@ def _detail(code: str, message: str) -> dict[str, str]:
 def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        runtime = runtime_factory()
+        runtime_or_awaitable = runtime_factory()
+        runtime = (
+            await runtime_or_awaitable
+            if isawaitable(runtime_or_awaitable)
+            else runtime_or_awaitable
+        )
         app.state.runtime = runtime
         try:
             await runtime.start()

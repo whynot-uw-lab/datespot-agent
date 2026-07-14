@@ -47,7 +47,7 @@ class AppRuntime:
                 await self.openai_client.close()
 
 
-def create_runtime(settings: Settings | None = None) -> AppRuntime:
+async def create_runtime(settings: Settings | None = None) -> AppRuntime:
     """설정을 검증하고 운영용 의존성 graph를 조립함."""
     effective_settings = settings or get_settings()
     api_key = effective_settings.openai_api_key.strip()
@@ -63,26 +63,33 @@ def create_runtime(settings: Settings | None = None) -> AppRuntime:
     profile_path = effective_settings.browser_user_data_dir.expanduser()
     reports_root = effective_settings.reports_root.expanduser()
     client = AsyncOpenAI(api_key=api_key)
-    browser = BrowserService(
-        headless=False,
-        cdp_launcher=ChromeCdpLauncher(
-            executable_path=chrome_path,
-            user_data_dir=profile_path,
-        ),
-        log=logger.info,
-    )
-    runner = GraphRunService(
-        browser_service=browser,
-        photo_agent=PhotoAnalysisAgent(
-            client,
-            model=effective_settings.model,
-        ),
-        review_agent=ReviewAnalysisAgent(
-            client,
-            model=effective_settings.model,
-        ),
-        scoring_service=PlaceScoringService(),
-        log=logger.info,
-    )
-    coordinator = RunCoordinator(runner, JsonReportStore(reports_root))
-    return AppRuntime(coordinator, browser, client)
+    try:
+        browser = BrowserService(
+            headless=False,
+            cdp_launcher=ChromeCdpLauncher(
+                executable_path=chrome_path,
+                user_data_dir=profile_path,
+            ),
+            log=logger.info,
+        )
+        runner = GraphRunService(
+            browser_service=browser,
+            photo_agent=PhotoAnalysisAgent(
+                client,
+                model=effective_settings.model,
+            ),
+            review_agent=ReviewAnalysisAgent(
+                client,
+                model=effective_settings.model,
+            ),
+            scoring_service=PlaceScoringService(),
+            log=logger.info,
+        )
+        coordinator = RunCoordinator(runner, JsonReportStore(reports_root))
+        return AppRuntime(coordinator, browser, client)
+    except BaseException:
+        try:
+            await client.close()
+        except BaseException:
+            logger.exception("runtime 조립 실패 후 OpenAI client 정리 실패")
+        raise

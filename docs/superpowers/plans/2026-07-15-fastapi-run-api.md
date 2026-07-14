@@ -36,7 +36,7 @@
 - Produces: `make_run_id(clock: Callable[[], datetime] = utc_now) -> str`
 - Produces: `GraphRunService.run(config: RunConfig, *, run_id: str | None = None) -> RunReport`
 
-- [ ] **Step 1: Write failing external-ID and auto-ID tests**
+- [x] **Step 1: Write failing external-ID and auto-ID tests**
 
 ```python
 from __future__ import annotations
@@ -90,13 +90,13 @@ class GraphRunIdTests(unittest.IsolatedAsyncioTestCase):
         self.assertRegex(report.run_id, r"^run_20260715_010203_[0-9a-f]{8}$")
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_graph_service -v`
 
 Expected: external-ID test errors because `run()` does not accept `run_id`.
 
-- [ ] **Step 3: Extract ID creation and add optional injection**
+- [x] **Step 3: Extract ID creation and add optional injection**
 
 ```python
 # src/datespot_agent/graph/service.py
@@ -127,13 +127,13 @@ from datespot_agent.graph.service import GraphRunService, make_run_id
 __all__ = ["GraphRunService", "make_run_id"]
 ```
 
-- [ ] **Step 4: Run focused and existing runner tests**
+- [x] **Step 4: Run focused and existing runner tests**
 
 Run: `uv run python -m unittest tests.test_graph_service tests.test_run_graph_live -v`
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit graph ID contract**
+- [x] **Step 5: Commit graph ID contract**
 
 ```bash
 git add src/datespot_agent/graph tests/test_graph_service.py
@@ -160,7 +160,7 @@ git commit -m "feat: allow caller-provided graph run IDs"
 - Produces: `RunAccepted`, `RunStatusResponse`, `HealthResponse`, `RunJobStatus`
 - Produces: `CoordinatorUnavailableError`
 
-- [ ] **Step 1: Write failing coordinator state and FIFO tests**
+- [x] **Step 1: Write failing coordinator state and FIFO tests**
 
 ```python
 from __future__ import annotations
@@ -384,13 +384,13 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("서버 종료", snapshot.error)
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_run_coordinator -v`
 
 Expected: import failure because `datespot_agent.api` does not exist.
 
-- [ ] **Step 3: Implement API models and coordinator errors**
+- [x] **Step 3: Implement API models and coordinator errors**
 
 ```python
 # src/datespot_agent/api/__init__.py
@@ -446,7 +446,7 @@ class CoordinatorUnavailableError(RuntimeError):
     """Coordinator가 신규 실행을 접수할 수 없음."""
 ```
 
-- [ ] **Step 4: Implement the coordinator worker**
+- [x] **Step 4: Implement the coordinator worker**
 
 ```python
 # src/datespot_agent/api/coordinator.py
@@ -620,13 +620,13 @@ class RunCoordinator:
             self._active_run_id = None
 ```
 
-- [ ] **Step 5: Run coordinator tests and confirm GREEN**
+- [x] **Step 5: Run coordinator tests and confirm GREEN**
 
 Run: `uv run python -m unittest tests.test_run_coordinator -v`
 
 Expected: all coordinator tests pass.
 
-- [ ] **Step 6: Commit coordinator**
+- [x] **Step 6: Commit coordinator**
 
 ```bash
 git add src/datespot_agent/api tests/test_run_coordinator.py
@@ -647,10 +647,10 @@ git commit -m "feat: add FIFO run coordinator"
 
 - Consumes: `RunCoordinator`
 - Produces: `AppRuntime.start() -> None`, `AppRuntime.stop() -> None`
-- Produces: `create_runtime(settings: Settings | None = None) -> AppRuntime`
+- Produces: `async create_runtime(settings: Settings | None = None) -> AppRuntime`
 - Produces: `RuntimeConfigurationError`
 
-- [ ] **Step 1: Write failing settings and runtime lifecycle tests**
+- [x] **Step 1: Write failing settings and runtime lifecycle tests**
 
 ```python
 from __future__ import annotations
@@ -681,9 +681,9 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(settings.reports_root, Path("custom-reports"))
         self.assertEqual(settings.chrome_executable_path, Path("/tmp/chrome"))
 
-    def test_create_runtime_rejects_empty_api_key(self):
+    async def test_create_runtime_rejects_empty_api_key(self):
         with self.assertRaises(RuntimeConfigurationError):
-            create_runtime(Settings(OPENAI_API_KEY=""))
+            await create_runtime(Settings(OPENAI_API_KEY=""))
 
     async def test_app_runtime_stops_all_resources(self):
         coordinator = Mock(start=AsyncMock(), stop=AsyncMock())
@@ -697,7 +697,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         browser.close_all.assert_awaited_once()
         client.close.assert_awaited_once()
 
-    def test_create_runtime_expands_and_wires_paths(self):
+    async def test_create_runtime_expands_and_wires_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             chrome = root / "Chrome"
@@ -715,7 +715,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 patch("datespot_agent.api.runtime.ChromeCdpLauncher") as launcher_type,
                 patch("datespot_agent.api.runtime.JsonReportStore") as store_type,
             ):
-                runtime = create_runtime(settings)
+                runtime = await create_runtime(settings)
             launcher_type.assert_called_once_with(
                 executable_path=chrome,
                 user_data_dir=root / "profile",
@@ -724,13 +724,13 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIs(runtime.openai_client, client_type.return_value)
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_api_runtime -v`
 
 Expected: import failure because `api.runtime` does not exist.
 
-- [ ] **Step 3: Add settings fields**
+- [x] **Step 3: Add settings fields**
 
 ```python
 # src/datespot_agent/config.py, inside Settings
@@ -751,7 +751,7 @@ browser_user_data_dir: Path = Field(
 )
 ```
 
-- [ ] **Step 4: Implement runtime assembly and cleanup**
+- [x] **Step 4: Implement runtime assembly and cleanup**
 
 ```python
 # src/datespot_agent/api/runtime.py
@@ -800,7 +800,7 @@ class AppRuntime:
                 await self.openai_client.close()
 
 
-def create_runtime(settings: Settings | None = None) -> AppRuntime:
+async def create_runtime(settings: Settings | None = None) -> AppRuntime:
     effective_settings = settings or get_settings()
     api_key = effective_settings.openai_api_key.strip()
     if not api_key:
@@ -832,13 +832,13 @@ def create_runtime(settings: Settings | None = None) -> AppRuntime:
     return AppRuntime(coordinator, browser, client)
 ```
 
-- [ ] **Step 5: Run runtime tests and confirm GREEN**
+- [x] **Step 5: Run runtime tests and confirm GREEN**
 
 Run: `uv run python -m unittest tests.test_api_runtime -v`
 
 Expected: all runtime tests pass.
 
-- [ ] **Step 6: Commit runtime**
+- [x] **Step 6: Commit runtime**
 
 ```bash
 git add src/datespot_agent/config.py src/datespot_agent/api/runtime.py tests/test_api_runtime.py
@@ -859,22 +859,23 @@ git commit -m "feat: assemble API runtime"
 
 **Interfaces:**
 
-- Consumes: `create_runtime() -> AppRuntime`
+- Consumes: `create_runtime() -> Awaitable[AppRuntime]`
 - Consumes: `RunCoordinator` query and submit methods
 - Produces: `create_app(runtime_factory=create_runtime) -> FastAPI`
 - Produces: importable ASGI `datespot_agent.api.app:app`
 
-- [ ] **Step 1: Add current compatible API dependencies**
+- [x] **Step 1: Add current compatible API dependencies**
 
 Run:
 
 ```bash
-uv add 'fastapi>=0.139.0' 'uvicorn>=0.51.0' 'httpx2>=2.5.0'
+uv add 'fastapi>=0.139.0' 'uvicorn>=0.51.0'
+uv add --dev 'httpx2>=2.5.0'
 ```
 
 Expected: `pyproject.toml` and `uv.lock` update; Python 3.13 environment resolves.
 
-- [ ] **Step 2: Write failing HTTP and lifespan tests**
+- [x] **Step 2: Write failing HTTP and lifespan tests**
 
 ```python
 from __future__ import annotations
@@ -1021,21 +1022,21 @@ class ApiAppTests(unittest.TestCase):
         )
 ```
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_api_app -v`
 
 Expected: import failure because `api.app` does not exist.
 
-- [ ] **Step 4: Implement the FastAPI app factory and routes**
+- [x] **Step 4: Implement the FastAPI app factory and routes**
 
 ```python
 # src/datespot_agent/api/app.py
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Protocol
+from inspect import isawaitable
 
 from fastapi import FastAPI, HTTPException, Request, status
 
@@ -1051,7 +1052,7 @@ from datespot_agent.api.runtime import AppRuntime, create_runtime
 from datespot_agent.models import RunConfig, RunReport
 
 
-RuntimeFactory = Callable[[], AppRuntime]
+RuntimeFactory = Callable[[], AppRuntime | Awaitable[AppRuntime]]
 
 
 def _detail(code: str, message: str) -> dict[str, str]:
@@ -1061,10 +1062,15 @@ def _detail(code: str, message: str) -> dict[str, str]:
 def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        runtime = runtime_factory()
+        runtime_or_awaitable = runtime_factory()
+        runtime = (
+            await runtime_or_awaitable
+            if isawaitable(runtime_or_awaitable)
+            else runtime_or_awaitable
+        )
         app.state.runtime = runtime
-        await runtime.start()
         try:
+            await runtime.start()
             yield
         finally:
             await runtime.stop()
@@ -1138,13 +1144,13 @@ from datespot_agent.api.app import app, create_app
 __all__ = ["app", "create_app"]
 ```
 
-- [ ] **Step 5: Run API, coordinator, and runtime tests**
+- [x] **Step 5: Run API, coordinator, and runtime tests**
 
 Run: `uv run python -m unittest tests.test_api_app tests.test_run_coordinator tests.test_api_runtime -v`
 
 Expected: all focused tests pass.
 
-- [ ] **Step 6: Commit HTTP API**
+- [x] **Step 6: Commit HTTP API**
 
 ```bash
 git add pyproject.toml uv.lock src/datespot_agent/api tests/test_api_app.py

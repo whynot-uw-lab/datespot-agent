@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from datespot_agent.api.coordinator import RunCoordinator
 from datespot_agent.api.runtime import (
@@ -70,14 +70,17 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             Path("~/.cache/test-profile"),
         )
 
-    def test_create_runtime_rejects_empty_api_key(self):
-        with self.assertRaisesRegex(
-            RuntimeConfigurationError,
-            "OPENAI_API_KEY",
-        ):
-            create_runtime(Settings(OPENAI_API_KEY="   "))
+    async def test_create_runtime_rejects_empty_api_key(self):
+        with patch("datespot_agent.api.runtime.AsyncOpenAI") as client_type:
+            with self.assertRaisesRegex(
+                RuntimeConfigurationError,
+                "OPENAI_API_KEY",
+            ):
+                await create_runtime(Settings(OPENAI_API_KEY="   "))
 
-    def test_create_runtime_rejects_missing_chrome_executable(self):
+        client_type.assert_not_called()
+
+    async def test_create_runtime_rejects_missing_chrome_executable(self):
         with tempfile.TemporaryDirectory() as directory:
             missing_chrome = Path(directory) / "missing-chrome"
             settings = Settings(
@@ -85,11 +88,14 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 DATESPOT_CHROME_EXECUTABLE_PATH=missing_chrome,
             )
 
-            with self.assertRaisesRegex(
-                RuntimeConfigurationError,
-                str(missing_chrome),
-            ):
-                create_runtime(settings)
+            with patch("datespot_agent.api.runtime.AsyncOpenAI") as client_type:
+                with self.assertRaisesRegex(
+                    RuntimeConfigurationError,
+                    str(missing_chrome),
+                ):
+                    await create_runtime(settings)
+
+        client_type.assert_not_called()
 
     async def test_app_runtime_starts_and_stops_all_resources(self):
         coordinator = _CoordinatorProbe()
@@ -131,7 +137,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(browser.closed)
         self.assertTrue(client.closed)
 
-    def test_create_runtime_expands_and_wires_paths(self):
+    async def test_create_runtime_expands_and_wires_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             chrome = root / "Chrome"
@@ -149,7 +155,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 patch.dict(os.environ, {"HOME": str(root)}),
                 patch("datespot_agent.api.runtime.AsyncOpenAI") as client_type,
             ):
-                runtime = create_runtime(settings)
+                runtime = await create_runtime(settings)
 
         client_type.assert_called_once_with(api_key="key")
         self.assertIs(runtime.openai_client, client_type.return_value)
@@ -171,6 +177,31 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(runner._review_agent._client, runtime.openai_client)
         self.assertEqual(runner._photo_agent._model, settings.model)
         self.assertEqual(runner._review_agent._model, settings.model)
+
+    async def test_create_runtime_closes_client_when_assembly_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            chrome = Path(directory) / "Chrome"
+            chrome.write_text("binary", encoding="utf-8")
+            settings = Settings(
+                OPENAI_API_KEY="key",
+                DATESPOT_CHROME_EXECUTABLE_PATH=chrome,
+            )
+            client = AsyncMock()
+
+            with (
+                patch(
+                    "datespot_agent.api.runtime.AsyncOpenAI",
+                    return_value=client,
+                ),
+                patch(
+                    "datespot_agent.api.runtime.GraphRunService",
+                    side_effect=RuntimeError("assembly failed"),
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "assembly failed"):
+                    await create_runtime(settings)
+
+        client.close.assert_awaited_once()
 
 
 if __name__ == "__main__":
