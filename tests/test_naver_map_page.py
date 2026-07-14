@@ -298,6 +298,68 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("subway-station/1907", page.url)
         self.assertEqual(calls, {"click": 1, "evaluate": 0})
 
+    async def test_station_selection_accepts_parenthesized_alias(self):
+        station_label = "광교(경기대)역 신분당선지하철,전철"
+
+        class StationControl:
+            def __init__(self, page, matched: bool) -> None:
+                self.page = page
+                self.matched = matched
+
+            @property
+            def first(self):
+                return self
+
+            async def count(self) -> int:
+                return int(self.matched)
+
+            async def click(self, **_kwargs) -> None:
+                self.page.url = (
+                    "https://map.naver.com/p/subway-station/4314"
+                )
+
+        class StationFrame:
+            def __init__(self, page) -> None:
+                self.page = page
+
+            def get_by_role(self, _role, *, name):
+                return StationControl(
+                    self.page,
+                    bool(name.search(station_label)),
+                )
+
+        class Page:
+            def __init__(self) -> None:
+                self.url = "https://map.naver.com/p/search/광교역"
+                self.frame = StationFrame(self)
+
+            async def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+        page = Page()
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = page
+        navigator.pacer = FakePacer()
+        navigator._blocked_response = None
+
+        async def frame_value(*_args, **_kwargs):
+            return page.frame
+
+        async def mutate(action):
+            return await action()
+
+        async def wait_page_url(pattern, *_args, **_kwargs):
+            if not pattern.search(page.url):
+                raise BrowserNavigationError("역 route 미변경")
+
+        navigator._wait_frame = frame_value
+        navigator._mutate = mutate
+        navigator._wait_page_url = wait_page_url
+
+        await navigator.select_station("광교역")
+
+        self.assertIn("subway-station/4314", page.url)
+
     async def test_candidate_open_uses_locator_click(self):
         calls = {"click": 0, "evaluate": 0}
 

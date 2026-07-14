@@ -262,10 +262,15 @@ class NaverMapPage:
 
     async def select_station(self, location: str) -> None:
         frame = await self._wait_frame(LIST_FRAME_PATTERN)
+        station_prefix = re.escape(location)
+        if location.endswith("역"):
+            station_prefix = (
+                rf"{re.escape(location[:-1])}(?:\([^)]*\))?역"
+            )
         station = frame.get_by_role(
             "button",
             name=re.compile(
-                rf"^{re.escape(location)}.*(?:지하철|전철|선)"
+                rf"^{station_prefix}.*(?:지하철|전철|선)"
             ),
         )
         if await station.count() == 0:
