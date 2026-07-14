@@ -75,6 +75,17 @@ class ApiAppTests(unittest.TestCase):
     def test_lifespan_starts_and_stops_runtime(self):
         self.runtime.start.assert_awaited_once()
 
+    def test_lifespan_stops_runtime_when_startup_fails(self):
+        runtime = FakeRuntime()
+        runtime.start.side_effect = RuntimeError("startup failed")
+
+        with self.assertRaisesRegex(RuntimeError, "startup failed"):
+            with TestClient(create_app(lambda: runtime)):
+                self.fail("startup failure must prevent context entry")
+
+        runtime.start.assert_awaited_once()
+        runtime.stop.assert_awaited_once()
+
     def test_post_runs_returns_accepted_camel_case_payload(self):
         response = self.client.post(
             "/runs",
@@ -128,6 +139,19 @@ class ApiAppTests(unittest.TestCase):
         response = self.client.get("/runs/run_api/report")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["runId"], "run_api")
+
+    def test_saved_failed_report_returns_200(self):
+        self.runtime.coordinator.report = RunReport(
+            run_id="run_api",
+            status=RunStatus.FAILED,
+            config=RunConfig(location="성수역", search_keyword="일식"),
+            created_at=NOW,
+        )
+
+        response = self.client.get("/runs/run_api/report")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "failed")
 
     def test_terminal_failure_without_report_returns_unavailable(self):
         status = self.runtime.coordinator.get_status("run_api")

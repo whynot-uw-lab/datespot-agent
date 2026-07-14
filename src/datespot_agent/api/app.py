@@ -31,8 +31,8 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
     async def lifespan(app: FastAPI):
         runtime = runtime_factory()
         app.state.runtime = runtime
-        await runtime.start()
         try:
+            await runtime.start()
             yield
         finally:
             await runtime.stop()
