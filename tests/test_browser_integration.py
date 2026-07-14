@@ -60,6 +60,7 @@ class BrowserIntegrationTests(unittest.IsolatedAsyncioTestCase):
             navigator = NaverMapPage(
                 page,
                 InteractionPacer(clock=clock, sleep=sleep),
+                run_id="integration-test",
             )
             await navigator.open()
             config = RunConfig(location="신사역", search_keyword="일식")

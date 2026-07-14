@@ -56,12 +56,16 @@ docs/                 # 설계·구현 계획 문서
 ### LangGraph 실행 루프 수동 확인
 
 1. `tests/run_graph_live.py` 상단의 검색 지역·키워드·최대 장소 수·가중치·평가 기준을 수정한다.
-2. 필요하면 `MODEL_OVERRIDE`, `HEADED`, `OUTPUT_PATH`를 설정한다.
+2. 필요하면 `MODEL_OVERRIDE`, `BROWSER_CHANNEL`, `HEADED`, `OUTPUT_PATH`를 설정한다.
 3. `.env`에 `OPENAI_API_KEY`가 설정됐는지 확인한 뒤 실행한다.
 
 ```bash
 uv run python tests/run_graph_live.py
 ```
+
+기본값은 로컬 Chrome 채널을 headed 모드로 실행한다. 네이버 보안 확인 화면이 표시되면
+`artifacts/browser/<run_id>/`에 스크린샷과 HTML을 남기고, 사용자가 브라우저에서
+확인을 완료할 때까지 10초 간격으로 대기한 뒤 작업을 재개한다.
 
 `OUTPUT_PATH=None`이면 리포트 JSON을 stdout에 출력한다. 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트에는 포함하지 않는다.
 

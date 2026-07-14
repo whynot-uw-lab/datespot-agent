@@ -662,7 +662,7 @@ graph는 `GraphRunService` 초기화 시 1회 compile한다.
 - `LOCATION`, `SEARCH_KEYWORD`, `MAX_PLACES`
 - `PHOTO_PERCENT`, `REVIEW_PERCENT`
 - `PHOTO_CRITERIA`, `REVIEW_CRITERIA`
-- 필요 시 `MODEL_OVERRIDE`, `HEADED`, `OUTPUT_PATH`
+- 필요 시 `MODEL_OVERRIDE`, `BROWSER_CHANNEL`, `HEADED`, `OUTPUT_PATH`
 
 `.env`에 `OPENAI_API_KEY`를 설정한 뒤 실행한다.
 
@@ -672,6 +672,11 @@ uv run python tests/run_graph_live.py
 
 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트 탐색에는
 포함하지 않는다. `OUTPUT_PATH=None`이면 최종 `RunReport` JSON을 stdout에 출력한다.
+
+기본값은 로컬 Chrome 채널을 headed 모드로 실행한다. 네이버 보안 확인 화면이
+표시되면 `artifacts/browser/<run_id>/`에 스크린샷과 HTML을 한 번 저장하고,
+사용자가 화면에서 확인을 완료할 때까지 10초 간격으로 재확인한다. 차단 신호가
+사라지면 중단했던 브라우저 작업을 재개한다.
 
 ### 12.3 수동 확인 항목
 

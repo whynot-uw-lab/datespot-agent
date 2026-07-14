@@ -17,6 +17,9 @@ venv/
 playwright-report/
 test-results/
 
+# Browser diagnostics
+artifacts/browser/
+
 # Reports (generated)
 reports/*
 !reports/.gitkeep

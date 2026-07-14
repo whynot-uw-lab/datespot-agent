@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
     BrowserNavigationError,
 )
-from datespot_agent.browser.naver_map import BLOCK_TEXT_PATTERN, NaverMapPage
+from datespot_agent.browser.naver_map import NaverMapPage
 from datespot_agent.browser.parsers import CandidateTarget
 from datespot_agent.models import CandidatePlace
 
@@ -23,57 +25,117 @@ class FakePacer:
         return None
 
 
+class FakeBodyLocator:
+    def __init__(self, page) -> None:
+        self.page = page
+
+    async def inner_text(self, **_kwargs) -> str:
+        return self.page.body_text
+
+
+class FakeVisibleLocator:
+    def __init__(self, frame, pattern) -> None:
+        self.frame = frame
+        self.pattern = pattern
+
+    @property
+    def first(self):
+        return self
+
+    async def count(self) -> int:
+        return int(bool(self.pattern.search(self.frame.page.body_text)))
+
+    async def is_visible(self) -> bool:
+        return self.frame.visible
+
+
+class FakeBlockFrame:
+    def __init__(self, page, *, visible: bool) -> None:
+        self.page = page
+        self.visible = visible
+        self.url = "https://map.naver.com/security-check"
+
+    def locator(self, _selector: str) -> FakeBodyLocator:
+        return FakeBodyLocator(self.page)
+
+    def get_by_text(self, pattern) -> FakeVisibleLocator:
+        return FakeVisibleLocator(self, pattern)
+
+
+class FakeBlockPage:
+    def __init__(self, *, visible: bool) -> None:
+        self.url = "https://map.naver.com/p/search/일식"
+        self.body_text = "보안 확인을 완료해 주세요. 실제 사용자임을 확인합니다."
+        self.frames = [FakeBlockFrame(self, visible=visible)]
+        self.waits: list[int] = []
+
+    async def wait_for_timeout(self, timeout_ms: int) -> None:
+        self.waits.append(timeout_ms)
+        self.frames[0].visible = False
+
+    async def screenshot(self, *, path: str, full_page: bool) -> None:
+        Path(path).write_bytes(b"screenshot")
+
+    async def content(self) -> str:
+        return "<html><body>security check</body></html>"
+
+
 class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
-    def test_access_limit_text_pattern_covers_captcha_and_korean_notice(self):
-        self.assertIsNotNone(BLOCK_TEXT_PATTERN.search("CAPTCHA"))
-        self.assertIsNotNone(
-            BLOCK_TEXT_PATTERN.search("비정상적인 접근이 감지되었습니다")
-        )
-        self.assertIsNotNone(
-            BLOCK_TEXT_PATTERN.search(
-                "보안 확인을 완료해 주세요. 실제 사용자임을 확인하여 "
-                "계정을 안전하게 보호하고 스팸을 방지합니다."
-            )
-        )
-
-    async def test_blocked_response_stops_before_next_action(self):
+    async def test_hidden_security_text_does_not_block_action(self):
+        page = FakeBlockPage(visible=False)
         navigator = object.__new__(NaverMapPage)
-        navigator.page = None
+        navigator.page = page
         navigator.pacer = FakePacer()
-        navigator._blocked_response = (
-            429,
-            "https://map.naver.com/p/search/일식",
-        )
-
-        with self.assertRaises(BrowserAccessBlockedError):
-            await navigator._assert_access_allowed()
-
-        self.assertEqual(navigator.pacer.actions, 0)
-
-    async def test_block_appearing_during_pacing_stops_action(self):
-        navigator = object.__new__(NaverMapPage)
-        navigator.page = None
+        navigator.run_id = "run-hidden"
+        navigator.dump_dir = Path("artifacts/browser")
+        navigator.log = lambda _message: None
         navigator._blocked_response = None
+        navigator._blocked_message = None
         action_calls = 0
 
-        class BlockingPacer:
-            async def run(self, action):
-                navigator._blocked_response = (
-                    429,
-                    "https://map.naver.com/p/search/일식",
-                )
-                return await action()
-
-        async def action():
+        async def action() -> None:
             nonlocal action_calls
             action_calls += 1
 
-        navigator.pacer = BlockingPacer()
-
-        with self.assertRaises(BrowserAccessBlockedError):
+        try:
             await navigator._mutate(action)
+        except BrowserAccessBlockedError as error:
+            self.fail(f"숨겨진 보안 문구가 작업을 차단함: {error}")
 
-        self.assertEqual(action_calls, 0)
+        self.assertEqual(action_calls, 1)
+        self.assertEqual(page.waits, [])
+
+    async def test_visible_security_check_dumps_waits_and_resumes(self):
+        page = FakeBlockPage(visible=True)
+        events: list[str] = []
+        action_calls = 0
+
+        async def action() -> None:
+            nonlocal action_calls
+            action_calls += 1
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            navigator = object.__new__(NaverMapPage)
+            navigator.page = page
+            navigator.pacer = FakePacer()
+            navigator.run_id = "run-visible"
+            navigator.dump_dir = Path(temp_dir)
+            navigator.log = events.append
+            navigator._blocked_response = None
+            navigator._blocked_message = None
+
+            try:
+                await navigator._mutate(action)
+            except BrowserAccessBlockedError as error:
+                self.fail(f"수동 해제 대기 없이 작업이 중단됨: {error}")
+
+            dump_files = list((Path(temp_dir) / "run-visible").iterdir())
+
+        self.assertEqual(action_calls, 1)
+        self.assertEqual(page.waits, [10_000])
+        self.assertEqual({path.suffix for path in dump_files}, {".png", ".html"})
+        self.assertTrue(any("수동 해제 대기 시작" in event for event in events))
+        self.assertTrue(any("작업 재개" in event for event in events))
 
     async def test_unknown_zoom_is_navigation_error(self):
         navigator = object.__new__(NaverMapPage)

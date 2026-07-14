@@ -46,10 +46,14 @@ class BrowserService:
         self,
         *,
         headless: bool = True,
+        browser_channel: str | None = None,
         pacer: InteractionPacer | None = None,
+        log: Callable[[str], None] | None = None,
     ) -> None:
         self._headless = headless
+        self._browser_channel = browser_channel
         self._pacer = pacer or InteractionPacer()
+        self._log = log
         self._sessions: dict[str, BrowserSession] = {}
 
     def _session(self, run_id: str) -> BrowserSession:
@@ -73,14 +77,24 @@ class BrowserService:
         context: BrowserContext | None = None
         page: Page | None = None
         try:
-            browser = await runtime.chromium.launch(headless=self._headless)
+            launch_options: dict[str, object] = {
+                "headless": self._headless,
+            }
+            if self._browser_channel is not None:
+                launch_options["channel"] = self._browser_channel
+            browser = await runtime.chromium.launch(**launch_options)
             context = await browser.new_context(
                 locale="ko-KR",
                 timezone_id="Asia/Seoul",
                 viewport={"width": 1440, "height": 1000},
             )
             page = await context.new_page()
-            navigator = NaverMapPage(page, self._pacer)
+            navigator = NaverMapPage(
+                page,
+                self._pacer,
+                run_id=run_id,
+                log=self._log,
+            )
             await navigator.open()
             self._sessions[run_id] = BrowserSession(
                 runtime,

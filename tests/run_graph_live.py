@@ -29,7 +29,8 @@ REVIEW_PERCENT = 50
 PHOTO_CRITERIA = "어두운 분위기, 좌석 간격이 넓고 대화하기 좋은 구조"
 REVIEW_CRITERIA = "음식이 맛있음, 대화하기 좋음이 드러나는 리뷰"
 MODEL_OVERRIDE: str | None = None
-HEADED = False
+BROWSER_CHANNEL: str | None = "chrome"
+HEADED = True
 OUTPUT_PATH: Path | None = None
 
 
@@ -76,7 +77,11 @@ async def run() -> int:
 
     client = AsyncOpenAI(api_key=api_key)
     runner = GraphRunService(
-        browser_service=BrowserService(headless=False if HEADED else settings.headless),
+        browser_service=BrowserService(
+            headless=False if HEADED else settings.headless,
+            browser_channel=BROWSER_CHANNEL,
+            log=log_line,
+        ),
         photo_agent=PhotoAnalysisAgent(client, model=model),
         review_agent=ReviewAnalysisAgent(client, model=model),
         scoring_service=PlaceScoringService(),

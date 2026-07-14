@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
+from datetime import UTC, datetime
+from pathlib import Path
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
@@ -35,11 +38,18 @@ MAP_URL = "https://map.naver.com"
 LIST_FRAME_PATTERN = re.compile(
     r"pcmap\.place\.naver\.com/(?:restaurant|place)/list"
 )
-BLOCK_TEXT_PATTERN = re.compile(
-    r"CAPTCHA|비정상적인 접근|서비스 이용이 제한|접근이 제한|"
-    r"보안 확인을 완료|실제 사용자임을 확인|스팸을 방지",
-    re.IGNORECASE,
+VISIBLE_BLOCK_PATTERNS = (
+    re.compile(r"CAPTCHA", re.IGNORECASE),
+    re.compile(r"비정상적인 접근", re.IGNORECASE),
+    re.compile(r"서비스 이용이 제한", re.IGNORECASE),
+    re.compile(r"접근이 제한", re.IGNORECASE),
+    re.compile(r"보안 확인을 완료", re.IGNORECASE),
+    re.compile(r"실제 사용자임을 확인", re.IGNORECASE),
+    re.compile(r"스팸을 방지", re.IGNORECASE),
 )
+BLOCKED_DUMP_DIR = Path("artifacts/browser")
+BLOCK_RECHECK_SECONDS = 10.0
+BLOCK_RESPONSE_TTL_SECONDS = 15.0
 T = TypeVar("T")
 DETAIL_FRAME_TEMPLATE = (
     r"pcmap\.place\.naver\.com/(?:restaurant|place)/{place_id}/"
@@ -49,35 +59,138 @@ DETAIL_FRAME_TEMPLATE = (
 class NaverMapPage:
     """네이버지도 UI 경로를 결정적으로 실행한다."""
 
-    def __init__(self, page: Page, pacer: InteractionPacer) -> None:
+    def __init__(
+        self,
+        page: Page,
+        pacer: InteractionPacer,
+        *,
+        run_id: str,
+        dump_dir: Path = BLOCKED_DUMP_DIR,
+        log: Callable[[str], None] | None = None,
+    ) -> None:
         self.page = page
         self.pacer = pacer
-        self._blocked_response: tuple[int, str] | None = None
+        self.run_id = run_id
+        self.dump_dir = dump_dir
+        self.log = log or (lambda _: None)
+        self._blocked_response: tuple[int, str, float] | None = None
+        self._blocked_message: str | None = None
         page.on("response", self._observe_response)
 
     def _observe_response(self, response: Response) -> None:
         if response.status in {403, 429} and "naver.com" in response.url:
-            self._blocked_response = (response.status, response.url)
+            self._blocked_response = (
+                response.status,
+                response.url,
+                time.monotonic(),
+            )
+
+    # /** 브라우저 내부 로그를 run 기준으로 남김. */
+    def _emit(self, message: str) -> None:
+        self.log(f"[run:{self.run_id}] {message}")
+
+    # /** 차단 시점의 페이지 상태를 파일로 남김. */
+    async def _dump_blocked_state(self) -> tuple[Path | None, Path | None]:
+        if self.page is None:
+            return None, None
+        dump_root = self.dump_dir / self.run_id
+        dump_root.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
+        screenshot_path = dump_root / f"blocked_{stamp}.png"
+        html_path = dump_root / f"blocked_{stamp}.html"
+        try:
+            await self.page.screenshot(
+                path=str(screenshot_path),
+                full_page=True,
+            )
+        except Exception:
+            screenshot_path = None
+        try:
+            html_path.write_text(
+                await self.page.content(),
+                encoding="utf-8",
+            )
+        except Exception:
+            html_path = None
+        return screenshot_path, html_path
+
+    # /** 최근 403/429 응답을 현재 차단 신호로 간주할지 판단함. */
+    def _recent_blocked_response(self) -> tuple[int, str] | None:
+        if self._blocked_response is None:
+            return None
+        status, url, observed_at = self._blocked_response
+        if time.monotonic() - observed_at > BLOCK_RESPONSE_TTL_SECONDS:
+            self._blocked_response = None
+            return None
+        return status, url
+
+    # /** 실제로 보이는 차단 UI 텍스트만 찾음. */
+    async def _visible_block_signal(self) -> tuple[Frame, str] | None:
+        if self.page is None:
+            return None
+        for frame in self.page.frames:
+            for pattern in VISIBLE_BLOCK_PATTERNS:
+                locator = frame.get_by_text(pattern)
+                try:
+                    if await locator.count() == 0:
+                        continue
+                    if await locator.first.is_visible():
+                        return frame, pattern.pattern
+                except Exception:
+                    continue
+        return None
+
+    # /** 현재 시점의 차단 사유를 요약함. */
+    async def _current_block_reason(self) -> str | None:
+        visible_block = await self._visible_block_signal()
+        if visible_block is not None:
+            frame, signal = visible_block
+            return (
+                "네이버 접근 제한 화면 감지: "
+                f"page={self.page.url}, frame={frame.url}, signal={signal}"
+            )
+        blocked_response = self._recent_blocked_response()
+        if blocked_response is None:
+            return None
+        status, url = blocked_response
+        return f"네이버 접근 제한 응답: {status} {url}"
+
+    # /** 수동 해제될 때까지 차단 상태를 주기적으로 다시 확인함. */
+    async def _wait_until_access_restored(self, reason: str) -> None:
+        self._emit(
+            "보안 확인 감지, 수동 해제 대기 시작: "
+            f"{reason}, {int(BLOCK_RECHECK_SECONDS)}초 후 재확인"
+        )
+        while True:
+            await self.page.wait_for_timeout(
+                int(BLOCK_RECHECK_SECONDS * 1000)
+            )
+            current_reason = await self._current_block_reason()
+            if current_reason is None:
+                self._blocked_response = None
+                self._blocked_message = None
+                self._emit("보안 확인 해제 감지, 작업 재개")
+                return
+            self._emit(
+                "보안 확인 대기 중, "
+                f"{int(BLOCK_RECHECK_SECONDS)}초 후 재확인"
+            )
 
     async def _assert_access_allowed(self) -> None:
-        if self._blocked_response is not None:
-            status, url = self._blocked_response
-            raise BrowserAccessBlockedError(
-                f"네이버 접근 제한 응답: {status} {url}"
-            )
         if self.page is None:
             return
-        for frame in self.page.frames:
-            try:
-                text = await frame.locator("body").inner_text(timeout=500)
-            except Exception:
-                continue
-            if BLOCK_TEXT_PATTERN.search(text):
-                snippet = re.sub(r"\s+", " ", text).strip()[:160]
-                raise BrowserAccessBlockedError(
-                    "네이버 접근 제한 화면 감지: "
-                    f"page={self.page.url}, frame={frame.url}, text={snippet}"
-                )
+        current_reason = await self._current_block_reason()
+        if current_reason is None:
+            return
+        if self._blocked_message is None:
+            screenshot_path, html_path = await self._dump_blocked_state()
+            details = [current_reason]
+            if screenshot_path is not None:
+                details.append(f"screenshot={screenshot_path}")
+            if html_path is not None:
+                details.append(f"html={html_path}")
+            self._blocked_message = ", ".join(details)
+        await self._wait_until_access_restored(self._blocked_message)
 
     async def _mutate(self, action: Callable[[], Awaitable[T]]) -> T:
         await self._assert_access_allowed()
