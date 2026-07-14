@@ -73,7 +73,11 @@ class NaverMapPage:
             except Exception:
                 continue
             if BLOCK_TEXT_PATTERN.search(text):
-                raise BrowserAccessBlockedError("네이버 접근 제한 화면 감지")
+                snippet = re.sub(r"\s+", " ", text).strip()[:160]
+                raise BrowserAccessBlockedError(
+                    "네이버 접근 제한 화면 감지: "
+                    f"page={self.page.url}, frame={frame.url}, text={snippet}"
+                )
 
     async def _mutate(self, action: Callable[[], Awaitable[T]]) -> T:
         await self._assert_access_allowed()
