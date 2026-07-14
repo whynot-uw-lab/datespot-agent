@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -23,6 +24,9 @@ CATEGORY_EXCLUDED_LINES = {
     "페이지 닫기",
     "플레이스 플러스",
 }
+REVIEW_COUNT_PATTERN = re.compile(
+    r"(?:방문자\s*)?리뷰\s*([\d,]+(?:\.\d+)?)\s*(만)?"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +98,9 @@ def parse_home_text(lines: list[str], place_name: str) -> HomeMetadata:
         if line == place_name and index + 1 < len(normalized):
             candidate = normalized[index + 1]
             if candidate not in CATEGORY_EXCLUDED_LINES:
+                embedded_review = REVIEW_COUNT_PATTERN.search(candidate)
+                if embedded_review is not None:
+                    candidate = candidate[: embedded_review.start()].strip()
                 category = candidate
                 break
 
@@ -101,19 +108,20 @@ def parse_home_text(lines: list[str], place_name: str) -> HomeMetadata:
     for line in normalized:
         if "리뷰" not in line:
             continue
-        review_match = re.search(
-            r"(?:방문자\s*)?리뷰\s*([\d,]+)",
-            line,
-        )
+        review_match = REVIEW_COUNT_PATTERN.search(line)
         if review_match is not None:
             break
     if review_match is None:
         raise ValueError("리뷰 수를 찾지 못함")
 
+    review_count = Decimal(review_match.group(1).replace(",", ""))
+    if review_match.group(2) == "만":
+        review_count *= 10_000
+
     return HomeMetadata(
         category=category,
         address=address,
-        review_count=int(review_match.group(1).replace(",", "")),
+        review_count=int(review_count),
     )
 
 

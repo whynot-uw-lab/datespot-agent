@@ -130,6 +130,22 @@ class BrowserParserTests(unittest.TestCase):
         )
         self.assertEqual(metadata.review_count, 1495)
 
+    def test_home_parser_splits_category_and_compact_review_count(self):
+        metadata = parse_home_text(
+            [
+                "쿄코코 신논현점",
+                "페이지 닫기",
+                "쿄코코 신논현점",
+                "일식당리뷰 1.6만",
+                "주소",
+                "서울 강남구 강남대로106길 23 지하1층",
+            ],
+            "쿄코코 신논현점",
+        )
+
+        self.assertEqual(metadata.category, "일식당")
+        self.assertEqual(metadata.review_count, 16_000)
+
     def test_missing_review_count_is_extraction_failure_input(self):
         with self.assertRaises(ValueError):
             parse_home_text(["치보 신사점", "일식당"], "치보 신사점")
