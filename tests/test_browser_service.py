@@ -251,6 +251,33 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(cdp_process.close_calls, 1)
 
+    async def test_cdp_connect_cancellation_closes_external_chrome(self):
+        connect_started = asyncio.Event()
+        context = FakeLaunchContext()
+        browser = FakeLaunchBrowser(context)
+
+        class BlockingChromium(FakeChromium):
+            async def connect_over_cdp(self, endpoint_url, **options):
+                self.cdp_calls.append((endpoint_url, options))
+                connect_started.set()
+                await asyncio.Future()
+
+        chromium = BlockingChromium(browser, FakeLaunchContext())
+        cdp_process = FakeCdpProcess()
+        service = BrowserService(
+            cdp_launcher=FakeCdpLauncher(cdp_process),
+        )
+        task = asyncio.create_task(
+            service._launch_browser_context(FakeRuntime(chromium))
+        )
+        await connect_started.wait()
+        task.cancel()
+
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+        self.assertEqual(cdp_process.close_calls, 1)
+
     async def test_search_uses_fixed_order_without_max_places_slice(self):
         service = BrowserService(pacer=FakePacer())
         navigator = FakeNavigator()

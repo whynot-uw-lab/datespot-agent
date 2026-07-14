@@ -84,8 +84,8 @@ class BrowserService:
                         "CDP 브라우저 기본 컨텍스트를 찾지 못함"
                     )
                 return browser, browser.contexts[0], cdp_process
-            except Exception:
-                await self._safe_close(cdp_process)
+            except BaseException:
+                await asyncio.shield(self._safe_close(cdp_process))
                 raise
 
         launch_options: dict[str, object] = {
