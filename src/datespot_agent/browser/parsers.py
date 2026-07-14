@@ -93,7 +93,19 @@ def parse_candidate_rows(
 def parse_home_text(lines: list[str], place_name: str) -> HomeMetadata:
     normalized = [normalize_text(line) for line in lines if normalize_text(line)]
     category = None
-    address = next((line for line in normalized if line.startswith("서울 ")), None)
+    address = next(
+        (
+            normalized[index + 1]
+            for index, line in enumerate(normalized[:-1])
+            if line == "주소"
+        ),
+        None,
+    )
+    if address is None:
+        address = next(
+            (line for line in normalized if line.startswith("서울 ")),
+            None,
+        )
     for index, line in enumerate(normalized):
         if line == place_name and index + 1 < len(normalized):
             candidate = normalized[index + 1]

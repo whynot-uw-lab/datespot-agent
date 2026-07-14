@@ -146,6 +146,22 @@ class BrowserParserTests(unittest.TestCase):
         self.assertEqual(metadata.category, "일식당")
         self.assertEqual(metadata.review_count, 16_000)
 
+    def test_home_parser_reads_non_seoul_address_after_label(self):
+        metadata = parse_home_text(
+            [
+                "아이노쇼텐",
+                "이자카야리뷰 1,625",
+                "주소",
+                "경기 성남시 분당구 정자일로 136 엠코헤리츠 3단지 113호",
+            ],
+            "아이노쇼텐",
+        )
+
+        self.assertEqual(
+            metadata.address,
+            "경기 성남시 분당구 정자일로 136 엠코헤리츠 3단지 113호",
+        )
+
     def test_missing_review_count_is_extraction_failure_input(self):
         with self.assertRaises(ValueError):
             parse_home_text(["치보 신사점", "일식당"], "치보 신사점")
