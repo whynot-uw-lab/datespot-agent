@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
     BrowserNavigationError,
@@ -81,6 +83,53 @@ class FakeBlockPage:
 
 
 class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_submit_search_presses_enter_when_exact_option_is_missing(self):
+        calls: list[str] = []
+
+        class Combobox:
+            async def fill(self, query: str, **_kwargs) -> None:
+                calls.append(f"fill:{query}")
+
+            async def press(self, key: str, **_kwargs) -> None:
+                calls.append(f"press:{key}")
+                page.url = "https://map.naver.com/p/search/석촌역"
+
+        class MissingOption:
+            async def wait_for(self, **_kwargs) -> None:
+                raise PlaywrightTimeoutError("exact option missing")
+
+            async def click(self, **_kwargs) -> None:
+                raise AssertionError("없는 자동완성을 클릭하면 안 됨")
+
+        class Page:
+            def __init__(self) -> None:
+                self.url = "https://map.naver.com/p"
+
+            def get_by_role(self, role: str, **_kwargs):
+                if role == "combobox":
+                    return Combobox()
+                if role == "option":
+                    return MissingOption()
+                raise AssertionError(f"unexpected role: {role}")
+
+        page = Page()
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = page
+
+        async def mutate(action):
+            return await action()
+
+        async def wait_page_url(pattern, *_args, **_kwargs):
+            if not pattern.search(page.url):
+                raise BrowserNavigationError("검색 route 미변경")
+
+        navigator._mutate = mutate
+        navigator._wait_page_url = wait_page_url
+
+        await navigator._submit_search("석촌역")
+
+        self.assertEqual(calls, ["fill:석촌역", "press:Enter"])
+
     async def test_interior_photos_use_hash_filter_without_opening_viewer(self):
         calls: list[str] = []
         images = [

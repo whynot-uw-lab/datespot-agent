@@ -254,7 +254,14 @@ class NaverMapPage:
             name=f"검색어 {query}",
             exact=True,
         )
-        await self._mutate(lambda: option.click(timeout=20_000))
+        try:
+            await option.wait_for(state="visible", timeout=3_000)
+        except PlaywrightTimeoutError:
+            await self._mutate(
+                lambda: combobox.press("Enter", timeout=20_000)
+            )
+        else:
+            await self._mutate(lambda: option.click(timeout=20_000))
         await self._wait_page_url(re.compile(r"/p/search/"))
 
     async def search_location(self, location: str) -> None:
