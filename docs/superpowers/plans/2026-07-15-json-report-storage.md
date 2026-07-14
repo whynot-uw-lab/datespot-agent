@@ -243,7 +243,7 @@ git commit -m "feat: add JSON report store"
 - Modify: `tests/run_graph_live.py`
 - Modify: `tests/test_run_graph_live.py`
 
-- [ ] **Step 1: Add failing finalization tests**
+- [x] **Step 1: Add failing finalization tests**
 
 ```python
 class FakeReportStore:
@@ -276,13 +276,13 @@ def test_finalize_report_returns_three_on_storage_failure(self) -> None:
     self.assertIn("리포트 저장 실패", output.getvalue())
 ```
 
-- [ ] **Step 2: Run runner tests and confirm RED**
+- [x] **Step 2: Run runner tests and confirm RED**
 
 Run: `uv run python -m unittest tests.test_run_graph_live -v`
 
 Expected: `finalize_report` and report-store integration are missing.
 
-- [ ] **Step 3: Replace manual output selection with explicit store finalization**
+- [x] **Step 3: Replace manual output selection with explicit store finalization**
 
 ```python
 from datespot_agent.reporting import JsonReportStore, ReportStorageError
@@ -311,13 +311,13 @@ async def run(report_store: JsonReportStore | None = None) -> int:
 
 Delete `OUTPUT_PATH`, `write_report`, and the direct `json.dumps` branch.
 
-- [ ] **Step 4: Run runner and store tests**
+- [x] **Step 4: Run runner and store tests**
 
 Run: `uv run python -m unittest tests.test_run_graph_live tests.test_json_report_store -v`
 
 Expected: all focused tests pass.
 
-- [ ] **Step 5: Commit live runner integration**
+- [x] **Step 5: Commit live runner integration**
 
 ```bash
 git add tests/run_graph_live.py tests/test_run_graph_live.py

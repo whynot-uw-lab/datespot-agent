@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -18,7 +17,8 @@ from datespot_agent.analysis import (
 from datespot_agent.browser import BrowserService, ChromeCdpLauncher
 from datespot_agent.config import get_settings
 from datespot_agent.graph import GraphRunService
-from datespot_agent.models import RunConfig
+from datespot_agent.models import RunConfig, RunReport, RunStatus
+from datespot_agent.reporting import JsonReportStore, ReportStorageError
 
 
 # /** 수동 실행용 상수 설정값. */
@@ -38,7 +38,8 @@ CHROME_EXECUTABLE_PATH = Path(
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 )
 HEADED = True
-OUTPUT_PATH: Path | None = None
+REPORTS_ROOT = Path("reports")
+REPORT_STORAGE_EXIT_CODE = 3
 
 
 # /** 상수 설정값으로 RunConfig를 만듦. */
@@ -58,14 +59,16 @@ def build_run_config() -> RunConfig:
     )
 
 
-# /** 결과 JSON을 stdout 또는 파일로 기록함. */
-def write_report(payload: str, output_path: Path | None) -> None:
-    if output_path is None:
-        print(payload)
-        return
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(payload + "\n", encoding="utf-8")
-    print(output_path)
+# /** 리포트를 저장하고 실행 상태별 종료 코드를 반환함. */
+def finalize_report(report: RunReport, store: JsonReportStore) -> int:
+    try:
+        path = store.save(report)
+    except ReportStorageError as error:
+        print(f"리포트 저장 실패: {error}", file=sys.stderr)
+        return REPORT_STORAGE_EXIT_CODE
+
+    print(path)
+    return 0 if report.status is RunStatus.COMPLETED else 2
 
 
 # /** 진행 로그를 stderr로 출력함. */
@@ -98,7 +101,7 @@ def build_browser_service(default_headless: bool) -> BrowserService:
 
 
 # /** 실제 graph 실행을 수행함. */
-async def run() -> int:
+async def run(report_store: JsonReportStore | None = None) -> int:
     settings = get_settings()
     model = MODEL_OVERRIDE or settings.model
     api_key = resolve_live_api_key(settings.openai_api_key)
@@ -115,13 +118,12 @@ async def run() -> int:
         log=log_line,
     )
     report = await runner.run(build_run_config())
-    payload = json.dumps(
-        report.model_dump(mode="json", by_alias=True),
-        ensure_ascii=False,
-        indent=2,
+    store = (
+        report_store
+        if report_store is not None
+        else JsonReportStore(REPORTS_ROOT)
     )
-    write_report(payload, OUTPUT_PATH)
-    return 0 if report.status.value == "completed" else 2
+    return finalize_report(report, store)
 
 
 if __name__ == "__main__":
