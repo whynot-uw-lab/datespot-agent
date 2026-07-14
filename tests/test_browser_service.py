@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
@@ -58,7 +60,119 @@ class FakePacer:
         self.retry_waits += 1
 
 
+class FakeLaunchContext:
+    def __init__(self, *, pages=None, browser=None) -> None:
+        self.pages = list(pages or [])
+        self.browser = browser
+        self.new_page_calls = 0
+        self.context_options = None
+
+    async def new_page(self):
+        self.new_page_calls += 1
+        page = object()
+        self.pages.append(page)
+        return page
+
+
+class FakeLaunchBrowser:
+    def __init__(self, context: FakeLaunchContext) -> None:
+        self.context = context
+
+    async def new_context(self, **options):
+        self.context.context_options = options
+        return self.context
+
+
+class FakeChromium:
+    def __init__(self, browser, persistent_context) -> None:
+        self.browser = browser
+        self.persistent_context = persistent_context
+        self.launch_calls = []
+        self.persistent_calls = []
+
+    async def launch(self, **options):
+        self.launch_calls.append(options)
+        return self.browser
+
+    async def launch_persistent_context(self, user_data_dir, **options):
+        self.persistent_calls.append((user_data_dir, options))
+        return self.persistent_context
+
+
+class FakeRuntime:
+    def __init__(self, chromium: FakeChromium) -> None:
+        self.chromium = chromium
+
+
 class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_default_launch_uses_isolated_context_and_new_page(self):
+        context = FakeLaunchContext()
+        browser = FakeLaunchBrowser(context)
+        chromium = FakeChromium(browser, FakeLaunchContext())
+        service = BrowserService(headless=True)
+
+        launched_browser, launched_context = (
+            await service._launch_browser_context(FakeRuntime(chromium))
+        )
+        page = await service._initial_page(launched_context)
+
+        self.assertIs(launched_browser, browser)
+        self.assertEqual(chromium.launch_calls, [{"headless": True}])
+        self.assertEqual(chromium.persistent_calls, [])
+        self.assertEqual(
+            context.context_options,
+            {
+                "locale": "ko-KR",
+                "timezone_id": "Asia/Seoul",
+                "viewport": {"width": 1440, "height": 1000},
+            },
+        )
+        self.assertIs(page, context.pages[0])
+        self.assertEqual(context.new_page_calls, 1)
+
+    async def test_persistent_launch_reuses_existing_page_and_profile(self):
+        existing_page = object()
+        persistent_browser = object()
+        context = FakeLaunchContext(
+            pages=[existing_page],
+            browser=persistent_browser,
+        )
+        browser = FakeLaunchBrowser(FakeLaunchContext())
+        chromium = FakeChromium(browser, context)
+
+        with TemporaryDirectory() as temp_dir:
+            profile_dir = Path(temp_dir) / "chrome-profile"
+            service = BrowserService(
+                headless=False,
+                browser_channel="chrome",
+                user_data_dir=profile_dir,
+            )
+            launched_browser, launched_context = (
+                await service._launch_browser_context(FakeRuntime(chromium))
+            )
+            page = await service._initial_page(launched_context)
+
+            self.assertTrue(profile_dir.is_dir())
+            self.assertIs(launched_browser, persistent_browser)
+            self.assertEqual(chromium.launch_calls, [])
+            self.assertEqual(
+                chromium.persistent_calls,
+                [
+                    (
+                        profile_dir,
+                        {
+                            "headless": False,
+                            "channel": "chrome",
+                            "locale": "ko-KR",
+                            "timezone_id": "Asia/Seoul",
+                            "viewport": {"width": 1440, "height": 1000},
+                        },
+                    )
+                ],
+            )
+            self.assertIs(page, existing_page)
+            self.assertEqual(context.new_page_calls, 0)
+
     async def test_search_uses_fixed_order_without_max_places_slice(self):
         service = BrowserService(pacer=FakePacer())
         navigator = FakeNavigator()

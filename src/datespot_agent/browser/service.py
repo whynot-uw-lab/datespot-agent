@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TypeVar
 
 from playwright.async_api import (
@@ -47,14 +48,48 @@ class BrowserService:
         *,
         headless: bool = True,
         browser_channel: str | None = None,
+        user_data_dir: Path | None = None,
         pacer: InteractionPacer | None = None,
         log: Callable[[str], None] | None = None,
     ) -> None:
         self._headless = headless
         self._browser_channel = browser_channel
+        self._user_data_dir = user_data_dir
         self._pacer = pacer or InteractionPacer()
         self._log = log
         self._sessions: dict[str, BrowserSession] = {}
+
+    async def _launch_browser_context(
+        self,
+        runtime: Playwright,
+    ) -> tuple[Browser | None, BrowserContext]:
+        launch_options: dict[str, object] = {
+            "headless": self._headless,
+        }
+        if self._browser_channel is not None:
+            launch_options["channel"] = self._browser_channel
+        context_options: dict[str, object] = {
+            "locale": "ko-KR",
+            "timezone_id": "Asia/Seoul",
+            "viewport": {"width": 1440, "height": 1000},
+        }
+        if self._user_data_dir is not None:
+            self._user_data_dir.mkdir(parents=True, exist_ok=True)
+            context = await runtime.chromium.launch_persistent_context(
+                self._user_data_dir,
+                **launch_options,
+                **context_options,
+            )
+            return context.browser, context
+        browser = await runtime.chromium.launch(**launch_options)
+        context = await browser.new_context(**context_options)
+        return browser, context
+
+    @staticmethod
+    async def _initial_page(context: BrowserContext) -> Page:
+        if context.pages:
+            return context.pages[0]
+        return await context.new_page()
 
     def _session(self, run_id: str) -> BrowserSession:
         session = self._sessions.get(run_id)
@@ -77,18 +112,8 @@ class BrowserService:
         context: BrowserContext | None = None
         page: Page | None = None
         try:
-            launch_options: dict[str, object] = {
-                "headless": self._headless,
-            }
-            if self._browser_channel is not None:
-                launch_options["channel"] = self._browser_channel
-            browser = await runtime.chromium.launch(**launch_options)
-            context = await browser.new_context(
-                locale="ko-KR",
-                timezone_id="Asia/Seoul",
-                viewport={"width": 1440, "height": 1000},
-            )
-            page = await context.new_page()
+            browser, context = await self._launch_browser_context(runtime)
+            page = await self._initial_page(context)
             navigator = NaverMapPage(
                 page,
                 self._pacer,
