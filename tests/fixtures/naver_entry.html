@@ -14,7 +14,7 @@
       const content = document.querySelector('#content');
       document.querySelector('#photo').onclick = () => {
         content.innerHTML = [
-          '<button id="interior">내부</button>',
+          '<a id="interior" role="button" href="#">내부</a>',
           '<section id="photos"></section>',
         ].join('');
         document.querySelector('#interior').onclick = () => {

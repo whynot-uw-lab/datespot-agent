@@ -58,6 +58,7 @@ docs/                 # 설계·구현 계획 문서
 1. `tests/run_graph_live.py` 상단의 검색 지역·키워드·최대 장소 수·가중치·평가 기준을 수정한다.
 2. 필요하면 `MODEL_OVERRIDE`, `CHROME_EXECUTABLE_PATH`, `HEADED`, `OUTPUT_PATH`를 설정한다.
 3. `.env`에 `OPENAI_API_KEY`가 설정됐는지 확인한 뒤 실행한다.
+   수동 통합 실행기는 상속된 셸 환경변수보다 프로젝트 `.env`의 키를 우선 사용한다.
 
 ```bash
 uv run python tests/run_graph_live.py

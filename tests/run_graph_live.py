@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+from dotenv import dotenv_values
 from openai import AsyncOpenAI
 
 from datespot_agent.analysis import (
@@ -29,6 +30,7 @@ REVIEW_PERCENT = 50
 PHOTO_CRITERIA = "어두운 분위기, 좌석 간격이 넓고 대화하기 좋은 구조"
 REVIEW_CRITERIA = "음식이 맛있음, 대화하기 좋음이 드러나는 리뷰"
 MODEL_OVERRIDE: str | None = None
+PROJECT_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 BROWSER_USER_DATA_DIR = (
     Path.home() / ".cache" / "datespot-agent" / "chrome-profile"
 )
@@ -71,6 +73,18 @@ def log_line(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
+# /** 수동 통합 실행은 프로젝트 .env 키를 우선 사용함. */
+def resolve_live_api_key(
+    configured_key: str,
+    *,
+    env_path: Path = PROJECT_ENV_PATH,
+) -> str:
+    dotenv_key = dotenv_values(env_path).get("OPENAI_API_KEY")
+    if isinstance(dotenv_key, str) and dotenv_key.strip():
+        return dotenv_key.strip()
+    return configured_key.strip()
+
+
 # /** 라이브 실행용 외부 Chrome CDP 서비스를 만듦. */
 def build_browser_service(default_headless: bool) -> BrowserService:
     return BrowserService(
@@ -87,7 +101,7 @@ def build_browser_service(default_headless: bool) -> BrowserService:
 async def run() -> int:
     settings = get_settings()
     model = MODEL_OVERRIDE or settings.model
-    api_key = settings.openai_api_key
+    api_key = resolve_live_api_key(settings.openai_api_key)
     if not api_key:
         print("OPENAI_API_KEY가 비어 있음", file=sys.stderr)
         return 1

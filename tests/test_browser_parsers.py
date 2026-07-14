@@ -105,6 +105,31 @@ class BrowserParserTests(unittest.TestCase):
         )
         self.assertEqual(parse_zoom("https://map.naver.com/?c=15.00,0,0,0,dh"), 15)
 
+    def test_home_parser_accepts_current_rating_review_header(self):
+        metadata = parse_home_text(
+            [
+                "이전 페이지",
+                "네기다이닝라운지",
+                "저장",
+                "페이지 닫기",
+                "플레이스 플러스",
+                "네기다이닝라운지",
+                "이자카야",
+                "별점",
+                "4.76리뷰 1,495",
+                "주소",
+                "서울 강남구 도산대로15길 18 4층 네기다이닝라운지",
+            ],
+            "네기다이닝라운지",
+        )
+
+        self.assertEqual(metadata.category, "이자카야")
+        self.assertEqual(
+            metadata.address,
+            "서울 강남구 도산대로15길 18 4층 네기다이닝라운지",
+        )
+        self.assertEqual(metadata.review_count, 1495)
+
     def test_missing_review_count_is_extraction_failure_input(self):
         with self.assertRaises(ValueError):
             parse_home_text(["치보 신사점", "일식당"], "치보 신사점")

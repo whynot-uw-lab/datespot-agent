@@ -426,16 +426,23 @@ class NaverMapPage:
                 place_id=place_id,
             )
         await self._mutate(lambda: photo.click(timeout=10_000))
-        frame, interior = await self._wait_named_control(
-            place_id,
-            "button",
-            "내부",
-            timeout_ms=3_000,
-            required=False,
+        frame = await self._entry_frame(place_id)
+        interior = frame.locator(
+            'a[role="button"][href="#"]'
+        ).filter(
+            has_text=re.compile(r"^\s*내부\s*$")
         )
-        if interior is None:
+        try:
+            await interior.first.wait_for(
+                state="visible",
+                timeout=3_000,
+            )
+        except PlaywrightTimeoutError:
             return []
-        await self._mutate(lambda: interior.click(timeout=10_000))
+        await self._mutate(
+            lambda: interior.first.click(timeout=10_000)
+        )
+        frame = await self._entry_frame(place_id)
         try:
             await frame.wait_for_selector(
                 'img[alt^="INTERIOR_"]',

@@ -18,6 +18,11 @@ TITLE_SUFFIXES = (
     "리뷰",
     "저장",
 )
+CATEGORY_EXCLUDED_LINES = {
+    "저장",
+    "페이지 닫기",
+    "플레이스 플러스",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,18 +92,23 @@ def parse_home_text(lines: list[str], place_name: str) -> HomeMetadata:
     address = next((line for line in normalized if line.startswith("서울 ")), None)
     for index, line in enumerate(normalized):
         if line == place_name and index + 1 < len(normalized):
-            category = normalized[index + 1]
-            break
+            candidate = normalized[index + 1]
+            if candidate not in CATEGORY_EXCLUDED_LINES:
+                category = candidate
+                break
 
     review_match = None
     for line in normalized:
-        if "방문자" not in line or "리뷰" not in line:
+        if "리뷰" not in line:
             continue
-        review_match = re.search(r"방문자\s*리뷰\s*([\d,]+)", line)
+        review_match = re.search(
+            r"(?:방문자\s*)?리뷰\s*([\d,]+)",
+            line,
+        )
         if review_match is not None:
             break
     if review_match is None:
-        raise ValueError("방문자 리뷰 수를 찾지 못함")
+        raise ValueError("리뷰 수를 찾지 못함")
 
     return HomeMetadata(
         category=category,

@@ -81,6 +81,78 @@ class FakeBlockPage:
 
 
 class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
+    async def test_interior_photos_use_hash_filter_without_opening_viewer(self):
+        calls: list[str] = []
+        images = [
+            {"alt": f"INTERIOR_{index}", "url": f"https://img/{index}.jpg"}
+            for index in range(7)
+        ]
+
+        class PhotoTab:
+            async def click(self, **_kwargs) -> None:
+                calls.append("photo-tab")
+
+        class InteriorFilter:
+            @property
+            def first(self):
+                return self
+
+            def filter(self, **_kwargs):
+                return self
+
+            async def count(self) -> int:
+                return 1
+
+            async def wait_for(self, **_kwargs) -> None:
+                calls.append("filter-visible")
+
+            async def click(self, **_kwargs) -> None:
+                calls.append("interior-filter")
+
+        class Frame:
+            def locator(self, selector: str):
+                calls.append(f"selector:{selector}")
+                return InteriorFilter()
+
+            async def wait_for_selector(self, selector: str, **_kwargs) -> None:
+                calls.append(f"wait:{selector}")
+
+            async def eval_on_selector_all(self, selector: str, _script: str):
+                calls.append(f"images:{selector}")
+                return images
+
+        frame = Frame()
+        navigator = object.__new__(NaverMapPage)
+
+        async def wait_named_control(
+            _place_id,
+            _role,
+            name,
+            **_kwargs,
+        ):
+            if name != "사진":
+                raise AssertionError("대표 사진 링크를 선택하면 안 됨")
+            return frame, PhotoTab()
+
+        async def entry_frame(_place_id):
+            return frame
+
+        async def mutate(action):
+            return await action()
+
+        navigator._wait_named_control = wait_named_control
+        navigator._entry_frame = entry_frame
+        navigator._mutate = mutate
+
+        result = await navigator.extract_interior_photos("1141137916")
+
+        self.assertEqual(result, [f"https://img/{index}.jpg" for index in range(5)])
+        self.assertIn(
+            'selector:a[role="button"][href="#"]',
+            calls,
+        )
+        self.assertIn("interior-filter", calls)
+
     async def test_hidden_security_text_does_not_block_action(self):
         page = FakeBlockPage(visible=False)
         navigator = object.__new__(NaverMapPage)
