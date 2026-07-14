@@ -31,6 +31,11 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def make_run_id(clock: Callable[[], datetime] = utc_now) -> str:
+    timestamp = GraphRunService._ensure_utc(clock()).strftime("%Y%m%d_%H%M%S")
+    return f"run_{timestamp}_{uuid4().hex[:8]}"
+
+
 class GraphRunService:
     """브라우저 탐색과 분석 node를 LangGraph로 조합함."""
 
@@ -52,12 +57,17 @@ class GraphRunService:
         self._log = log
         self._graph = self._build_graph()
 
-    async def run(self, config: RunConfig) -> RunReport:
+    async def run(
+        self,
+        config: RunConfig,
+        *,
+        run_id: str | None = None,
+    ) -> RunReport:
         """한 번의 장소 탐색 실행을 완료 report로 반환함."""
-        run_id = self._make_run_id()
-        initial_state = GraphState(run_id=run_id, config=config)
+        effective_run_id = run_id or make_run_id(self._clock)
+        initial_state = GraphState(run_id=effective_run_id, config=config)
         self._emit(
-            f"[run:{run_id}] 시작: location={config.location}, "
+            f"[run:{effective_run_id}] 시작: location={config.location}, "
             f"keyword={config.search_keyword}, max_places={config.max_places}"
         )
         try:
@@ -66,16 +76,17 @@ class GraphRunService:
             if final_state.final_report is None:
                 raise RuntimeError("최종 report가 생성되지 않음")
             self._emit(
-                f"[run:{run_id}] 종료: status={final_state.final_report.status.value}, "
+                f"[run:{effective_run_id}] 종료: "
+                f"status={final_state.final_report.status.value}, "
                 f"results={len(final_state.final_report.results)}"
             )
             return final_state.final_report
         finally:
             try:
-                await self._browser_service.close_session(run_id)
+                await self._browser_service.close_session(effective_run_id)
             except Exception:
                 pass
-            self._emit(f"[run:{run_id}] 브라우저 세션 정리 완료")
+            self._emit(f"[run:{effective_run_id}] 브라우저 세션 정리 완료")
 
     def _build_graph(self):
         graph = StateGraph(GraphState)
@@ -512,8 +523,7 @@ class GraphRunService:
         return value.astimezone(timezone.utc)
 
     def _make_run_id(self) -> str:
-        timestamp = self._ensure_utc(self._clock()).strftime("%Y%m%d_%H%M%S")
-        return f"run_{timestamp}_{uuid4().hex[:8]}"
+        return make_run_id(self._clock)
 
     @staticmethod
     def _sorted_results(results: list[PlaceResult]) -> list[PlaceResult]:
