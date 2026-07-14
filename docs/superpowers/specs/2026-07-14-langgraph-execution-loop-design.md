@@ -33,7 +33,8 @@
 - 후보 병렬 분석
 
 최소한의 `failed` 결과 누적과 loop 지속은 2-5에 포함한다. recovery와 재시도
-고도화는 현재 범위에서 제외하고, JSON 파일 출력은 2-7에서 다룬다.
+고도화는 현재 범위에서 제외한다. JSON 파일 출력은 후속 2-7에서 구현했으며
+[JSON 리포트 저장 설계](2026-07-14-json-report-storage-design.md)를 따른다.
 
 ## 3. 확정 결정
 
@@ -658,7 +659,7 @@ graph는 `GraphRunService` 초기화 시 1회 compile한다.
 - `LOCATION`, `SEARCH_KEYWORD`, `MAX_PLACES`
 - `PHOTO_PERCENT`, `REVIEW_PERCENT`
 - `PHOTO_CRITERIA`, `REVIEW_CRITERIA`
-- 필요 시 `MODEL_OVERRIDE`, `BROWSER_CHANNEL`, `HEADED`, `OUTPUT_PATH`
+- 필요 시 `MODEL_OVERRIDE`, `CHROME_EXECUTABLE_PATH`, `HEADED`, `REPORTS_ROOT`
 
 `.env`에 `OPENAI_API_KEY`를 설정한 뒤 실행한다.
 
@@ -667,10 +668,14 @@ uv run python tests/run_graph_live.py
 ```
 
 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트 탐색에는
-포함하지 않는다. `OUTPUT_PATH=None`이면 최종 `RunReport` JSON을 stdout에 출력한다.
+포함하지 않는다. 최종 `RunReport`는
+`REPORTS_ROOT/YYYY/MM/DD/<run_id>.json`에 저장하고 그 경로를 stdout에 출력한다.
+날짜는 `created_at`의 UTC 날짜 기준이며 종료 코드는 완료 `0`, 그래프 실패 `2`,
+리포트 저장 실패 `3`이다.
 
-기본값은 로컬 Chrome 채널을 headed 모드로 실행한다. 네이버 보안 확인 화면이
-표시되면 `artifacts/browser/<run_id>/`에 스크린샷과 HTML을 한 번 저장하고,
+기본값은 전용 사용자 프로필과 non-zero loopback CDP 포트로 외부 Chrome을 headed
+모드로 실행한 뒤 Playwright가 연결한다. 네이버 보안 확인 화면이 표시되면
+`artifacts/browser/<run_id>/`에 스크린샷과 HTML을 저장하고,
 사용자가 화면에서 확인을 완료할 때까지 10초 간격으로 재확인한다. 차단 신호가
 사라지면 중단했던 브라우저 작업을 재개한다.
 
@@ -683,13 +688,15 @@ uv run python tests/run_graph_live.py
 - 최종 report 상태와 결과 수 출력
 - 성공·실패와 무관한 브라우저 세션 정리 로그 출력
 
-## 13. 2-7 확장 포인트
+## 13. 2-7 연동 결과
 
-### 13.1 2-7에서 바뀌는 지점
+2-7 구현은 `GraphRunService`의 공개 계약을 바꾸지 않고 호출자 계층에 저장을
+연결했다.
 
-- `build_completed_report`, `build_failed_report` 이후 report JSON 저장
-- 저장 경로와 파일명 규칙 확정
-- 파일 저장 실패를 run failure로 볼지 별도 후처리 오류로 볼지 결정
+- `GraphRunService.run()`은 메모리상 `RunReport` 반환 유지
+- `JsonReportStore`가 UTC 날짜별 JSON 저장 담당
+- 동일 리포트 재저장 허용, 같은 `run_id`의 다른 내용 덮어쓰기 차단
+- 저장 실패는 `RunReport.status`를 바꾸지 않고 수동 실행 종료 코드 `3`으로 전달
 
 ## 14. 구현 결과
 

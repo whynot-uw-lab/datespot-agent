@@ -40,6 +40,7 @@ src/datespot_agent/
   analysis/           # 사진·리뷰 분석 Agent와 점수 계산
   browser/            # 네이버지도 탐색과 브라우저 세션 관리
   graph/              # LangGraph 실행 루프
+  reporting/          # 실행 리포트 JSON 저장
   config.py           # 환경 설정
   models.py           # 실행 설정·상태·리포트 모델
 tests/
@@ -56,7 +57,7 @@ docs/                 # 설계·구현 계획 문서
 ### LangGraph 실행 루프 수동 확인
 
 1. `tests/run_graph_live.py` 상단의 검색 지역·키워드·최대 장소 수·가중치·평가 기준을 수정한다.
-2. 필요하면 `MODEL_OVERRIDE`, `CHROME_EXECUTABLE_PATH`, `HEADED`, `OUTPUT_PATH`를 설정한다.
+2. 필요하면 `MODEL_OVERRIDE`, `CHROME_EXECUTABLE_PATH`, `HEADED`, `REPORTS_ROOT`를 설정한다.
 3. `.env`에 `OPENAI_API_KEY`가 설정됐는지 확인한 뒤 실행한다.
    수동 통합 실행기는 상속된 셸 환경변수보다 프로젝트 `.env`의 키를 우선 사용한다.
 
@@ -70,7 +71,10 @@ uv run python tests/run_graph_live.py
 `artifacts/browser/<run_id>/`에 스크린샷과 HTML을 남기고, 사용자가 브라우저에서
 확인을 완료할 때까지 10초 간격으로 대기한 뒤 작업을 재개한다.
 
-`OUTPUT_PATH=None`이면 리포트 JSON을 stdout에 출력한다. 이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트에는 포함하지 않는다.
+실행 리포트는 `REPORTS_ROOT/YYYY/MM/DD/<run_id>.json`에 자동 저장된다.
+날짜는 리포트 생성 시각의 UTC 날짜 기준이며, 저장된 경로를 stdout에 출력한다.
+종료 코드는 실행 완료 `0`, 그래프 실패 `2`, 리포트 저장 실패 `3`이다.
+이 스크립트는 실제 네이버지도와 OpenAI API를 호출하므로 자동 테스트에는 포함하지 않는다.
 
 ---
 
@@ -112,7 +116,7 @@ uv run python tests/run_graph_live.py
 - [x] **2-3 BrowserService 연동**: 1-2 PoC의 네이버지도 검색/상세 추출 로직을 `BrowserService`로 정리
 - [x] **2-4 분석 계층 구현**: 사진 분석, 리뷰 분석, 기준 충족 판정, 점수 계산
 - [x] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 분석 → `analyzed`/`not_matched`/`failed` 리포트 반영
-- [ ] **2-7 JSON 리포트 출력**: 분석/기준 미충족/실패 장소를 하나의 결과로 저장
+- [x] **2-7 JSON 리포트 출력**: 분석/기준 미충족/실패 장소를 UTC 날짜별 JSON 결과로 저장
 
 ### 3단계: 백엔드 로직 구현 (1~2주)
 

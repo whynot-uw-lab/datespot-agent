@@ -6,7 +6,7 @@
 
 **Architecture:** `GraphRunService`는 실행 결과인 `RunReport` 생성만 담당하고, 신규 `JsonReportStore`가 경로 계산·직렬화·원자적 파일 저장을 담당함. 라이브 실행 스크립트가 두 컴포넌트를 조합하며 저장 실패를 별도 종료 코드로 변환함.
 
-**Tech Stack:** Python 3.12, Pydantic v2, standard library (`json`, `os`, `pathlib`, `re`, `tempfile`), `unittest`, `uv`
+**Tech Stack:** Python 3.13, Pydantic v2, standard library (`json`, `os`, `pathlib`, `re`, `tempfile`), `unittest`, `uv`
 
 ## Global Constraints
 
@@ -333,7 +333,7 @@ git commit -m "feat: persist live graph reports"
 - Modify: `README.md`
 - Verify: `reports/YYYY/MM/DD/<run_id>.json`
 
-- [ ] **Step 1: Update README configuration and roadmap status**
+- [x] **Step 1: Update README configuration and roadmap status**
 
 Document:
 
@@ -343,19 +343,19 @@ Document:
 - exit codes `0` completed, `2` graph failed, `3` report storage failed
 - roadmap 2-7 completion
 
-- [ ] **Step 2: Run the full automated test suite**
+- [x] **Step 2: Run the full automated test suite**
 
 Run: `uv run python -m unittest discover -s tests -p 'test_*.py'`
 
 Expected: all tests pass with no failures or errors.
 
-- [ ] **Step 3: Run one real browser/graph cycle**
+- [x] **Step 3: Run one real browser/graph cycle**
 
 Run: `uv run python tests/run_graph_live.py`
 
 Expected: browser cycle completes, command prints a `reports/YYYY/MM/DD/run_*.json` path, exit code is `0`.
 
-- [ ] **Step 4: Validate the generated report through the domain model**
+- [x] **Step 4: Validate the generated report through the domain model**
 
 ```bash
 uv run python - <<'PY'
@@ -371,14 +371,14 @@ PY
 
 Expected: model validation succeeds and status is `completed`.
 
-- [ ] **Step 5: Commit documentation and verification-ready state**
+- [x] **Step 5: Commit documentation and verification-ready state**
 
 ```bash
 git add README.md
 git commit -m "docs: complete JSON report storage"
 ```
 
-- [ ] **Step 6: Review final scope**
+- [x] **Step 6: Review final scope**
 
 Run: `git status --short && git diff origin/main...HEAD --stat`
 
