@@ -14,7 +14,7 @@ from datespot_agent.analysis import (
     PlaceScoringService,
     ReviewAnalysisAgent,
 )
-from datespot_agent.browser import BrowserService
+from datespot_agent.browser import BrowserService, ChromeCdpLauncher
 from datespot_agent.config import get_settings
 from datespot_agent.graph import GraphRunService
 from datespot_agent.models import RunConfig
@@ -29,9 +29,11 @@ REVIEW_PERCENT = 50
 PHOTO_CRITERIA = "어두운 분위기, 좌석 간격이 넓고 대화하기 좋은 구조"
 REVIEW_CRITERIA = "음식이 맛있음, 대화하기 좋음이 드러나는 리뷰"
 MODEL_OVERRIDE: str | None = None
-BROWSER_CHANNEL: str | None = "chrome"
 BROWSER_USER_DATA_DIR = (
     Path.home() / ".cache" / "datespot-agent" / "chrome-profile"
+)
+CHROME_EXECUTABLE_PATH = Path(
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 )
 HEADED = True
 OUTPUT_PATH: Path | None = None
@@ -69,12 +71,14 @@ def log_line(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
-# /** 라이브 실행용 영구 브라우저 프로필 서비스를 만듦. */
+# /** 라이브 실행용 외부 Chrome CDP 서비스를 만듦. */
 def build_browser_service(default_headless: bool) -> BrowserService:
     return BrowserService(
         headless=False if HEADED else default_headless,
-        browser_channel=BROWSER_CHANNEL,
-        user_data_dir=BROWSER_USER_DATA_DIR,
+        cdp_launcher=ChromeCdpLauncher(
+            executable_path=CHROME_EXECUTABLE_PATH,
+            user_data_dir=BROWSER_USER_DATA_DIR,
+        ),
         log=log_line,
     )
 

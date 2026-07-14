@@ -21,15 +21,22 @@ def load_module():
 
 
 class GraphLiveBrowserConfigTests(unittest.TestCase):
-    def test_build_browser_service_uses_dedicated_persistent_profile(self):
+    def test_build_browser_service_uses_external_chrome_cdp_profile(self):
         module = load_module()
 
         service = module.build_browser_service(default_headless=True)
 
         self.assertFalse(service._headless)
-        self.assertEqual(service._browser_channel, "chrome")
+        self.assertIsNone(service._user_data_dir)
+        self.assertIsNotNone(service._cdp_launcher)
         self.assertEqual(
-            service._user_data_dir,
+            service._cdp_launcher.executable_path,
+            Path(
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+            ),
+        )
+        self.assertEqual(
+            service._cdp_launcher.user_data_dir,
             Path.home()
             / ".cache"
             / "datespot-agent"
