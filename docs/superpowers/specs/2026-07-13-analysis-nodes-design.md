@@ -26,8 +26,8 @@
 - OpenAI 요청 재시도
 - 최종 RunReport 정렬과 파일 출력
 
-LangGraph 연결은 2-5, 실패 결과 누적과 실행 지속은 2-6, JSON 리포트 출력은
-2-7에서 구현한다.
+LangGraph 연결과 실패 결과 누적·실행 지속은 2-5, JSON 리포트 출력은 2-7에서
+구현한다.
 
 ## 3. 확정 결정
 
@@ -249,8 +249,8 @@ AnalysisError
 - `AnalysisResponseError`: 구조화된 `output_parsed` 누락
 
 OpenAI 원본 예외는 `AnalysisRequestError`의 원인으로 연결한다. 2-4에서는 자동
-재시도하지 않는다. 2-6에서 예외를 `PlaceResult(status="failed")`로 변환하고 다음
-장소로 진행한다.
+재시도하지 않는다. 실행 루프에서 예외를 `PlaceResult(status="failed")`로 변환하고
+다음 장소로 진행한다.
 
 ## 11. 테스트 전략
 

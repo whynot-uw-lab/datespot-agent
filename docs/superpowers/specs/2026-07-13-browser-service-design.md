@@ -239,7 +239,7 @@ BrowserServiceError
 - 상세 홈 화면 진입 실패
 - 작업 후 검색 목록 복원 실패
 
-`NavigationRecoveryAgent` 호출은 2-6 실패 처리 범위로 미룬다.
+`NavigationRecoveryAgent` 호출은 현재 `BrowserService` 범위에서 제외한다.
 
 ## 11. 실사이트 조작 간격
 

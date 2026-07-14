@@ -112,7 +112,6 @@ uv run python tests/run_graph_live.py
 - [x] **2-3 BrowserService 연동**: 1-2 PoC의 네이버지도 검색/상세 추출 로직을 `BrowserService`로 정리
 - [x] **2-4 분석 계층 구현**: 사진 분석, 리뷰 분석, 기준 충족 판정, 점수 계산
 - [x] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 분석 → `analyzed`/`not_matched`/`failed` 리포트 반영
-- [ ] **2-6 실패 복구 고도화**: navigation recovery, 재시도 정책, retryable/terminal 오류 분류
 - [ ] **2-7 JSON 리포트 출력**: 분석/기준 미충족/실패 장소를 하나의 결과로 저장
 
 ### 3단계: 백엔드 로직 구현 (1~2주)

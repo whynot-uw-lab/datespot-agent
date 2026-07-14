@@ -33,11 +33,11 @@
 - 후보 병렬 분석
 
 최소한의 `failed` 결과 누적과 loop 지속은 2-5에 포함한다. recovery와 재시도
-고도화는 2-6, JSON 파일 출력은 2-7에서 다룬다.
+고도화는 현재 범위에서 제외하고, JSON 파일 출력은 2-7에서 다룬다.
 
 ## 3. 확정 결정
 
-### 3.1 2-5와 2-6의 경계
+### 3.1 2-5의 실패 처리 경계
 
 2-5는 정상 경로, `not_matched`, `failed` 누적까지 담당한다.
 
@@ -58,9 +58,6 @@
 위 실패는 실행 전체를 `RunStatus.FAILED`로 종료하는 run-level failure로 처리한다.
 이미 누적된 `place_results`는 유지하고, `errors`에 마지막 글로벌 오류 문자열을 넣어
 `RunReport`를 만든다.
-
-2-6에서는 place-level failed 자체를 추가하는 대신, failed append 전에 recovery와
-재시도 분기를 삽입하는 방향으로 확장한다.
 
 ### 3.2 Graph와 BrowserService의 책임 분리
 
@@ -305,7 +302,7 @@ tests/
 구조 선택 이유:
 
 - node 수가 많아도 현재 의존성은 4개뿐이라 파일 하나에 유지 가능
-- `2-6`, `2-7`에서 실패 처리/파일 출력이 추가되면 그때 분리해도 늦지 않음
+- 후속 단계에서 파일 출력이 추가되면 그때 분리해도 늦지 않음
 - 실제 브라우저와 OpenAI를 연결한 실행 확인은 별도 수동 실행기로 분리
 - 현재 요청 기준 최소 변경에 맞음
 
@@ -471,7 +468,7 @@ place 전환 시 `select_current_place`에서 아래 필드를 반드시 초기�
 - place 단위 임시 필드 초기화
 
 이 node가 인덱스를 증가시키면 이후 failure가 나도 "이미 시도한 후보"로 간주하기
-쉬워진다. 2-6에서 recovery와 재시도를 추가할 때도 같은 규칙을 유지할 수 있다.
+쉬워진다.
 
 ### 8.11 extract_place_detail
 
@@ -570,8 +567,7 @@ place 전환 시 `select_current_place`에서 아래 필드를 반드시 초기�
 - `category`, `address`: `current_place_detail`이 있으면 함께 기록
 - `failure_reason`: `last_error`
 
-이 node는 별도 서비스 없이 graph 내부 helper로 시작한다. 2-6에서 recovery 결과와
-재시도 이력까지 포함해 실패 포맷이 복잡해지면 `PlaceResultService`로 추출한다.
+이 node는 별도 서비스 없이 graph 내부 helper로 유지한다.
 
 ## 9. report 생성 node 설계
 
@@ -687,17 +683,9 @@ uv run python tests/run_graph_live.py
 - 최종 report 상태와 결과 수 출력
 - 성공·실패와 무관한 브라우저 세션 정리 로그 출력
 
-## 13. 2-6, 2-7 확장 포인트
+## 13. 2-7 확장 포인트
 
-### 13.1 2-6에서 바뀌는 지점
-
-- `extract_place_detail` 실패 시 recovery 후보를 먼저 시도하고, 최종 실패만
-  `append_failed_place`로 보냄
-- retryable/terminal failure 분류 추가
-- 필요 시 `append_failed_place` 로직을 `PlaceResultService`로 추출
-- Browser navigation recovery branch 추가
-
-### 13.2 2-7에서 바뀌는 지점
+### 13.1 2-7에서 바뀌는 지점
 
 - `build_completed_report`, `build_failed_report` 이후 report JSON 저장
 - 저장 경로와 파일명 규칙 확정
@@ -711,5 +699,3 @@ uv run python tests/run_graph_live.py
 4. `analyzed`, `not_matched`, `failed` 결과 누적
 5. completed/failed report 생성과 브라우저 정리 보장
 6. `tests/run_graph_live.py` 수동 통합 실행기 추가
-
-2-6은 현재 failure branch 앞에 recovery와 재시도 분기를 확장하는 방식으로 진행한다.

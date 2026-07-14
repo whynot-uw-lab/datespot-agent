@@ -488,14 +488,14 @@ import 호환을 위해 `Weights`, `ScoringCriteria`, `RunConfig`를
 - 사진 URL 목록 추출
 - 리뷰 텍스트 목록과 리뷰 수 추출
 - 고정 경로 실패 시 1회 재시도 후 타입이 있는 예외 반환
-- 2-6 실패 처리에서 필요 시 복구 agent 호출
+- 복구 agent 연동은 현재 범위에서 제외
 - 성공 시 `PlaceDetail` 반환
 - 실패 시 실패 사유 반환
 
 ### NavigationRecoveryAgent
 
-2-6 실패 처리에서 `BrowserService`의 고정 경로 추출이 재시도 후에도 실패했을 때만
-호출되는 제한적 agent다. 복구 계획을 state에 저장하지 않고, 복구 시도 결과만 반환한다.
+`BrowserService`의 고정 경로 추출이 재시도 후에도 실패했을 때 호출할 수 있는
+후속 확장 후보다. 복구 계획을 state에 저장하지 않고, 복구 시도 결과만 반환한다.
 
 입력 정보:
 
