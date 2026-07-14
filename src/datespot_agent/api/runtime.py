@@ -1,0 +1,88 @@
+"""API 서버의 실제 실행 의존성 조립과 lifecycle 관리."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+from openai import AsyncOpenAI
+
+from datespot_agent.analysis import (
+    PhotoAnalysisAgent,
+    PlaceScoringService,
+    ReviewAnalysisAgent,
+)
+from datespot_agent.api.coordinator import RunCoordinator
+from datespot_agent.browser import BrowserService, ChromeCdpLauncher
+from datespot_agent.config import Settings, get_settings
+from datespot_agent.graph import GraphRunService
+from datespot_agent.reporting import JsonReportStore
+
+
+logger = logging.getLogger(__name__)
+
+
+class RuntimeConfigurationError(RuntimeError):
+    """API runtime 시작에 필요한 설정이 잘못됨."""
+
+
+@dataclass
+class AppRuntime:
+    """API 실행 의존성과 lifecycle을 소유함."""
+
+    coordinator: RunCoordinator
+    browser_service: BrowserService
+    openai_client: AsyncOpenAI
+
+    async def start(self) -> None:
+        await self.coordinator.start()
+
+    async def stop(self) -> None:
+        try:
+            await self.coordinator.stop()
+        finally:
+            try:
+                await self.browser_service.close_all()
+            finally:
+                await self.openai_client.close()
+
+
+def create_runtime(settings: Settings | None = None) -> AppRuntime:
+    """설정을 검증하고 운영용 의존성 graph를 조립함."""
+    effective_settings = settings or get_settings()
+    api_key = effective_settings.openai_api_key.strip()
+    if not api_key:
+        raise RuntimeConfigurationError("OPENAI_API_KEY가 비어 있음")
+
+    chrome_path = effective_settings.chrome_executable_path.expanduser()
+    if not chrome_path.is_file():
+        raise RuntimeConfigurationError(
+            f"Chrome 실행 파일을 찾지 못함: {chrome_path}"
+        )
+
+    profile_path = effective_settings.browser_user_data_dir.expanduser()
+    reports_root = effective_settings.reports_root.expanduser()
+    client = AsyncOpenAI(api_key=api_key)
+    browser = BrowserService(
+        headless=False,
+        cdp_launcher=ChromeCdpLauncher(
+            executable_path=chrome_path,
+            user_data_dir=profile_path,
+        ),
+        log=logger.info,
+    )
+    runner = GraphRunService(
+        browser_service=browser,
+        photo_agent=PhotoAnalysisAgent(
+            client,
+            model=effective_settings.model,
+        ),
+        review_agent=ReviewAnalysisAgent(
+            client,
+            model=effective_settings.model,
+        ),
+        scoring_service=PlaceScoringService(),
+        log=logger.info,
+    )
+    coordinator = RunCoordinator(runner, JsonReportStore(reports_root))
+    return AppRuntime(coordinator, browser, client)

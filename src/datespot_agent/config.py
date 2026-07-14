@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +24,20 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     model: str = Field(default="gpt-5.4-nano", alias="DATESPOT_MODEL")
     headless: bool = Field(default=True, alias="DATESPOT_HEADLESS")
+    reports_root: Path = Field(
+        default=Path("reports"),
+        alias="DATESPOT_REPORTS_ROOT",
+    )
+    chrome_executable_path: Path = Field(
+        default=Path(
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        ),
+        alias="DATESPOT_CHROME_EXECUTABLE_PATH",
+    )
+    browser_user_data_dir: Path = Field(
+        default=Path("~/.cache/datespot-agent/chrome-profile"),
+        alias="DATESPOT_BROWSER_USER_DATA_DIR",
+    )
 
 
 @lru_cache
