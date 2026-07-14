@@ -360,6 +360,72 @@ class NaverMapPageContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("subway-station/4314", page.url)
 
+    async def test_station_selection_ignores_search_suggestion(self):
+        captured_pattern = None
+
+        class StationControl:
+            def __init__(self, page) -> None:
+                self.page = page
+
+            @property
+            def first(self):
+                return self
+
+            async def count(self) -> int:
+                return 1
+
+            async def click(self, **_kwargs) -> None:
+                self.page.url = (
+                    "https://map.naver.com/p/subway-station/2112"
+                )
+
+        class StationFrame:
+            def __init__(self, page) -> None:
+                self.page = page
+
+            def get_by_role(self, _role, *, name):
+                nonlocal captured_pattern
+                captured_pattern = name
+                return StationControl(self.page)
+
+        class Page:
+            def __init__(self) -> None:
+                self.url = "https://map.naver.com/p/search/성수역"
+                self.frame = StationFrame(self)
+
+            async def wait_for_timeout(self, _timeout: int) -> None:
+                return None
+
+        page = Page()
+        navigator = object.__new__(NaverMapPage)
+        navigator.page = page
+        navigator.pacer = FakePacer()
+        navigator._blocked_response = None
+
+        async def frame_value(*_args, **_kwargs):
+            return page.frame
+
+        async def mutate(action):
+            return await action()
+
+        async def wait_page_url(pattern, *_args, **_kwargs):
+            if not pattern.search(page.url):
+                raise BrowserNavigationError("역 route 미변경")
+
+        navigator._wait_frame = frame_value
+        navigator._mutate = mutate
+        navigator._wait_page_url = wait_page_url
+
+        await navigator.select_station("성수역")
+
+        self.assertIsNotNone(captured_pattern)
+        self.assertIsNone(
+            captured_pattern.search("성수역 2호선 검색하기")
+        )
+        self.assertIsNotNone(
+            captured_pattern.search("성수역 2호선지하철,전철")
+        )
+
     async def test_candidate_open_uses_locator_click(self):
         calls = {"click": 0, "evaluate": 0}
 

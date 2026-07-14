@@ -270,7 +270,7 @@ class NaverMapPage:
         station = frame.get_by_role(
             "button",
             name=re.compile(
-                rf"^{station_prefix}.*(?:지하철|전철|선)"
+                rf"^{station_prefix}.*(?:지하철|전철)"
             ),
         )
         if await station.count() == 0:
@@ -521,7 +521,9 @@ class NaverMapPage:
             if await more.count() == 0:
                 break
             previous_count = await cards.count()
-            await self._mutate(lambda: more.click(timeout=10_000))
+            await self._mutate(
+                lambda: more.first.click(timeout=10_000)
+            )
             for _ in range(20):
                 if await cards.count() > previous_count:
                     break
