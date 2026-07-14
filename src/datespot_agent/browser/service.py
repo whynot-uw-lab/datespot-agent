@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -156,12 +157,16 @@ class BrowserService:
                 navigator,
                 cdp_process=cdp_process,
             )
-        except Exception:
-            await self._safe_close(page)
-            await self._safe_close(context)
-            await self._safe_close(browser)
-            await self._safe_close(cdp_process)
-            await self._safe_stop(runtime)
+        except BaseException:
+            await asyncio.shield(
+                self._close_started_resources(
+                    page,
+                    context,
+                    browser,
+                    cdp_process,
+                    runtime,
+                )
+            )
             raise
 
     async def _run_with_retry(
@@ -257,6 +262,20 @@ class BrowserService:
     async def close_all(self) -> None:
         for run_id in list(self._sessions):
             await self.close_session(run_id)
+
+    async def _close_started_resources(
+        self,
+        page,
+        context,
+        browser,
+        cdp_process,
+        runtime,
+    ) -> None:
+        await self._safe_close(page)
+        await self._safe_close(context)
+        await self._safe_close(browser)
+        await self._safe_close(cdp_process)
+        await self._safe_stop(runtime)
 
     @staticmethod
     async def _safe_close(resource) -> None:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from datespot_agent.browser.errors import (
     BrowserAccessBlockedError,
@@ -430,6 +432,74 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             calls,
             ["page", "context", "browser", "chrome", "playwright"],
         )
+
+    async def test_start_session_cancellation_closes_all_started_resources(self):
+        calls: list[str] = []
+        navigator_started = asyncio.Event()
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        page = Closeable("page")
+
+        class Context(Closeable):
+            def __init__(self) -> None:
+                super().__init__("context")
+                self.pages = [page]
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        runtime = Runtime()
+
+        class RuntimeManager:
+            async def start(self):
+                return runtime
+
+        class BlockingNavigator:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            async def open(self) -> None:
+                navigator_started.set()
+                await asyncio.Future()
+
+        browser = Closeable("browser")
+        context = Context()
+        chrome = Closeable("chrome")
+        service = BrowserService(pacer=FakePacer())
+
+        async def launch_browser_context(_runtime):
+            return browser, context, chrome
+
+        service._launch_browser_context = launch_browser_context
+
+        with (
+            patch(
+                "datespot_agent.browser.service.async_playwright",
+                return_value=RuntimeManager(),
+            ),
+            patch(
+                "datespot_agent.browser.service.NaverMapPage",
+                BlockingNavigator,
+            ),
+        ):
+            task = asyncio.create_task(service.start_session("run-cancel"))
+            await navigator_started.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+        self.assertEqual(
+            calls,
+            ["page", "context", "browser", "chrome", "playwright"],
+        )
+        self.assertNotIn("run-cancel", service._sessions)
 
 
 if __name__ == "__main__":

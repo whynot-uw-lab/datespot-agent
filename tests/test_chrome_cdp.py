@@ -14,7 +14,13 @@ from datespot_agent.browser.errors import BrowserSessionError
 
 
 class FakeProcess:
-    def __init__(self, *, returncode: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        pid: int = 12345,
+        returncode: int | None = None,
+    ) -> None:
+        self.pid = pid
         self.returncode = returncode
         self.terminate_calls = 0
         self.kill_calls = 0
@@ -73,6 +79,7 @@ class ChromeCdpLauncherTests(unittest.IsolatedAsyncioTestCase):
         process = FakeProcess()
         calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
         probes: list[str] = []
+        ownership_checks: list[tuple[int, int]] = []
 
         async def process_factory(*args, **kwargs):
             calls.append((args, kwargs))
@@ -81,6 +88,10 @@ class ChromeCdpLauncherTests(unittest.IsolatedAsyncioTestCase):
         async def readiness_probe(endpoint_url: str) -> bool:
             probes.append(endpoint_url)
             return len(probes) == 2
+
+        async def ownership_probe(port: int, pid: int) -> bool:
+            ownership_checks.append((port, pid))
+            return True
 
         with TemporaryDirectory() as temp_dir:
             executable = Path(temp_dir) / "Google Chrome"
@@ -94,6 +105,7 @@ class ChromeCdpLauncherTests(unittest.IsolatedAsyncioTestCase):
                 process_factory=process_factory,
                 port_factory=lambda: 43891,
                 readiness_probe=readiness_probe,
+                ownership_probe=ownership_probe,
             )
 
             launched = await launcher.launch()
@@ -101,6 +113,7 @@ class ChromeCdpLauncherTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(launched.endpoint_url, "http://127.0.0.1:43891")
         self.assertEqual(probes, [launched.endpoint_url, launched.endpoint_url])
+        self.assertEqual(ownership_checks, [(43891, process.pid)])
         args, kwargs = calls[0]
         self.assertEqual(args[0], str(executable))
         self.assertIn("--remote-debugging-address=127.0.0.1", args)
@@ -182,6 +195,104 @@ class ChromeCdpLauncherTests(unittest.IsolatedAsyncioTestCase):
                 await launcher.launch()
 
         self.assertEqual(process.terminate_calls, 1)
+
+    async def test_launch_cleans_up_when_readiness_probe_raises(self):
+        process = FakeProcess()
+
+        async def process_factory(*_args, **_kwargs):
+            return process
+
+        async def broken_probe(_endpoint: str) -> bool:
+            raise RuntimeError("invalid CDP response")
+
+        with TemporaryDirectory() as temp_dir:
+            executable = Path(temp_dir) / "Chrome"
+            executable.write_bytes(b"")
+            launcher = ChromeCdpLauncher(
+                executable_path=executable,
+                user_data_dir=Path(temp_dir) / "profile",
+                process_factory=process_factory,
+                port_factory=lambda: 43894,
+                readiness_probe=broken_probe,
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "invalid CDP response",
+            ):
+                await launcher.launch()
+
+        self.assertEqual(process.terminate_calls, 1)
+
+    async def test_launch_cleans_up_when_cancelled_during_readiness(self):
+        process = FakeProcess()
+        probe_started = asyncio.Event()
+
+        async def process_factory(*_args, **_kwargs):
+            return process
+
+        async def blocking_probe(_endpoint: str) -> bool:
+            probe_started.set()
+            await asyncio.Future()
+
+        with TemporaryDirectory() as temp_dir:
+            executable = Path(temp_dir) / "Chrome"
+            executable.write_bytes(b"")
+            launcher = ChromeCdpLauncher(
+                executable_path=executable,
+                user_data_dir=Path(temp_dir) / "profile",
+                process_factory=process_factory,
+                port_factory=lambda: 43895,
+                readiness_probe=blocking_probe,
+            )
+            task = asyncio.create_task(launcher.launch())
+            await probe_started.wait()
+            task.cancel()
+
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+        self.assertEqual(process.terminate_calls, 1)
+
+    async def test_launch_retries_when_endpoint_has_foreign_owner(self):
+        first_process = FakeProcess(pid=111)
+        second_process = FakeProcess(pid=222)
+        processes = iter((first_process, second_process))
+        ports = iter((43896, 43897))
+        ownership_checks: list[tuple[int, int]] = []
+
+        async def process_factory(*_args, **_kwargs):
+            return next(processes)
+
+        async def ready(_endpoint: str) -> bool:
+            return True
+
+        async def ownership_probe(port: int, pid: int) -> bool:
+            ownership_checks.append((port, pid))
+            return pid == second_process.pid
+
+        with TemporaryDirectory() as temp_dir:
+            executable = Path(temp_dir) / "Chrome"
+            executable.write_bytes(b"")
+            launcher = ChromeCdpLauncher(
+                executable_path=executable,
+                user_data_dir=Path(temp_dir) / "profile",
+                process_factory=process_factory,
+                port_factory=lambda: next(ports),
+                readiness_probe=ready,
+                ownership_probe=ownership_probe,
+            )
+
+            launched = await launcher.launch()
+
+        self.assertIs(launched.process, second_process)
+        self.assertEqual(launched.endpoint_url, "http://127.0.0.1:43897")
+        self.assertEqual(first_process.terminate_calls, 1)
+        self.assertEqual(second_process.terminate_calls, 0)
+        self.assertEqual(
+            ownership_checks,
+            [(43896, first_process.pid), (43897, second_process.pid)],
+        )
 
 
 if __name__ == "__main__":

@@ -32,6 +32,8 @@ Playwright 프로토콜보다 일부 기능 충실도가 낮을 수 있음.
 - loopback 주소의 사용 가능한 non-zero 포트를 할당함.
 - 일반 Chrome 실행 파일을 `asyncio.create_subprocess_exec()`로 시작함.
 - `/json/version` 응답까지 제한 시간 동안 대기함.
+- 준비된 loopback listener의 PID가 실행한 Chrome PID와 일치하는지 확인함.
+- 다른 프로세스가 포트를 선점하면 Chrome을 정리하고 새 포트로 재시도함.
 - 준비 실패 또는 조기 종료 시 프로세스를 정리하고 `BrowserSessionError`를 발생시킴.
 - 종료 시 terminate, 제한 시간 초과 시 kill 순서로 정리함.
 
@@ -78,4 +80,3 @@ Playwright 프로토콜보다 일부 기능 충실도가 낮을 수 있음.
 - 로컬 신호 페이지에서 `navigator.webdriver=false` 확인됨.
 - 일반 BrowserService 사용자의 기존 동작 유지됨.
 - 테스트 전체 통과함.
-
