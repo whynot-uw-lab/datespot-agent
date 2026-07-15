@@ -33,7 +33,6 @@ export const ReportView = ({ report }: { report: RunReport }) => {
   const analyzed = report.results
     .filter((result) => result.status === "analyzed")
     .sort((left, right) => (right.finalScore ?? 0) - (left.finalScore ?? 0));
-  const notMatched = report.results.filter((result) => result.status === "not_matched");
   const failed = report.results.filter((result) => result.status === "failed");
 
   return (
@@ -45,28 +44,17 @@ export const ReportView = ({ report }: { report: RunReport }) => {
           <p>{report.config.searchKeyword} · 사진 {report.config.weights.photoPercent}% / 리뷰 {report.config.weights.reviewPercent}%</p>
         </div>
         <div className="report-stats" aria-label="결과 요약">
-          <div><strong>{analyzed.length}</strong><span>추천</span></div>
-          <div><strong>{notMatched.length}</strong><span>미충족</span></div>
+          <div><strong>{analyzed.length}</strong><span>평가 완료</span></div>
           <div><strong>{failed.length}</strong><span>확인 실패</span></div>
         </div>
       </header>
 
-      <div className="recommendations" aria-label="추천 장소">
+      <div className="recommendations" aria-label="점수순 장소">
         {analyzed.length ? analyzed.map((place, index) => (
           <PlaceCard key={`${place.placeId ?? place.name}-${index}`} place={place} rank={index + 1} />
-        )) : <div className="empty-surface">추천 기준을 통과한 장소가 없음.</div>}
+        )) : <div className="empty-surface">평가 완료된 장소가 없음.</div>}
       </div>
 
-      {notMatched.length ? (
-        <details className="outcome-details">
-          <summary>기준 미충족 · {notMatched.length}</summary>
-          {notMatched.map((place) => (
-            <div className="outcome-row" key={place.placeId ?? place.name}>
-              <strong>{place.name}</strong><span>{place.mismatchReason}</span>
-            </div>
-          ))}
-        </details>
-      ) : null}
       {failed.length ? (
         <details className="outcome-details">
           <summary>확인 실패 · {failed.length}</summary>

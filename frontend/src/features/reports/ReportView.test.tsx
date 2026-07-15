@@ -12,17 +12,18 @@ const report: RunReport = {
   config: {
     location: "성수역",
     searchKeyword: "이탈리안",
-    maxPlaces: 4,
+    maxPlaces: 5,
     weights: { photoPercent: 60, reviewPercent: 40 },
     scoring: { photo: "차분함", review: "대화하기 좋음" },
   },
   results: [
     { status: "analyzed", name: "두 번째", finalScore: 8.1 },
-    { status: "not_matched", name: "기준 미달", mismatchReason: "너무 시끄러움" },
+    { status: "analyzed", name: "0점 장소", finalScore: 0 },
     { status: "failed", name: "확인 실패", failureReason: "상세 조회 실패" },
+    { status: "analyzed", name: "동점 먼저", finalScore: 9.2 },
     {
       status: "analyzed",
-      name: "첫 번째",
+      name: "동점 나중",
       finalScore: 9.2,
       photoScore: 9,
       reviewScore: 9,
@@ -33,15 +34,20 @@ const report: RunReport = {
 };
 
 describe("ReportView", () => {
-  it("sorts analyzed places and separates non-matched outcomes", () => {
+  it("shows every analyzed place in stable score order and separates failures", () => {
     render(<ReportView report={report} />);
 
-    const recommendations = screen.getByLabelText("추천 장소");
-    const cards = within(recommendations).getAllByRole("article");
-    expect(cards[0]).toHaveTextContent("첫 번째");
+    const scoreList = screen.getByLabelText("점수순 장소");
+    const cards = within(scoreList).getAllByRole("article");
+    expect(cards).toHaveLength(4);
+    expect(cards[0]).toHaveTextContent("동점 먼저");
     expect(cards[0]).toHaveTextContent("9.2");
-    expect(cards[1]).toHaveTextContent("두 번째");
-    expect(screen.getByText("기준 미충족 · 1")).toBeInTheDocument();
+    expect(cards[1]).toHaveTextContent("동점 나중");
+    expect(cards[2]).toHaveTextContent("두 번째");
+    expect(cards[3]).toHaveTextContent("0점 장소");
+    expect(screen.getByText("평가 완료")).toBeInTheDocument();
     expect(screen.getByText("확인 실패 · 1")).toBeInTheDocument();
+    expect(screen.queryByText("추천")).not.toBeInTheDocument();
+    expect(screen.queryByText(/기준 충족|기준 미충족|추천 기준/)).not.toBeInTheDocument();
   });
 });

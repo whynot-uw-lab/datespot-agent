@@ -1,6 +1,6 @@
 export type RunStatus = "queued" | "running" | "completed" | "failed";
 export type ReportStatus = "pending" | "running" | "completed" | "failed";
-export type PlaceResultStatus = "analyzed" | "not_matched" | "failed";
+export type PlaceResultStatus = "analyzed" | "failed";
 
 export interface Weights {
   photoPercent: number;
@@ -49,7 +49,6 @@ export interface PlaceResult {
   finalScore?: number | null;
   photoReason?: string | null;
   reviewReason?: string | null;
-  mismatchReason?: string | null;
   failureReason?: string | null;
 }
 

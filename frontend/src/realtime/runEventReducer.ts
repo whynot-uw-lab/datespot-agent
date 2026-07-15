@@ -39,7 +39,6 @@ export interface RunProgressData {
   inputCount?: number;
   durationMs?: number;
   score?: number;
-  matched?: boolean;
   photoUrls?: string[];
 }
 
@@ -77,7 +76,6 @@ export const getRunProgressData = (
     inputCount: optionalNumber(event.data.inputCount),
     durationMs: optionalNumber(event.data.durationMs),
     score: optionalNumber(event.data.score),
-    matched: typeof event.data.matched === "boolean" ? event.data.matched : undefined,
     photoUrls,
   };
 };

@@ -108,7 +108,6 @@ describe("RunProgressPage", () => {
                 inputCount: 12,
                 durationMs: 1456,
                 score: 9,
-                matched: true,
               }
             : {}),
         },
@@ -127,7 +126,8 @@ describe("RunProgressPage", () => {
     expect(screen.getByText("우니도")).toBeInTheDocument();
     expect(screen.getByText("입력 12건")).toBeInTheDocument();
     expect(screen.getByText("1.5초")).toBeInTheDocument();
-    expect(screen.getByText("9점 · 기준 충족")).toBeInTheDocument();
+    expect(screen.getByText("9점")).toBeInTheDocument();
+    expect(screen.queryByText(/기준 충족|기준 미충족/)).not.toBeInTheDocument();
   });
 
   it("shows analysis photo thumbnails and an accessible preview", async () => {

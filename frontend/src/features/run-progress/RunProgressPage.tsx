@@ -91,9 +91,7 @@ const TimelineItem = ({
             {data.inputCount != null ? <span>입력 {data.inputCount}{inputUnit}</span> : null}
             {data.current != null && data.total != null ? <span>{data.current}/{data.total}</span> : null}
             {data.durationMs != null ? <span>{formatDuration(data.durationMs)}</span> : null}
-            {data.score != null ? (
-              <b>{data.score}점{data.matched == null ? "" : data.matched ? " · 기준 충족" : " · 기준 미충족"}</b>
-            ) : null}
+            {data.score != null ? <b>{data.score}점</b> : null}
           </div>
         ) : null}
         {data.photoUrls?.length ? (
