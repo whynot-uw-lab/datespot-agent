@@ -35,6 +35,7 @@ _SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 _YEAR = re.compile(r"^[0-9]{4}$")
 _MONTH_OR_DAY = re.compile(r"^[0-9]{2}$")
 _CURSOR_TEXT = re.compile(r"^[A-Za-z0-9_-]+$")
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 _CURSOR_VERSION = 1
 
 
@@ -99,7 +100,7 @@ class _ReportEntry:
 @dataclass(frozen=True, slots=True)
 class _ScanResult:
     entries: tuple[_ReportEntry, ...]
-    invalid_stems: tuple[str, ...]
+    invalid_targets: tuple[frozenset[str], ...]
 
 
 class JsonReportCatalog:
@@ -120,14 +121,15 @@ class JsonReportCatalog:
         for entry in scanned.entries:
             groups[entry.report.run_id].append(entry)
 
-        invalid_count = len(scanned.invalid_stems)
-        invalid_stem_counts: dict[str, int] = defaultdict(int)
-        for stem in scanned.invalid_stems:
-            invalid_stem_counts[stem] += 1
+        invalid_count = len(scanned.invalid_targets)
+        invalid_target_counts: dict[str, int] = defaultdict(int)
+        for targets in scanned.invalid_targets:
+            for target in targets:
+                invalid_target_counts[target] += 1
 
         valid: list[_ReportEntry] = []
         for run_id, entries in groups.items():
-            conflicting_invalid = invalid_stem_counts.get(run_id, 0)
+            conflicting_invalid = invalid_target_counts.get(run_id, 0)
             if len(entries) > 1 or conflicting_invalid:
                 continue
             valid.append(entries[0])
@@ -163,7 +165,7 @@ class JsonReportCatalog:
             if entry.report.run_id == normalized
         ]
         corrupt_targets = sum(
-            stem == normalized for stem in scanned.invalid_stems
+            normalized in targets for targets in scanned.invalid_targets
         )
         if len(matches) + corrupt_targets > 1:
             raise ReportCatalogConflictError()
@@ -187,24 +189,28 @@ class JsonReportCatalog:
                 raise OSError("reports root is not a directory")
 
             entries: list[_ReportEntry] = []
-            invalid_stems: list[str] = []
+            invalid_targets: list[frozenset[str]] = []
             for report_date, path in self._candidate_files(date_from, date_to):
                 try:
                     report = RunReport.model_validate_json(
                         path.read_text(encoding="utf-8")
                     )
                 except (ValidationError, UnicodeError):
-                    invalid_stems.append(path.stem)
+                    invalid_targets.append(frozenset({path.stem}))
                     continue
+                targets = {path.stem}
+                if _SAFE_RUN_ID.fullmatch(report.run_id) is not None:
+                    targets.add(report.run_id)
                 if (
                     report.created_at.astimezone(timezone.utc).date()
                     != report_date
                     or _SAFE_RUN_ID.fullmatch(report.run_id) is None
+                    or path.stem != report.run_id
                 ):
-                    invalid_stems.append(path.stem)
+                    invalid_targets.append(frozenset(targets))
                     continue
                 entries.append(_ReportEntry(report=report, path=path))
-            return _ScanResult(tuple(entries), tuple(invalid_stems))
+            return _ScanResult(tuple(entries), tuple(invalid_targets))
         except ReportCatalogUnavailableError:
             raise
         except OSError as error:
@@ -350,44 +356,60 @@ class JsonReportCatalog:
             ):
                 raise ValueError("non-canonical cursor encoding")
             payload = json.loads(raw.decode("utf-8"))
-            if not isinstance(payload, dict) or set(payload) != {
+            if type(payload) is not dict or set(payload) != {
                 "checksum",
                 "filter",
                 "last",
                 "version",
             }:
                 raise ValueError("invalid cursor shape")
-            if payload["version"] != _CURSOR_VERSION:
+            if raw != cls._canonical_json(payload):
+                raise ValueError("non-canonical cursor payload")
+            version = payload["version"]
+            if type(version) is not int or version != _CURSOR_VERSION:
                 raise ValueError("unsupported cursor version")
-            if payload["filter"] != fingerprint:
+            filter_value = payload["filter"]
+            if (
+                type(filter_value) is not str
+                or _SHA256_HEX.fullmatch(filter_value) is None
+                or filter_value != fingerprint
+            ):
                 raise ValueError("cursor filter mismatch")
             last = payload["last"]
-            if not isinstance(last, dict) or set(last) != {
+            if type(last) is not dict or set(last) != {
                 "createdAt",
                 "runId",
             }:
                 raise ValueError("invalid last key")
             run_id = last["runId"]
-            if not isinstance(run_id, str) or _SAFE_RUN_ID.fullmatch(run_id) is None:
+            if type(run_id) is not str or _SAFE_RUN_ID.fullmatch(run_id) is None:
                 raise ValueError("invalid cursor run id")
             created_text = last["createdAt"]
-            if not isinstance(created_text, str):
+            if type(created_text) is not str:
                 raise ValueError("invalid cursor timestamp")
             created_at = datetime.fromisoformat(
                 created_text.replace("Z", "+00:00")
             )
             if created_at.tzinfo is None or created_at.utcoffset() is None:
                 raise ValueError("naive cursor timestamp")
+            normalized_created_at = (
+                created_at.astimezone(timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+            if created_text != normalized_created_at:
+                raise ValueError("non-canonical cursor timestamp")
             core = {
-                "filter": payload["filter"],
+                "filter": filter_value,
                 "last": last,
-                "version": payload["version"],
+                "version": version,
             }
             expected = hashlib.sha256(cls._canonical_json(core)).hexdigest()
             checksum = payload["checksum"]
-            if not isinstance(checksum, str) or not hmac.compare_digest(
-                checksum,
-                expected,
+            if (
+                type(checksum) is not str
+                or _SHA256_HEX.fullmatch(checksum) is None
+                or not hmac.compare_digest(checksum, expected)
             ):
                 raise ValueError("cursor checksum mismatch")
             return created_at.astimezone(timezone.utc), run_id

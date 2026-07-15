@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import os
 import tempfile
@@ -65,6 +67,48 @@ def make_report(
 
 def write_report(root: Path, report: RunReport) -> Path:
     return JsonReportStore(root).save(report)
+
+
+def decode_cursor(cursor: str) -> dict[str, object]:
+    raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4))
+    return json.loads(raw)
+
+
+def encode_cursor_payload(
+    payload: dict[str, object],
+    *,
+    canonical: bool = True,
+) -> str:
+    core = {
+        "filter": payload["filter"],
+        "last": payload["last"],
+        "version": payload["version"],
+    }
+    canonical_core = json.dumps(
+        core,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    payload["checksum"] = hashlib.sha256(canonical_core).hexdigest()
+    raw = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":") if canonical else None,
+        sort_keys=canonical,
+        indent=None if canonical else 2,
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def encode_canonical_json(payload: dict[str, object]) -> str:
+    raw = json.dumps(
+        payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
 class ReportQueryTests(unittest.TestCase):
@@ -236,6 +280,48 @@ class JsonReportCatalogTests(unittest.TestCase):
                     ReportQuery(location="성수", cursor=tampered)
                 )
 
+    def test_cursor_rejects_noncanonical_json_bool_version_and_timezone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_report(root, make_report("run_a", created_at=DAY_1))
+            write_report(root, make_report("run_b", created_at=DAY_2))
+            catalog = JsonReportCatalog(root)
+            cursor = catalog.list_reports(ReportQuery(limit=1)).next_cursor
+            self.assertIsNotNone(cursor)
+            original = decode_cursor(cursor)
+
+            pretty = encode_cursor_payload(dict(original), canonical=False)
+            bool_version_payload = decode_cursor(cursor)
+            bool_version_payload["version"] = True
+            bool_version = encode_cursor_payload(bool_version_payload)
+            timezone_payload = decode_cursor(cursor)
+            timezone_payload["last"]["createdAt"] = (
+                timezone_payload["last"]["createdAt"].replace(
+                    "Z",
+                    "+00:00",
+                )
+            )
+            timezone_cursor = encode_cursor_payload(timezone_payload)
+            filter_type_payload = decode_cursor(cursor)
+            filter_type_payload["filter"] = 1
+            filter_type_cursor = encode_cursor_payload(filter_type_payload)
+            checksum_type_payload = decode_cursor(cursor)
+            checksum_type_payload["checksum"] = True
+            checksum_type_cursor = encode_canonical_json(checksum_type_payload)
+
+            for invalid in (
+                pretty,
+                bool_version,
+                timezone_cursor,
+                filter_type_cursor,
+                checksum_type_cursor,
+            ):
+                with self.subTest(cursor=invalid):
+                    with self.assertRaises(InvalidReportCursorError):
+                        catalog.list_reports(
+                            ReportQuery(limit=1, cursor=invalid)
+                        )
+
     def test_invalid_reports_count_before_content_filters(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -283,6 +369,45 @@ class JsonReportCatalogTests(unittest.TestCase):
             self.assertEqual(page.invalid_report_count, 0)
             with self.assertRaises(ReportCatalogConflictError):
                 catalog.get_report("run_dup")
+
+    def test_filename_mismatch_is_corrupt_for_both_claimed_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            day_dir = root / "2026" / "07" / "15"
+            day_dir.mkdir(parents=True)
+            report = make_report("run_content")
+            (day_dir / "run_filename.json").write_text(
+                report.model_dump_json(by_alias=True),
+                encoding="utf-8",
+            )
+            catalog = JsonReportCatalog(root)
+
+            page = catalog.list_reports(ReportQuery())
+
+            self.assertEqual(page.items, [])
+            self.assertEqual(page.invalid_report_count, 1)
+            for run_id in ("run_content", "run_filename"):
+                with self.subTest(run_id=run_id):
+                    with self.assertRaises(ReportCorruptError):
+                        catalog.get_report(run_id)
+
+    def test_filename_mismatch_conflicts_with_canonical_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = make_report("run_target")
+            canonical = write_report(root, report)
+            (canonical.parent / "other_name.json").write_text(
+                report.model_dump_json(by_alias=True),
+                encoding="utf-8",
+            )
+            catalog = JsonReportCatalog(root)
+
+            page = catalog.list_reports(ReportQuery())
+
+            self.assertEqual(page.items, [])
+            self.assertEqual(page.invalid_report_count, 1)
+            with self.assertRaises(ReportCatalogConflictError):
+                catalog.get_report("run_target")
 
     def test_detail_returns_deep_copy_and_rejects_unsafe_id(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -111,6 +111,9 @@ class ApiReportTests(unittest.TestCase):
 
     def test_invalid_filters_return_public_invalid_filter_error(self):
         invalid_queries = (
+            {"limit": "0"},
+            {"limit": "101"},
+            {"limit": "not-an-integer"},
             {"location": "   "},
             {"searchKeyword": "   "},
             {"dateFrom": "not-a-date"},
@@ -147,6 +150,7 @@ class ApiReportTests(unittest.TestCase):
     def test_missing_and_unsafe_detail_ids_return_public_errors(self):
         missing = self.client.get("/reports/run_missing")
         unsafe = self.client.get("/reports/bad%20id")
+        encoded_slash = self.client.get("/reports/bad%2Fid")
 
         self.assertEqual(missing.status_code, 404)
         self.assertEqual(
@@ -158,6 +162,44 @@ class ApiReportTests(unittest.TestCase):
             unsafe.json()["detail"]["code"],
             "invalid_run_id",
         )
+        self.assertEqual(encoded_slash.status_code, 422)
+        self.assertEqual(
+            encoded_slash.json()["detail"]["code"],
+            "invalid_run_id",
+        )
+
+    def test_openapi_preserves_typed_report_query_contract(self):
+        operation = self.client.get("/openapi.json").json()["paths"][
+            "/reports"
+        ]["get"]
+        parameters = {
+            parameter["name"]: parameter
+            for parameter in operation["parameters"]
+        }
+
+        limit = parameters["limit"]["schema"]
+        self.assertEqual(limit["type"], "integer")
+        self.assertEqual(limit["default"], 20)
+        self.assertEqual(limit["minimum"], 1)
+        self.assertEqual(limit["maximum"], 100)
+
+        report_status = parameters["status"]["schema"]["anyOf"][0]
+        self.assertEqual(report_status["type"], "string")
+        self.assertEqual(report_status["enum"], ["completed", "failed"])
+
+        for name in ("dateFrom", "dateTo"):
+            date_schema = parameters[name]["schema"]["anyOf"][0]
+            self.assertEqual(date_schema["type"], "string")
+            self.assertEqual(date_schema["format"], "date")
+
+    def test_report_validation_handler_does_not_change_other_routes(self):
+        response = self.client.post(
+            "/runs",
+            json={"location": "", "searchKeyword": "일식"},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIsInstance(response.json()["detail"], list)
 
     def test_corrupt_and_conflicting_detail_return_public_errors(self):
         day = self.root / "2026" / "07" / "15"

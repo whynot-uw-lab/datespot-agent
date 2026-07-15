@@ -6,9 +6,9 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from inspect import isawaitable
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     Depends,
@@ -20,6 +20,9 @@ from fastapi import (
     WebSocket,
     status,
 )
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
@@ -41,7 +44,7 @@ from datespot_agent.api.models import (
 )
 from datespot_agent.api.runtime import AppRuntime, create_runtime
 from datespot_agent.browser.stream import BrowserStreamControl
-from datespot_agent.models import RunConfig, RunReport
+from datespot_agent.models import RunConfig, RunReport, RunStatus
 from datespot_agent.reporting import (
     InvalidReportCursorError,
     InvalidRunIdError,
@@ -151,13 +154,30 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
 
     app = FastAPI(title="datespot-agent", lifespan=lifespan)
 
+    @app.exception_handler(RequestValidationError)
+    async def public_report_query_validation(
+        request: Request,
+        error: RequestValidationError,
+    ):
+        if request.url.path == "/reports":
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                content={
+                    "detail": _detail(
+                        "invalid_filter",
+                        "리포트 조회 조건이 올바르지 않음",
+                    )
+                },
+            )
+        return await request_validation_exception_handler(request, error)
+
     def coordinator(request: Request) -> RunCoordinator:
         return request.app.state.runtime.coordinator
 
     def report_query(
-        limit: Annotated[str | None, Query()] = None,
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
         report_status: Annotated[
-            str | None,
+            Literal[RunStatus.COMPLETED, RunStatus.FAILED] | None,
             Query(alias="status"),
         ] = None,
         location: Annotated[str | None, Query()] = None,
@@ -166,11 +186,11 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
             Query(alias="searchKeyword"),
         ] = None,
         date_from: Annotated[
-            str | None,
+            date | None,
             Query(alias="dateFrom"),
         ] = None,
         date_to: Annotated[
-            str | None,
+            date | None,
             Query(alias="dateTo"),
         ] = None,
         cursor: Annotated[str | None, Query()] = None,
@@ -360,7 +380,7 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
                 ),
             ) from error
 
-    @app.get("/reports/{run_id}", response_model=RunReport)
+    @app.get("/reports/{run_id:path}", response_model=RunReport)
     def get_persisted_report(run_id: str, request: Request) -> RunReport:
         try:
             report = request.app.state.runtime.report_catalog.get_report(run_id)
