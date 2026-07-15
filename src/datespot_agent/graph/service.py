@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
@@ -24,6 +24,9 @@ from datespot_agent.models import (
     RunReport,
     RunStatus,
 )
+
+if TYPE_CHECKING:
+    from datespot_agent.api.events import RunEventPublisher
 
 
 def utc_now() -> datetime:
@@ -48,6 +51,7 @@ class GraphRunService:
         scoring_service: PlaceScoringService,
         clock=utc_now,
         log: Callable[[str], None] | None = None,
+        event_publisher: RunEventPublisher | None = None,
     ) -> None:
         self._browser_service = browser_service
         self._photo_agent = photo_agent
@@ -55,6 +59,7 @@ class GraphRunService:
         self._scoring_service = scoring_service
         self._clock = clock
         self._log = log
+        self._events = event_publisher
         self._graph = self._build_graph()
 
     async def run(
@@ -199,16 +204,23 @@ class GraphRunService:
 
     async def _open_browser(self, state: GraphState) -> GraphState:
         self._emit(f"[run:{state.run_id}] 브라우저 세션 시작")
+        self._progress(state.run_id, "session_start", "브라우저 세션 시작")
         try:
             await self._browser_service.start_session(state.run_id)
         except Exception as error:
             message = self._error_message(error, default="브라우저 세션 시작 실패")
             self._emit(f"[run:{state.run_id}] 브라우저 세션 시작 실패: {message}")
+            self._progress(
+                state.run_id,
+                "session_start",
+                "브라우저 세션 시작 실패",
+            )
             return self._copy_state(
                 state,
                 last_error=message,
             )
         self._emit(f"[run:{state.run_id}] 브라우저 세션 시작 완료")
+        self._progress(state.run_id, "session_start", "브라우저 세션 시작 완료")
         return self._copy_state(state, last_error=None)
 
     async def _search_candidates(self, state: GraphState) -> GraphState:
@@ -216,6 +228,7 @@ class GraphRunService:
             f"[run:{state.run_id}] 후보 검색 시작: "
             f"{state.config.location} / {state.config.search_keyword}"
         )
+        self._progress(state.run_id, "candidate_search", "후보 검색 시작")
         try:
             candidates = await self._browser_service.search_candidates(
                 state.run_id,
@@ -223,12 +236,14 @@ class GraphRunService:
             )
         except BrowserServiceError as error:
             self._emit(f"[run:{state.run_id}] 후보 검색 실패: {error}")
+            self._progress(state.run_id, "candidate_search", "후보 검색 실패")
             return self._copy_state(
                 state,
                 candidates=[],
                 last_error=str(error),
             )
         self._emit(f"[run:{state.run_id}] 후보 검색 완료: {len(candidates)}건")
+        self._progress(state.run_id, "candidate_search", "후보 검색 완료")
         return self._copy_state(state, candidates=candidates, last_error=None)
 
     def _normalize_candidates(self, state: GraphState) -> GraphState:
@@ -265,6 +280,13 @@ class GraphRunService:
             f"[run:{state.run_id}] 상세 추출 시작: "
             f"{current_place.name}({current_place.place_id})"
         )
+        self._progress(
+            state.run_id,
+            "place_detail",
+            "장소 상세 추출 시작",
+            place_id=current_place.place_id,
+            place_name=current_place.name,
+        )
         try:
             detail = await self._browser_service.extract_place_detail(
                 state.run_id,
@@ -275,6 +297,13 @@ class GraphRunService:
                 f"[run:{state.run_id}] 상세 추출 실패: "
                 f"{current_place.name}({current_place.place_id}) - {error}"
             )
+            self._progress(
+                state.run_id,
+                "place_detail",
+                "장소 상세 추출 실패",
+                place_id=current_place.place_id,
+                place_name=current_place.name,
+            )
             return self._copy_state(
                 state,
                 current_place_detail=None,
@@ -283,6 +312,13 @@ class GraphRunService:
         self._emit(
             f"[run:{state.run_id}] 상세 추출 완료: "
             f"photos={len(detail.photo_urls)}, reviews={len(detail.reviews)}"
+        )
+        self._progress(
+            state.run_id,
+            "place_detail",
+            "장소 상세 추출 완료",
+            place_id=current_place.place_id,
+            place_name=current_place.name,
         )
         return self._copy_state(
             state,
@@ -293,10 +329,25 @@ class GraphRunService:
     async def _analyze_photos(self, state: GraphState) -> GraphState:
         if state.config.weights.photo_percent == 0:
             self._emit(f"[run:{state.run_id}] 사진 분석 생략: photo_percent=0")
+            current_place = self._require_current_place(state)
+            self._progress(
+                state.run_id,
+                "photo_analysis",
+                "사진 분석 생략",
+                place_id=current_place.place_id,
+                place_name=current_place.name,
+            )
             return self._copy_state(state, photo_analysis=None, last_error=None)
 
         detail = self._require_detail(state)
         self._emit(f"[run:{state.run_id}] 사진 분석 시작: {detail.name}")
+        self._progress(
+            state.run_id,
+            "photo_analysis",
+            "사진 분석 시작",
+            place_id=detail.place_id,
+            place_name=detail.name,
+        )
         try:
             photo_analysis = await self._photo_agent.analyze(
                 detail,
@@ -304,6 +355,13 @@ class GraphRunService:
             )
         except AnalysisError as error:
             self._emit(f"[run:{state.run_id}] 사진 분석 실패: {detail.name} - {error}")
+            self._progress(
+                state.run_id,
+                "photo_analysis",
+                "사진 분석 실패",
+                place_id=detail.place_id,
+                place_name=detail.name,
+            )
             return self._copy_state(
                 state,
                 photo_analysis=None,
@@ -312,6 +370,13 @@ class GraphRunService:
         self._emit(
             f"[run:{state.run_id}] 사진 분석 완료: "
             f"score={photo_analysis.photo_score}, matched={photo_analysis.matched}"
+        )
+        self._progress(
+            state.run_id,
+            "photo_analysis",
+            "사진 분석 완료",
+            place_id=detail.place_id,
+            place_name=detail.name,
         )
         return self._copy_state(
             state,
@@ -322,10 +387,25 @@ class GraphRunService:
     async def _analyze_reviews(self, state: GraphState) -> GraphState:
         if state.config.weights.review_percent == 0:
             self._emit(f"[run:{state.run_id}] 리뷰 분석 생략: review_percent=0")
+            current_place = self._require_current_place(state)
+            self._progress(
+                state.run_id,
+                "review_analysis",
+                "리뷰 분석 생략",
+                place_id=current_place.place_id,
+                place_name=current_place.name,
+            )
             return self._copy_state(state, review_analysis=None, last_error=None)
 
         detail = self._require_detail(state)
         self._emit(f"[run:{state.run_id}] 리뷰 분석 시작: {detail.name}")
+        self._progress(
+            state.run_id,
+            "review_analysis",
+            "리뷰 분석 시작",
+            place_id=detail.place_id,
+            place_name=detail.name,
+        )
         try:
             review_analysis = await self._review_agent.analyze(
                 detail,
@@ -333,6 +413,13 @@ class GraphRunService:
             )
         except AnalysisError as error:
             self._emit(f"[run:{state.run_id}] 리뷰 분석 실패: {detail.name} - {error}")
+            self._progress(
+                state.run_id,
+                "review_analysis",
+                "리뷰 분석 실패",
+                place_id=detail.place_id,
+                place_name=detail.name,
+            )
             return self._copy_state(
                 state,
                 review_analysis=None,
@@ -341,6 +428,13 @@ class GraphRunService:
         self._emit(
             f"[run:{state.run_id}] 리뷰 분석 완료: "
             f"score={review_analysis.review_score}, matched={review_analysis.matched}"
+        )
+        self._progress(
+            state.run_id,
+            "review_analysis",
+            "리뷰 분석 완료",
+            place_id=detail.place_id,
+            place_name=detail.name,
         )
         return self._copy_state(
             state,
@@ -351,6 +445,13 @@ class GraphRunService:
     def _calculate_place_result(self, state: GraphState) -> GraphState:
         detail = self._require_detail(state)
         self._emit(f"[run:{state.run_id}] 결과 계산 시작: {detail.name}")
+        self._progress(
+            state.run_id,
+            "scoring",
+            "장소 점수 계산 시작",
+            place_id=detail.place_id,
+            place_name=detail.name,
+        )
         try:
             result = self._scoring_service.calculate(
                 detail,
@@ -360,6 +461,13 @@ class GraphRunService:
             )
         except AnalysisInputError as error:
             self._emit(f"[run:{state.run_id}] 결과 계산 실패: {detail.name} - {error}")
+            self._progress(
+                state.run_id,
+                "scoring",
+                "장소 점수 계산 실패",
+                place_id=detail.place_id,
+                place_name=detail.name,
+            )
             return self._copy_state(state, last_error=str(error))
         result_bits = [f"status={result.status.value}"]
         if result.final_score is not None:
@@ -368,8 +476,14 @@ class GraphRunService:
             f"[run:{state.run_id}] 결과 계산 완료: {detail.name} "
             + ", ".join(result_bits)
         )
-
-        return self._copy_state(
+        self._progress(
+            state.run_id,
+            "scoring",
+            "장소 점수 계산 완료",
+            place_id=detail.place_id,
+            place_name=detail.name,
+        )
+        next_state = self._copy_state(
             state,
             place_results=[*state.place_results, result],
             current_place_detail=None,
@@ -377,6 +491,9 @@ class GraphRunService:
             review_analysis=None,
             last_error=None,
         )
+        if self._events is not None:
+            self._events.place_result(state.run_id, result)
+        return next_state
 
     def _append_failed_place(self, state: GraphState) -> GraphState:
         current_place = self._require_current_place(state)
@@ -394,7 +511,7 @@ class GraphRunService:
             f"{current_place.name}({current_place.place_id}) - "
             f"{failed_result.failure_reason}"
         )
-        return self._copy_state(
+        next_state = self._copy_state(
             state,
             place_results=[*state.place_results, failed_result],
             current_place_detail=None,
@@ -402,6 +519,9 @@ class GraphRunService:
             review_analysis=None,
             last_error=None,
         )
+        if self._events is not None:
+            self._events.place_result(state.run_id, failed_result)
+        return next_state
 
     def _build_completed_report(self, state: GraphState) -> GraphState:
         results = self._sorted_results(state.place_results)
@@ -420,6 +540,7 @@ class GraphRunService:
             f"[run:{state.run_id}] report 생성 완료: "
             f"completed, analyzed={analyzed}, not_matched={not_matched}, failed={failed}"
         )
+        self._progress(state.run_id, "report_build", "리포트 생성 완료")
         return self._copy_state(
             state,
             status=RunStatus.COMPLETED,
@@ -437,6 +558,7 @@ class GraphRunService:
             errors=[error_message],
         )
         self._emit(f"[run:{state.run_id}] report 생성 완료: failed - {error_message}")
+        self._progress(state.run_id, "report_build", "리포트 생성 완료")
         return self._copy_state(
             state,
             status=RunStatus.FAILED,
@@ -472,6 +594,27 @@ class GraphRunService:
         if self._log is None:
             return
         self._log(message)
+
+    def _progress(
+        self,
+        run_id: str,
+        stage: str,
+        message: str,
+        *,
+        place_id: str | None = None,
+        place_name: str | None = None,
+    ) -> None:
+        if self._events is None:
+            return
+        from datespot_agent.api.events import ProgressStage
+
+        self._events.progress(
+            run_id,
+            ProgressStage(stage),
+            message,
+            place_id=place_id,
+            place_name=place_name,
+        )
 
     def _report(
         self,

@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from playwright.async_api import (
     Browser,
@@ -31,6 +31,9 @@ from datespot_agent.browser.naver_map import NaverMapPage
 from datespot_agent.browser.pacing import InteractionPacer
 from datespot_agent.browser.parsers import CandidateTarget
 from datespot_agent.models import CandidatePlace, PlaceDetail, RunConfig
+
+if TYPE_CHECKING:
+    from datespot_agent.api.events import RunEventPublisher
 
 T = TypeVar("T")
 
@@ -58,6 +61,7 @@ class BrowserService:
         cdp_launcher: ChromeCdpLauncher | None = None,
         pacer: InteractionPacer | None = None,
         log: Callable[[str], None] | None = None,
+        event_publisher: RunEventPublisher | None = None,
     ) -> None:
         self._headless = headless
         self._browser_channel = browser_channel
@@ -65,6 +69,7 @@ class BrowserService:
         self._cdp_launcher = cdp_launcher
         self._pacer = pacer or InteractionPacer()
         self._log = log
+        self._events = event_publisher
         self._sessions: dict[str, BrowserSession] = {}
 
     async def _launch_browser_context(
@@ -147,8 +152,11 @@ class BrowserService:
                 self._pacer,
                 run_id=run_id,
                 log=self._log,
+                event_publisher=self._events,
             )
+            self._progress(run_id, "session_start", "네이버지도 열기 시작")
             await navigator.open()
+            self._progress(run_id, "session_start", "네이버지도 열기 완료")
             self._sessions[run_id] = BrowserSession(
                 runtime,
                 browser,
@@ -211,10 +219,15 @@ class BrowserService:
         session.candidate_targets.clear()
 
         async def operation() -> list[CandidatePlace]:
+            self._progress(run_id, "candidate_search", "검색 지역 입력 중")
             await session.navigator.search_location(config.location)
+            self._progress(run_id, "candidate_search", "검색 역 선택 중")
             await session.navigator.select_station(config.location)
+            self._progress(run_id, "candidate_search", "지도 확대 수준 조정 중")
             await session.navigator.set_zoom(15)
+            self._progress(run_id, "candidate_search", "검색 키워드 입력 중")
             await session.navigator.search_keyword(config.search_keyword)
+            self._progress(run_id, "candidate_search", "후보 목록 읽는 중")
             candidates, targets = await session.navigator.extract_candidates()
             session.candidate_targets = targets
             return candidates
@@ -241,6 +254,13 @@ class BrowserService:
                 step="extract_place_detail",
                 place_id=candidate.place_id,
             )
+        self._progress(
+            run_id,
+            "place_detail",
+            "장소 상세 페이지 탐색 중",
+            place_id=candidate.place_id,
+            place_name=candidate.name,
+        )
         return await self._run_with_retry(
             run_id,
             "extract_place_detail",
@@ -262,6 +282,27 @@ class BrowserService:
     async def close_all(self) -> None:
         for run_id in list(self._sessions):
             await self.close_session(run_id)
+
+    def _progress(
+        self,
+        run_id: str,
+        stage: str,
+        message: str,
+        *,
+        place_id: str | None = None,
+        place_name: str | None = None,
+    ) -> None:
+        if self._events is None:
+            return
+        from datespot_agent.api.events import ProgressStage
+
+        self._events.progress(
+            run_id,
+            ProgressStage(stage),
+            message,
+            place_id=place_id,
+            place_name=place_name,
+        )
 
     async def _close_started_resources(
         self,

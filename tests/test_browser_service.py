@@ -13,6 +13,7 @@ from datespot_agent.browser.errors import (
     BrowserSessionError,
 )
 from datespot_agent.browser.parsers import CandidateTarget
+from datespot_agent.browser.naver_map import NaverMapPage
 from datespot_agent.browser.service import BrowserService, BrowserSession
 from datespot_agent.models import CandidatePlace, RunConfig
 
@@ -60,6 +61,22 @@ class FakePacer:
 
     async def wait_before_retry(self) -> None:
         self.retry_waits += 1
+
+
+class RecordingEventPublisher:
+    def __init__(self) -> None:
+        self.progress_events: list[tuple[str, str, str]] = []
+
+    def progress(
+        self,
+        run_id,
+        stage,
+        message,
+        *,
+        place_id=None,
+        place_name=None,
+    ) -> None:
+        self.progress_events.append((run_id, stage.value, message))
 
 
 class FakeLaunchContext:
@@ -279,7 +296,11 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cdp_process.close_calls, 1)
 
     async def test_search_uses_fixed_order_without_max_places_slice(self):
-        service = BrowserService(pacer=FakePacer())
+        publisher = RecordingEventPublisher()
+        service = BrowserService(
+            pacer=FakePacer(),
+            event_publisher=publisher,
+        )
         navigator = FakeNavigator()
         service._sessions["run-1"] = BrowserSession(
             None,
@@ -307,6 +328,53 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
                 "station:신사역",
                 "zoom:15",
                 "keyword:일식",
+            ],
+        )
+        self.assertEqual(
+            [(run_id, stage) for run_id, stage, _ in publisher.progress_events],
+            [("run-1", "candidate_search")] * 5,
+        )
+
+    async def test_security_check_publishes_direct_run_id_and_keeps_log(self):
+        publisher = RecordingEventPublisher()
+        logs: list[str] = []
+
+        class Page:
+            def on(self, event_name, callback) -> None:
+                return None
+
+            async def wait_for_timeout(self, timeout_ms: int) -> None:
+                return None
+
+        navigator = NaverMapPage(
+            Page(),
+            FakePacer(),
+            run_id="run-security-direct",
+            log=logs.append,
+            event_publisher=publisher,
+        )
+        reasons = iter((None,))
+
+        async def current_reason():
+            return next(reasons)
+
+        navigator._current_block_reason = current_reason
+
+        await navigator._wait_until_access_restored("CAPTCHA")
+
+        self.assertEqual(
+            [(run_id, stage) for run_id, stage, _ in publisher.progress_events],
+            [
+                ("run-security-direct", "security_check"),
+                ("run-security-direct", "security_check"),
+            ],
+        )
+        self.assertEqual(
+            logs,
+            [
+                "[run:run-security-direct] 보안 확인 감지, 수동 해제 대기 시작: "
+                "CAPTCHA, 10초 후 재확인",
+                "[run:run-security-direct] 보안 확인 해제 감지, 작업 재개",
             ],
         )
 

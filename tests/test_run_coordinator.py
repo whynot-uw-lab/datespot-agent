@@ -7,6 +7,7 @@ from pathlib import Path
 
 from datespot_agent.api.coordinator import RunCoordinator
 from datespot_agent.api.errors import CoordinatorUnavailableError
+from datespot_agent.api.events import RunEventPublisher
 from datespot_agent.api.models import RunJobStatus
 from datespot_agent.models import RunConfig, RunReport, RunStatus
 from datespot_agent.reporting import ReportStorageError
@@ -66,6 +67,44 @@ class RecordingStore:
         return Path("reports") / f"{report.run_id}.json"
 
 
+class RecordingEventPublisher:
+    def __init__(self) -> None:
+        self.events: dict[str, list[tuple[str, object]]] = {}
+        self.opened: list[str] = []
+
+    def open_run(self, run_id: str) -> None:
+        self.opened.append(run_id)
+
+    def lifecycle(self, run_id, event_type, status) -> None:
+        self.events.setdefault(run_id, []).append(
+            (event_type.value, status.model_copy(deep=True))
+        )
+
+    def report_saved(self, run_id: str, report_url: str) -> None:
+        self.events.setdefault(run_id, []).append(
+            ("report_saved", report_url)
+        )
+
+    def terminal(self, run_id, event_type, status) -> None:
+        self.events.setdefault(run_id, []).append(
+            (event_type.value, status.model_copy(deep=True))
+        )
+
+    def types(self, run_id: str) -> list[str]:
+        return [event_type for event_type, _ in self.events.get(run_id, [])]
+
+
+class FailingEventHub:
+    def open_run(self, run_id: str) -> None:
+        raise RuntimeError("event unavailable")
+
+    def publish(self, run_id: str, event_type, data):
+        raise RuntimeError("event unavailable")
+
+    def mark_terminal(self, run_id: str) -> None:
+        raise RuntimeError("event unavailable")
+
+
 async def wait_until(predicate, timeout: float = 1.0) -> None:
     async with asyncio.timeout(timeout):
         while not predicate():
@@ -76,12 +115,14 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.runner = ControlledRunner()
         self.store = RecordingStore()
+        self.publisher = RecordingEventPublisher()
         ids = iter(("run_first", "run_second", "run_third"))
         self.coordinator = RunCoordinator(
             self.runner,
             self.store,
             clock=lambda: NOW,
             run_id_factory=lambda: next(ids),
+            event_publisher=self.publisher,
         )
         await self.coordinator.start()
 
@@ -119,6 +160,28 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(completed.report_available)
         self.assertEqual(self.store.saved[0].run_id, accepted.run_id)
 
+    async def test_worker_publishes_saved_report_before_terminal(self) -> None:
+        accepted = self.coordinator.submit(make_config())
+        await wait_until(lambda: accepted.run_id in self.runner.gates)
+        self.runner.gates[accepted.run_id].set()
+        await wait_until(
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at
+            is not None
+        )
+
+        self.assertEqual(self.publisher.opened, [accepted.run_id])
+        self.assertEqual(
+            self.publisher.types(accepted.run_id),
+            ["queued", "running", "report_saved", "completed"],
+        )
+        self.assertEqual(
+            self.publisher.events[accepted.run_id][-2][1],
+            f"/reports/{accepted.run_id}",
+        )
+        terminal = self.publisher.events[accepted.run_id][-1][1]
+        self.assertEqual(terminal.status, RunJobStatus.COMPLETED)
+        self.assertTrue(terminal.report_available)
+
     async def test_worker_runs_jobs_one_at_a_time_in_fifo_order(self) -> None:
         first = self.coordinator.submit(make_config("성수역"))
         second = self.coordinator.submit(make_config("홍대입구역"))
@@ -153,13 +216,19 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.runner.started, [first.run_id])
 
     async def test_storage_failure_marks_job_failed_without_report(self) -> None:
-        error = ReportStorageError("저장 실패", run_id="run_storage_failed")
+        private_path = Path("/private/reports/run_storage_failed.json")
+        error = ReportStorageError(
+            "저장 실패",
+            run_id="run_storage_failed",
+            path=private_path,
+        )
         store = RecordingStore(error)
         coordinator = RunCoordinator(
             self.runner,
             store,
             clock=lambda: NOW,
             run_id_factory=lambda: "run_storage_failed",
+            event_publisher=self.publisher,
         )
         await coordinator.start()
         try:
@@ -175,9 +244,21 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             assert snapshot is not None
             self.assertEqual(snapshot.status, RunJobStatus.FAILED)
             self.assertIn("저장 실패", snapshot.error)
+            self.assertIn(str(private_path), snapshot.error)
             self.assertFalse(snapshot.report_available)
             self.assertIsNone(coordinator.get_report(accepted.run_id))
             self.assertEqual(store.attempted[0].status, RunStatus.COMPLETED)
+            self.assertEqual(
+                self.publisher.types(accepted.run_id),
+                ["queued", "running", "failed"],
+            )
+            terminal = self.publisher.events[accepted.run_id][-1][1]
+            self.assertFalse(terminal.report_available)
+            self.assertEqual(
+                terminal.error,
+                "실행 처리 중 오류가 발생함",
+            )
+            self.assertNotIn(str(private_path), terminal.error)
         finally:
             await coordinator.stop()
 
@@ -202,6 +283,54 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report.status, RunStatus.FAILED)
         self.assertEqual(self.store.saved[0].status, RunStatus.FAILED)
 
+    async def test_failed_report_is_saved_before_failed_terminal(self) -> None:
+        self.runner.status = RunStatus.FAILED
+        accepted = self.coordinator.submit(make_config())
+        await wait_until(lambda: accepted.run_id in self.runner.gates)
+        self.runner.gates[accepted.run_id].set()
+        await wait_until(
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at
+            is not None
+        )
+
+        self.assertEqual(
+            self.publisher.types(accepted.run_id)[-2:],
+            ["report_saved", "failed"],
+        )
+        terminal = self.publisher.events[accepted.run_id][-1][1]
+        self.assertTrue(terminal.report_available)
+        self.assertIsNone(terminal.error)
+
+    async def test_event_publisher_failure_does_not_fail_run(self) -> None:
+        coordinator = RunCoordinator(
+            self.runner,
+            self.store,
+            clock=lambda: NOW,
+            run_id_factory=lambda: "run_event_failed",
+            event_publisher=RunEventPublisher(FailingEventHub()),
+        )
+        await coordinator.start()
+        try:
+            with self.assertLogs(
+                "datespot_agent.api.events",
+                level="WARNING",
+            ) as captured:
+                accepted = coordinator.submit(make_config())
+                await wait_until(lambda: accepted.run_id in self.runner.gates)
+                self.runner.gates[accepted.run_id].set()
+                await wait_until(
+                    lambda: coordinator.get_status(accepted.run_id).finished_at
+                    is not None
+                )
+
+            snapshot = coordinator.get_status(accepted.run_id)
+            assert snapshot is not None
+            self.assertEqual(snapshot.status, RunJobStatus.COMPLETED)
+            self.assertTrue(snapshot.report_available)
+            self.assertEqual(len(captured.records), 5)
+        finally:
+            await coordinator.stop()
+
     async def test_submit_requires_started_accepting_worker(self) -> None:
         await self.coordinator.stop()
 
@@ -223,6 +352,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             self.store,
             clock=lambda: NOW,
             run_id_factory=lambda: "run_failed",
+            event_publisher=self.publisher,
         )
         await coordinator.start()
         try:
@@ -238,6 +368,16 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(snapshot.error, "graph crashed")
             self.assertFalse(snapshot.report_available)
             self.assertIsNone(coordinator.get_report(accepted.run_id))
+            self.assertEqual(
+                self.publisher.types(accepted.run_id),
+                ["queued", "running", "failed"],
+            )
+            terminal = self.publisher.events[accepted.run_id][-1][1]
+            self.assertFalse(terminal.report_available)
+            self.assertEqual(
+                terminal.error,
+                "실행 처리 중 오류가 발생함",
+            )
         finally:
             await coordinator.stop()
 
@@ -407,6 +547,28 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot.finished_at, NOW)
         self.assertIn("서버 종료", snapshot.error)
         self.assertIsNone(self.coordinator.get_report(accepted.run_id))
+        self.assertEqual(
+            self.publisher.types(accepted.run_id),
+            ["queued", "running", "failed"],
+        )
+
+    async def test_stop_marks_queued_run_failed_and_publishes_terminal(self) -> None:
+        active = self.coordinator.submit(make_config())
+        queued = self.coordinator.submit(make_config("홍대입구역"))
+        await wait_until(lambda: self.runner.started == [active.run_id])
+
+        await self.coordinator.stop()
+        await self.coordinator._queue.join()
+
+        snapshot = self.coordinator.get_status(queued.run_id)
+        assert snapshot is not None
+        self.assertEqual(snapshot.status, RunJobStatus.FAILED)
+        self.assertEqual(snapshot.finished_at, NOW)
+        self.assertEqual(snapshot.error, "서버 종료로 실행이 중단됨")
+        self.assertEqual(
+            self.publisher.types(queued.run_id),
+            ["queued", "failed"],
+        )
 
 
 if __name__ == "__main__":

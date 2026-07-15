@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from datespot_agent.api.errors import CoordinatorUnavailableError
+from datespot_agent.api.events import RunEventPublisher, RunEventType
 from datespot_agent.api.models import (
     HealthResponse,
     RunAccepted,
@@ -19,6 +20,10 @@ from datespot_agent.api.models import (
 )
 from datespot_agent.graph import make_run_id
 from datespot_agent.models import RunConfig, RunReport, RunStatus
+
+
+_PUBLIC_EXECUTION_ERROR = "실행 처리 중 오류가 발생함"
+_SHUTDOWN_ERROR = "서버 종료로 실행이 중단됨"
 
 
 class RunService(Protocol):
@@ -62,11 +67,13 @@ class RunCoordinator:
         *,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         run_id_factory: Callable[[], str] = make_run_id,
+        event_publisher: RunEventPublisher | None = None,
     ) -> None:
         self._runner = runner
         self._report_store = report_store
         self._clock = clock
         self._run_id_factory = run_id_factory
+        self._events = event_publisher
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._records: dict[str, _RunRecord] = {}
         self._worker: asyncio.Task[None] | None = None
@@ -84,6 +91,7 @@ class RunCoordinator:
 
     async def stop(self) -> None:
         self._accepting = False
+        self._fail_queued_runs_for_shutdown()
         if self._worker is None:
             return
         self._worker.cancel()
@@ -103,6 +111,11 @@ class RunCoordinator:
             config=config.model_copy(deep=True),
             created_at=_utc(self._clock()),
         )
+        if self._events is not None:
+            self._events.open_run(run_id)
+            snapshot = self.get_status(run_id)
+            assert snapshot is not None
+            self._events.lifecycle(run_id, RunEventType.QUEUED, snapshot)
         self._queue.put_nowait(run_id)
         return RunAccepted(
             run_id=run_id,
@@ -157,6 +170,14 @@ class RunCoordinator:
         self._active_run_id = record.run_id
         record.status = RunJobStatus.RUNNING
         record.started_at = _utc(self._clock())
+        if self._events is not None:
+            snapshot = self.get_status(record.run_id)
+            assert snapshot is not None
+            self._events.lifecycle(
+                record.run_id,
+                RunEventType.RUNNING,
+                snapshot,
+            )
         try:
             report = await self._runner.run(
                 record.config,
@@ -164,6 +185,11 @@ class RunCoordinator:
             )
             self._report_store.save(report)
             record.report = report.model_copy(deep=True)
+            if self._events is not None:
+                self._events.report_saved(
+                    record.run_id,
+                    f"/reports/{record.run_id}",
+                )
             record.status = (
                 RunJobStatus.COMPLETED
                 if report.status is RunStatus.COMPLETED
@@ -171,7 +197,7 @@ class RunCoordinator:
             )
         except asyncio.CancelledError:
             record.status = RunJobStatus.FAILED
-            record.error = "서버 종료로 실행이 중단됨"
+            record.error = _SHUTDOWN_ERROR
             raise
         except Exception as error:
             record.status = RunJobStatus.FAILED
@@ -179,3 +205,35 @@ class RunCoordinator:
         finally:
             record.finished_at = _utc(self._clock())
             self._active_run_id = None
+            self._publish_terminal(record)
+
+    def _fail_queued_runs_for_shutdown(self) -> None:
+        while True:
+            try:
+                run_id = self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                record = self._records[run_id]
+                if record.status is not RunJobStatus.QUEUED:
+                    continue
+                record.status = RunJobStatus.FAILED
+                record.finished_at = _utc(self._clock())
+                record.error = _SHUTDOWN_ERROR
+                self._publish_terminal(record)
+            finally:
+                self._queue.task_done()
+
+    def _publish_terminal(self, record: _RunRecord) -> None:
+        if self._events is None:
+            return
+        snapshot = self.get_status(record.run_id)
+        assert snapshot is not None
+        if snapshot.error is not None and snapshot.error != _SHUTDOWN_ERROR:
+            snapshot.error = _PUBLIC_EXECUTION_ERROR
+        event_type = (
+            RunEventType.COMPLETED
+            if record.status is RunJobStatus.COMPLETED
+            else RunEventType.FAILED
+        )
+        self._events.terminal(record.run_id, event_type, snapshot)

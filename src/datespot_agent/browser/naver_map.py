@@ -8,7 +8,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from playwright.async_api import (
     Frame,
@@ -33,6 +33,9 @@ from datespot_agent.browser.parsers import (
     parse_zoom,
 )
 from datespot_agent.models import CandidatePlace, PlaceDetail
+
+if TYPE_CHECKING:
+    from datespot_agent.api.events import RunEventPublisher
 
 MAP_URL = "https://map.naver.com"
 LIST_FRAME_PATTERN = re.compile(
@@ -67,12 +70,14 @@ class NaverMapPage:
         run_id: str,
         dump_dir: Path = BLOCKED_DUMP_DIR,
         log: Callable[[str], None] | None = None,
+        event_publisher: RunEventPublisher | None = None,
     ) -> None:
         self.page = page
         self.pacer = pacer
         self.run_id = run_id
         self.dump_dir = dump_dir
         self.log = log or (lambda _: None)
+        self._events = event_publisher
         self._blocked_response: tuple[int, str, float] | None = None
         self._blocked_message: str | None = None
         page.on("response", self._observe_response)
@@ -88,6 +93,18 @@ class NaverMapPage:
     # /** 브라우저 내부 로그를 run 기준으로 남김. */
     def _emit(self, message: str) -> None:
         self.log(f"[run:{self.run_id}] {message}")
+
+    def _progress(self, message: str) -> None:
+        event_publisher = getattr(self, "_events", None)
+        if event_publisher is None:
+            return
+        from datespot_agent.api.events import ProgressStage
+
+        event_publisher.progress(
+            self.run_id,
+            ProgressStage.SECURITY_CHECK,
+            message,
+        )
 
     # /** 차단 시점의 페이지 상태를 파일로 남김. */
     async def _dump_blocked_state(self) -> tuple[Path | None, Path | None]:
@@ -157,6 +174,7 @@ class NaverMapPage:
 
     # /** 수동 해제될 때까지 차단 상태를 주기적으로 다시 확인함. */
     async def _wait_until_access_restored(self, reason: str) -> None:
+        self._progress("보안 확인 감지, 수동 해제 대기 시작")
         self._emit(
             "보안 확인 감지, 수동 해제 대기 시작: "
             f"{reason}, {int(BLOCK_RECHECK_SECONDS)}초 후 재확인"
@@ -169,8 +187,10 @@ class NaverMapPage:
             if current_reason is None:
                 self._blocked_response = None
                 self._blocked_message = None
+                self._progress("보안 확인 해제 감지, 작업 재개")
                 self._emit("보안 확인 해제 감지, 작업 재개")
                 return
+            self._progress("보안 확인 대기 중")
             self._emit(
                 "보안 확인 대기 중, "
                 f"{int(BLOCK_RECHECK_SECONDS)}초 후 재확인"
