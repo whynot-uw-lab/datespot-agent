@@ -12,7 +12,6 @@ from langgraph.graph import END, START, StateGraph
 
 from datespot_agent.analysis import (
     AnalysisError,
-    AnalysisInputError,
     PhotoAnalysisAgent,
     PlaceScoringService,
     ReviewAnalysisAgent,
@@ -590,7 +589,7 @@ class GraphRunService:
                 state.photo_analysis,
                 state.review_analysis,
             )
-        except AnalysisInputError as error:
+        except Exception as error:
             log_event(
                 LOGGER,
                 "scoring.failed",
@@ -609,6 +608,7 @@ class GraphRunService:
                 state.run_id,
                 "scoring",
                 "장소 점수 계산 실패",
+                status="failed",
                 place_id=detail.place_id,
                 place_name=detail.name,
             )

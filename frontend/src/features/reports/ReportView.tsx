@@ -1,4 +1,4 @@
-import type { PlaceResult, RunReport } from "../../api/contracts";
+import type { AnalyzedPlaceResult, RunReport } from "../../api/contracts";
 
 const ScoreReason = ({ label, score, reason }: { label: string; score?: number | null; reason?: string | null }) => (
   <div className="score-reason">
@@ -7,7 +7,7 @@ const ScoreReason = ({ label, score, reason }: { label: string; score?: number |
   </div>
 );
 
-const PlaceCard = ({ place, rank }: { place: PlaceResult; rank: number }) => (
+const PlaceCard = ({ place, rank }: { place: AnalyzedPlaceResult; rank: number }) => (
   <article className="place-card">
     <div className="place-rank">{String(rank).padStart(2, "0")}</div>
     <div className="place-main">
@@ -18,7 +18,7 @@ const PlaceCard = ({ place, rank }: { place: PlaceResult; rank: number }) => (
           {place.address ? <p className="place-address">{place.address}</p> : null}
         </div>
         <div className="final-score" aria-label={`최종 점수 ${place.finalScore}`}>
-          <strong>{place.finalScore?.toFixed(1)}</strong><span>/10</span>
+          <strong>{place.finalScore.toFixed(1)}</strong><span>/10</span>
         </div>
       </div>
       <div className="reason-grid">
@@ -31,8 +31,8 @@ const PlaceCard = ({ place, rank }: { place: PlaceResult; rank: number }) => (
 
 export const ReportView = ({ report }: { report: RunReport }) => {
   const analyzed = report.results
-    .filter((result) => result.status === "analyzed")
-    .sort((left, right) => (right.finalScore ?? 0) - (left.finalScore ?? 0));
+    .filter((result): result is AnalyzedPlaceResult => result.status === "analyzed")
+    .sort((left, right) => right.finalScore - left.finalScore);
   const failed = report.results.filter((result) => result.status === "failed");
 
   return (

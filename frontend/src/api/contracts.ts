@@ -38,19 +38,30 @@ export interface RunSnapshot {
   error?: string | null;
 }
 
-export interface PlaceResult {
-  status: PlaceResultStatus;
+interface PlaceResultBase {
   placeId?: string | null;
   name: string;
   category?: string | null;
   address?: string | null;
   photoScore?: number | null;
   reviewScore?: number | null;
-  finalScore?: number | null;
   photoReason?: string | null;
   reviewReason?: string | null;
-  failureReason?: string | null;
 }
+
+export interface AnalyzedPlaceResult extends PlaceResultBase {
+  status: "analyzed";
+  finalScore: number;
+  failureReason?: null;
+}
+
+export interface FailedPlaceResult extends PlaceResultBase {
+  status: "failed";
+  finalScore?: null;
+  failureReason: string;
+}
+
+export type PlaceResult = AnalyzedPlaceResult | FailedPlaceResult;
 
 export interface RunReport {
   runId: string;

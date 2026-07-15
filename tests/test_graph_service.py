@@ -98,6 +98,11 @@ class ScoringService:
         )
 
 
+class ExplodingScoringService:
+    def calculate(self, detail, weights, photo_analysis, review_analysis):
+        raise RuntimeError("점수 계산 폭발")
+
+
 class RecordingEventPublisher:
     def __init__(self) -> None:
         self.events: list[tuple[str, str, object]] = []
@@ -140,12 +145,13 @@ def build_service(
     *,
     event_publisher=None,
     log=None,
+    scoring_service=None,
 ) -> GraphRunService:
     return GraphRunService(
         browser_service=browser,
         photo_agent=PhotoAgent(),
         review_agent=ReviewAgent(),
-        scoring_service=ScoringService(),
+        scoring_service=scoring_service or ScoringService(),
         clock=lambda: datetime(2026, 7, 15, 1, 2, 3, tzinfo=timezone.utc),
         event_publisher=event_publisher,
         log=log,
@@ -153,6 +159,29 @@ def build_service(
 
 
 class GraphRunIdTests(unittest.IsolatedAsyncioTestCase):
+    async def test_unexpected_scoring_error_becomes_failed_place(self):
+        publisher = RecordingEventPublisher()
+
+        report = await build_service(
+            SuccessfulBrowserService(),
+            event_publisher=publisher,
+            scoring_service=ExplodingScoringService(),
+        ).run(
+            RunConfig(location="성수역", search_keyword="일식", max_places=1),
+            run_id="run_scoring_error",
+        )
+
+        self.assertEqual(report.status.value, "completed")
+        self.assertEqual(len(report.results), 1)
+        self.assertEqual(report.results[0].status.value, "failed")
+        self.assertEqual(report.results[0].failure_reason, "점수 계산 폭발")
+        scoring_events = [
+            event
+            for event in publisher.progress_events
+            if event["stage"] == "scoring"
+        ]
+        self.assertEqual(scoring_events[-1]["status"].value, "failed")
+
     async def test_empty_analysis_inputs_are_published_as_skipped(self):
         for browser, stage in (
             (EmptyPhotoBrowserService(), "photo_analysis"),

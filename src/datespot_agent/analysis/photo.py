@@ -13,7 +13,7 @@ from datespot_agent.analysis.errors import (
     AnalysisResponseError,
 )
 from datespot_agent.models import PhotoAnalysis, PlaceDetail
-from datespot_agent.observability import log_event
+from datespot_agent.observability import log_event, summarize_reason
 
 MAX_PHOTOS = 5
 DEFAULT_MAX_OUTPUT_TOKENS = 700
@@ -167,6 +167,7 @@ class PhotoAnalysisAgent:
             model=self._model,
             response_id=getattr(response, "id", None),
             score=parsed.photo_score,
+            reason_summary=summarize_reason(parsed.reason),
             duration_ms=max(
                 0,
                 int((monotonic() - started_at) * 1_000),

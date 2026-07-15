@@ -13,7 +13,7 @@ from datespot_agent.analysis.errors import (
     AnalysisResponseError,
 )
 from datespot_agent.models import PlaceDetail, ReviewAnalysis
-from datespot_agent.observability import log_event
+from datespot_agent.observability import log_event, summarize_reason
 
 MAX_REVIEWS = 50
 DEFAULT_MAX_OUTPUT_TOKENS = 700
@@ -177,6 +177,7 @@ class ReviewAnalysisAgent:
             model=self._model,
             response_id=getattr(response, "id", None),
             score=parsed.review_score,
+            reason_summary=summarize_reason(parsed.reason),
             duration_ms=max(
                 0,
                 int((monotonic() - started_at) * 1_000),

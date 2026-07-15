@@ -11,10 +11,26 @@ from datespot_agent.observability import (
     RunLogManager,
     bind_log_context,
     log_event,
+    summarize_reason,
 )
 
 
 class RunLogManagerTests(unittest.TestCase):
+    def test_reason_summary_compacts_redacts_and_limits_text(self) -> None:
+        summary = summarize_reason(
+            "차분한 조명\nhttps://images.example/private.jpg "
+            "sk-secret-value “원문 리뷰 비밀” " + "긴 근거 " * 30,
+            max_chars=60,
+        )
+
+        self.assertLessEqual(len(summary), 60)
+        self.assertNotIn("\n", summary)
+        self.assertNotIn("images.example", summary)
+        self.assertNotIn("sk-secret-value", summary)
+        self.assertNotIn("원문 리뷰 비밀", summary)
+        self.assertIn("[REDACTED]", summary)
+        self.assertTrue(summary.endswith("…"))
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.logs_root = Path(self.temporary_directory.name)

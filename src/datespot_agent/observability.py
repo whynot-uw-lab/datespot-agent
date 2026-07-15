@@ -26,6 +26,7 @@ _SECRET_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9_-]+"),
 )
 _EXCEPTION_URL_PATTERN = re.compile(r"(?i)https?://[^\s,;\]\[<>{}\"']+")
+_QUOTED_TEXT_PATTERN = re.compile(r'"[^"]*"|\'[^\']*\'|“[^”]*”|‘[^’]*’')
 _EXCEPTION_RAW_INPUT_PATTERN = re.compile(
     r"(?im)(\b(?:prompt|criteria|reviews?|review[_ ]?texts?|"
     r"photo[_ ]?urls?|image[_ ]?urls?|프롬프트|평가\s*기준|"
@@ -96,6 +97,21 @@ def _redact_exception_message(value: str) -> str:
     if sensitive_block is not None:
         redacted = redacted[: sensitive_block.end()] + _REDACTED
     return _EXCEPTION_URL_PATTERN.sub(_REDACTED, redacted)
+
+
+def summarize_reason(value: str, *, max_chars: int = 240) -> str:
+    """분석 근거를 진단 로그용으로 압축하고 민감할 수 있는 원문을 제거함."""
+    if max_chars < 1:
+        raise ValueError("max_chars는 1 이상이어야 한다")
+    compact = re.sub(r"\s+", " ", value).strip()
+    redacted = _redact_text(compact)
+    redacted = _EXCEPTION_URL_PATTERN.sub(_REDACTED, redacted)
+    redacted = _QUOTED_TEXT_PATTERN.sub(_REDACTED, redacted)
+    if len(redacted) <= max_chars:
+        return redacted
+    if max_chars == 1:
+        return "…"
+    return redacted[: max_chars - 1].rstrip() + "…"
 
 
 def _safe_value(value: object, *, key: object | None = None) -> object:
@@ -326,4 +342,4 @@ def log_event(
     )
 
 
-__all__ = ["RunLogManager", "bind_log_context", "log_event"]
+__all__ = ["RunLogManager", "bind_log_context", "log_event", "summarize_reason"]

@@ -68,6 +68,10 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(captured.records[0].datespot_fields["input_count"], 50)
         self.assertEqual(captured.records[-1].datespot_fields["score"], 8)
+        self.assertEqual(
+            captured.records[-1].datespot_fields["reason_summary"],
+            "조용함 언급",
+        )
         serialized_logs = " ".join(record.getMessage() for record in captured.records)
         self.assertNotIn("조용하고 대화하기 좋음", serialized_logs)
         self.assertNotIn("리뷰 49", serialized_logs)

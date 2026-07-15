@@ -67,6 +67,10 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(captured.records[0].datespot_fields["input_count"], 5)
         self.assertEqual(captured.records[-1].datespot_fields["score"], 8)
+        self.assertEqual(
+            captured.records[-1].datespot_fields["reason_summary"],
+            "차분한 조명",
+        )
         serialized_logs = " ".join(record.getMessage() for record in captured.records)
         self.assertNotIn("어둡고 차분한 분위기", serialized_logs)
         self.assertNotIn("example.com", serialized_logs)
