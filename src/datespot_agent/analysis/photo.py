@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+from time import monotonic
+
 from openai import AsyncOpenAI
 
 from datespot_agent.analysis.errors import (
@@ -10,6 +13,7 @@ from datespot_agent.analysis.errors import (
     AnalysisResponseError,
 )
 from datespot_agent.models import PhotoAnalysis, PlaceDetail
+from datespot_agent.observability import log_event
 
 MAX_PHOTOS = 5
 DEFAULT_MAX_OUTPUT_TOKENS = 700
@@ -18,6 +22,7 @@ SYSTEM_PROMPT = (
     "너는 소개팅 장소를 내부 사진으로 평가하는 공간 분석가다. "
     "사진에서 직접 확인되는 근거와 추정을 구분하고 구조화된 결과만 반환한다."
 )
+LOGGER = logging.getLogger(__name__)
 
 
 def build_photo_prompt(detail: PlaceDetail, criteria: str) -> str:
@@ -52,7 +57,31 @@ class PhotoAnalysisAgent:
         """내부 사진 최대 5장을 사용자 기준으로 분석한다."""
         photo_urls = [url for url in detail.photo_urls if url][:MAX_PHOTOS]
         if not photo_urls:
+            log_event(
+                LOGGER,
+                "analysis.photo.skipped",
+                "사진 분석 입력 없음",
+                level=logging.WARNING,
+                component="photo_analysis",
+                stage="photo_analysis",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=0,
+            )
             raise AnalysisInputError(f"사진 분석 자료가 없음: {detail.name}")
+
+        log_event(
+            LOGGER,
+            "analysis.photo.prepared",
+            "사진 분석 입력 준비 완료",
+            component="photo_analysis",
+            stage="photo_analysis",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            input_count=len(photo_urls),
+            model=self._model,
+            max_output_tokens=self._max_output_tokens,
+        )
 
         content = [{"type": "input_text", "text": build_photo_prompt(detail, criteria)}]
         content.extend(
@@ -60,6 +89,18 @@ class PhotoAnalysisAgent:
             for url in photo_urls
         )
 
+        started_at = monotonic()
+        log_event(
+            LOGGER,
+            "analysis.photo.requested",
+            "사진 분석 모델 요청 시작",
+            component="photo_analysis",
+            stage="photo_analysis",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            input_count=len(photo_urls),
+            model=self._model,
+        )
         try:
             response = await self._client.responses.parse(
                 model=self._model,
@@ -69,9 +110,66 @@ class PhotoAnalysisAgent:
                 text_format=PhotoAnalysis,
             )
         except Exception as exc:
+            log_event(
+                LOGGER,
+                "analysis.photo.failed",
+                "사진 분석 모델 요청 실패",
+                level=logging.ERROR,
+                exc_info=True,
+                component="photo_analysis",
+                stage="photo_analysis",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=len(photo_urls),
+                model=self._model,
+                duration_ms=max(
+                    0,
+                    int((monotonic() - started_at) * 1_000),
+                ),
+            )
             raise AnalysisRequestError(f"사진 분석 요청 실패: {detail.name}") from exc
 
         parsed = response.output_parsed
         if not isinstance(parsed, PhotoAnalysis):
-            raise AnalysisResponseError(f"사진 분석 구조화 응답 없음: {detail.name}")
+            try:
+                raise AnalysisResponseError(
+                    f"사진 분석 구조화 응답 없음: {detail.name}"
+                )
+            except AnalysisResponseError:
+                log_event(
+                    LOGGER,
+                    "analysis.photo.failed",
+                    "사진 분석 구조화 응답 검증 실패",
+                    level=logging.ERROR,
+                    exc_info=True,
+                    component="photo_analysis",
+                    stage="photo_analysis",
+                    place_id=detail.place_id,
+                    place_name=detail.name,
+                    input_count=len(photo_urls),
+                    model=self._model,
+                    duration_ms=max(
+                        0,
+                        int((monotonic() - started_at) * 1_000),
+                    ),
+                )
+                raise
+        log_event(
+            LOGGER,
+            "analysis.photo.completed",
+            "사진 분석 완료",
+            component="photo_analysis",
+            stage="photo_analysis",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            input_count=len(photo_urls),
+            model=self._model,
+            response_id=getattr(response, "id", None),
+            score=parsed.photo_score,
+            matched=parsed.matched,
+            duration_ms=max(
+                0,
+                int((monotonic() - started_at) * 1_000),
+            ),
+        )
         return parsed

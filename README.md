@@ -151,6 +151,7 @@ curl -sS http://127.0.0.1:20003/reports/<run_id>
 경로는 환경변수로 변경할 수 있다.
 
 - `DATESPOT_REPORTS_ROOT`: JSON 리포트 루트, 기본 `reports`
+- `DATESPOT_DIAGNOSTIC_LOGS_ROOT`: 실행별 JSONL 진단 로그 루트, 기본 `artifacts/logs`
 - `DATESPOT_CHROME_EXECUTABLE_PATH`: Google Chrome 실행 파일 경로
 - `DATESPOT_BROWSER_USER_DATA_DIR`: API 전용 Chrome 프로필 경로
 
@@ -158,6 +159,11 @@ curl -sS http://127.0.0.1:20003/reports/<run_id>
 SSE replay는 실행당 최근 1,000개, subscriber queue는 128개, 종료 실행 LRU는 100개로
 제한된다. 저장 리포트 카탈로그는 `reports/YYYY/MM/DD/*.json`을 source of truth로 삼아
 요청마다 O(N) 파일 scan하며 DB나 별도 index를 사용하지 않는다.
+
+서버는 콘솔 로그와 함께 `artifacts/logs/<run_id>.jsonl`에 실행별 진단 로그를 남긴다.
+API, 브라우저 재시도, 사진·리뷰 모델 요청, 점수 계산, 리포트 저장, 오류 traceback을
+`runId`로 연결한다. API key·인증 정보·전체 prompt·리뷰 원문·사진 URL은 진단 파일에서
+마스킹한다.
 
 작업은 단일 프로세스의 FIFO worker 하나가 순차 처리한다. 멀티프로세스 event fan-out,
 실행 취소, browser 원격 입력은 제공하지 않는다. 현재 API는 인증·CORS가 없는 로컬

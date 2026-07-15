@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ from datespot_agent.api.models import (
     RunStatusResponse,
 )
 from datespot_agent.models import RunConfig, RunReport, RunStatus
+from datespot_agent.observability import RunLogManager
 
 
 NOW = datetime(2026, 7, 15, tzinfo=timezone.utc)
@@ -70,6 +72,51 @@ class FakeRuntime:
 
 
 class ApiAppTests(unittest.TestCase):
+    def test_run_request_is_correlated_in_diagnostic_log(self):
+        runtime = FakeRuntime()
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunLogManager(Path(directory))
+            manager.start()
+            try:
+                with TestClient(create_app(lambda: runtime)) as client:
+                    response = client.get("/runs/run_api")
+            finally:
+                manager.stop()
+
+            records = [
+                json.loads(line)
+                for line in (Path(directory) / "run_api.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        self.assertEqual(response.status_code, 200)
+        started = next(
+            record for record in records if record["event"] == "api.request.started"
+        )
+        completed = next(
+            record for record in records if record["event"] == "api.request.completed"
+        )
+        self.assertEqual(started["method"], "GET")
+        self.assertEqual(started["path"], "/runs/run_api")
+        self.assertEqual(started["requestId"], completed["requestId"])
+        self.assertEqual(completed["statusCode"], 200)
+        self.assertIsInstance(completed["durationMs"], int)
+
+    def test_unknown_run_request_does_not_create_diagnostic_file(self):
+        runtime = FakeRuntime()
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunLogManager(Path(directory))
+            manager.start()
+            try:
+                with TestClient(create_app(lambda: runtime)) as client:
+                    response = client.get("/runs/missing")
+            finally:
+                manager.stop()
+
+            self.assertEqual(response.status_code, 404)
+            self.assertEqual(list(Path(directory).glob("*.jsonl")), [])
+
     def setUp(self):
         self.runtime = FakeRuntime()
         self.client_context = TestClient(create_app(lambda: self.runtime))

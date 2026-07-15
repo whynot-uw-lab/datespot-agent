@@ -28,10 +28,12 @@ class Settings(BaseSettings):
         default=Path("reports"),
         alias="DATESPOT_REPORTS_ROOT",
     )
+    diagnostic_logs_root: Path = Field(
+        default=Path("artifacts/logs"),
+        alias="DATESPOT_DIAGNOSTIC_LOGS_ROOT",
+    )
     chrome_executable_path: Path = Field(
-        default=Path(
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        ),
+        default=Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
         alias="DATESPOT_CHROME_EXECUTABLE_PATH",
     )
     browser_user_data_dir: Path = Field(

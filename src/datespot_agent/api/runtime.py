@@ -21,10 +21,20 @@ from datespot_agent.browser import (
 )
 from datespot_agent.config import Settings, get_settings
 from datespot_agent.graph import GraphRunService
+from datespot_agent.observability import RunLogManager, log_event
 from datespot_agent.reporting import JsonReportCatalog, JsonReportStore
 
 
 logger = logging.getLogger(__name__)
+
+
+def _trace(event: str, component: str):
+    return lambda message: log_event(
+        logger,
+        event,
+        message,
+        component=component,
+    )
 
 
 class RuntimeConfigurationError(RuntimeError):
@@ -41,8 +51,11 @@ class AppRuntime:
     openai_client: AsyncOpenAI
     stream_manager: CdpStreamManager
     report_catalog: JsonReportCatalog
+    run_log_manager: RunLogManager | None = None
 
     async def start(self) -> None:
+        if self.run_log_manager is not None:
+            self.run_log_manager.start()
         await self.coordinator.start()
 
     async def stop(self) -> None:
@@ -60,6 +73,12 @@ class AppRuntime:
             except BaseException as error:
                 if first_error is None:
                     first_error = error
+        if self.run_log_manager is not None:
+            try:
+                self.run_log_manager.stop()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
         if first_error is not None:
             raise first_error
 
@@ -73,12 +92,11 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
 
     chrome_path = effective_settings.chrome_executable_path.expanduser()
     if not chrome_path.is_file():
-        raise RuntimeConfigurationError(
-            f"Chrome 실행 파일을 찾지 못함: {chrome_path}"
-        )
+        raise RuntimeConfigurationError(f"Chrome 실행 파일을 찾지 못함: {chrome_path}")
 
     profile_path = effective_settings.browser_user_data_dir.expanduser()
     reports_root = effective_settings.reports_root.expanduser()
+    diagnostic_logs_root = effective_settings.diagnostic_logs_root.expanduser()
     client = AsyncOpenAI(api_key=api_key)
     try:
         event_hub = RunEventHub()
@@ -90,7 +108,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
                 executable_path=chrome_path,
                 user_data_dir=profile_path,
             ),
-            log=logger.info,
+            log=_trace("browser.trace", "browser"),
             event_publisher=event_publisher,
             stream_manager=stream_manager,
         )
@@ -105,11 +123,12 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
                 model=effective_settings.model,
             ),
             scoring_service=PlaceScoringService(),
-            log=logger.info,
+            log=_trace("graph.trace", "graph"),
             event_publisher=event_publisher,
         )
         report_store = JsonReportStore(reports_root)
         report_catalog = JsonReportCatalog(reports_root)
+        run_log_manager = RunLogManager(diagnostic_logs_root, console=True)
         coordinator = RunCoordinator(
             runner,
             report_store,
@@ -122,6 +141,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             client,
             stream_manager,
             report_catalog,
+            run_log_manager,
         )
     except BaseException:
         try:

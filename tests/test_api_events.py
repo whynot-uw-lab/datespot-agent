@@ -107,10 +107,14 @@ class ApiEventTests(unittest.TestCase):
         self.context.__exit__(None, None, None)
 
     def test_sse_replays_after_last_event_id(self) -> None:
-        response = self.client.get(
-            "/runs/run_api/events",
-            headers={"Last-Event-ID": "1"},
-        )
+        with self.assertLogs(
+            "datespot_agent.api.app",
+            level="INFO",
+        ) as captured:
+            response = self.client.get(
+                "/runs/run_api/events",
+                headers={"Last-Event-ID": "1"},
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -121,13 +125,20 @@ class ApiEventTests(unittest.TestCase):
         self.assertIn("event: completed", response.text)
         self.assertIn("retry: 2000", response.text)
         data_line = next(
-            line
-            for line in response.text.splitlines()
-            if line.startswith("data: ")
+            line for line in response.text.splitlines() if line.startswith("data: ")
         )
         payload = json.loads(data_line.removeprefix("data: "))
         self.assertEqual(payload["runId"], "run_api")
         self.assertNotIn("run_id", payload)
+        stream_events = [
+            record.datespot_event
+            for record in captured.records
+            if record.datespot_event.startswith("sse.")
+        ]
+        self.assertEqual(
+            stream_events,
+            ["sse.subscriber.connected", "sse.subscriber.disconnected"],
+        )
 
     def test_sse_rejects_invalid_last_event_id_before_streaming(self) -> None:
         for value in ("bad", "-1"):

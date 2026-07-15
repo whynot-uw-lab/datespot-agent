@@ -201,7 +201,9 @@ class RecordingStreamManager:
 
 
 class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_stream_page_attaches_before_navigation_and_detaches_before_close(self):
+    async def test_stream_page_attaches_before_navigation_and_detaches_before_close(
+        self,
+    ):
         calls: list[str] = []
         publisher = RecordingEventPublisher(calls)
 
@@ -245,16 +247,20 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             return Closeable("browser"), context, None
 
         service._launch_browser_context = launch_browser_context
-        with (
-            patch(
-                "datespot_agent.browser.service.async_playwright",
-                return_value=RuntimeManager(),
-            ),
-            patch("datespot_agent.browser.service.NaverMapPage", Navigator),
-        ):
-            await service.start_session("run-stream")
-            await service.close_session("run-stream")
-            await service.close_session("run-stream")
+        with self.assertLogs(
+            "datespot_agent.browser.service",
+            level="INFO",
+        ) as captured:
+            with (
+                patch(
+                    "datespot_agent.browser.service.async_playwright",
+                    return_value=RuntimeManager(),
+                ),
+                patch("datespot_agent.browser.service.NaverMapPage", Navigator),
+            ):
+                await service.start_session("run-stream")
+                await service.close_session("run-stream")
+                await service.close_session("run-stream")
 
         self.assertLess(calls.index("attach:run-stream"), calls.index("open"))
         self.assertLess(calls.index("detach:run-stream"), calls.index("page"))
@@ -268,6 +274,15 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             [
                 ("run-stream", "browser_ready"),
                 ("run-stream", "browser_closed"),
+            ],
+        )
+        self.assertEqual(
+            [record.datespot_event for record in captured.records],
+            [
+                "browser.launch.started",
+                "browser.launch.completed",
+                "browser.cleanup.started",
+                "browser.cleanup.completed",
             ],
         )
 
@@ -405,9 +420,11 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         chromium = FakeChromium(browser, FakeLaunchContext())
         service = BrowserService(headless=True)
 
-        launched_browser, launched_context, cdp_process = (
-            await service._launch_browser_context(FakeRuntime(chromium))
-        )
+        (
+            launched_browser,
+            launched_context,
+            cdp_process,
+        ) = await service._launch_browser_context(FakeRuntime(chromium))
         page = await service._initial_page(launched_context)
 
         self.assertIs(launched_browser, browser)
@@ -442,9 +459,11 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
                 browser_channel="chrome",
                 user_data_dir=profile_dir,
             )
-            launched_browser, launched_context, cdp_process = (
-                await service._launch_browser_context(FakeRuntime(chromium))
-            )
+            (
+                launched_browser,
+                launched_context,
+                cdp_process,
+            ) = await service._launch_browser_context(FakeRuntime(chromium))
             page = await service._initial_page(launched_context)
 
             self.assertTrue(profile_dir.is_dir())
@@ -478,9 +497,11 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         launcher = FakeCdpLauncher(cdp_process)
         service = BrowserService(cdp_launcher=launcher)
 
-        launched_browser, launched_context, launched_process = (
-            await service._launch_browser_context(FakeRuntime(chromium))
-        )
+        (
+            launched_browser,
+            launched_context,
+            launched_process,
+        ) = await service._launch_browser_context(FakeRuntime(chromium))
         page = await service._initial_page(launched_context)
 
         self.assertEqual(launcher.launch_calls, 1)
@@ -642,18 +663,36 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             nonlocal recoveries
             recoveries += 1
 
-        result = await service._run_with_retry(
-            "run-1",
-            "search",
-            operation,
-            BrowserNavigationError,
-            recover=recover,
-        )
+        with self.assertLogs(
+            "datespot_agent.browser.service",
+            level="INFO",
+        ) as captured:
+            result = await service._run_with_retry(
+                "run-1",
+                "search",
+                operation,
+                BrowserNavigationError,
+                recover=recover,
+            )
 
         self.assertEqual(result, "ok")
         self.assertEqual(attempts, 2)
         self.assertEqual(recoveries, 1)
         self.assertEqual(pacer.retry_waits, 1)
+        self.assertEqual(
+            [record.datespot_event for record in captured.records],
+            [
+                "browser.operation.started",
+                "browser.operation.retrying",
+                "browser.operation.started",
+                "browser.operation.completed",
+            ],
+        )
+        self.assertEqual(
+            [record.datespot_fields["attempt"] for record in captured.records],
+            [1, 1, 2, 2],
+        )
+        self.assertIsNotNone(captured.records[1].exc_info)
 
     async def test_access_block_is_never_retried_or_recovered(self):
         pacer = FakePacer()
@@ -767,9 +806,7 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             {},
             Closeable("chrome"),
         )
-        closing = asyncio.create_task(
-            service.close_session("run-cancel-close")
-        )
+        closing = asyncio.create_task(service.close_session("run-cancel-close"))
         await detach_started.wait()
         self.assertNotIn("run-cancel-close", service._sessions)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -8,9 +7,11 @@ from pydantic import ValidationError
 
 from datespot_agent.api.events import (
     ProgressStage,
+    ProgressStatus,
     RunEvent,
     RunEventHub,
     RunEventPublisher,
+    RunProgressData,
     RunEventType,
 )
 from datespot_agent.api.models import RunJobStatus, RunStatusResponse
@@ -108,6 +109,68 @@ class RunEventModelTests(unittest.TestCase):
             },
         )
 
+    def test_progress_data_serializes_analysis_details_and_thumbnails(self):
+        progress_data = RunProgressData(
+            stage=ProgressStage.PHOTO_ANALYSIS,
+            message="사진 2장 분석 시작",
+            status=ProgressStatus.STARTED,
+            place_id="place-1",
+            place_name="우니도",
+            input_count=2,
+            duration_ms=123,
+            score=8,
+            matched=True,
+            photo_urls=(
+                "https://images.example/one.jpg",
+                "https://images.example/two.jpg",
+            ),
+        )
+
+        self.assertEqual(
+            progress_data.model_dump(mode="json", by_alias=True),
+            {
+                "stage": "photo_analysis",
+                "message": "사진 2장 분석 시작",
+                "status": "started",
+                "placeId": "place-1",
+                "placeName": "우니도",
+                "current": None,
+                "total": None,
+                "inputCount": 2,
+                "durationMs": 123,
+                "score": 8,
+                "matched": True,
+                "photoUrls": [
+                    "https://images.example/one.jpg",
+                    "https://images.example/two.jpg",
+                ],
+            },
+        )
+
+    def test_progress_data_rejects_invalid_counts_scores_and_photo_urls(self):
+        invalid_values = (
+            {"current": 2, "total": 1},
+            {"input_count": -1},
+            {"duration_ms": -1},
+            {"score": 11},
+            {"photo_urls": tuple(f"https://x/{index}" for index in range(6))},
+            {"photo_urls": ("ftp://images.example/one.jpg",)},
+            {
+                "stage": "review_analysis",
+                "photo_urls": ("https://images.example/one.jpg",),
+            },
+        )
+
+        for overrides in invalid_values:
+            with self.subTest(overrides=overrides):
+                value = {
+                    "stage": "photo_analysis",
+                    "message": "분석",
+                    **overrides,
+                }
+                with self.assertRaises(ValidationError):
+                    RunProgressData.model_validate(value)
+
 
 class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
     async def test_sequence_is_per_run_and_new_subscriber_replays_buffer(self):
@@ -115,15 +178,9 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub.open_run("run_one")
         hub.open_run("run_two")
 
-        first = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
-        second = hub.publish(
-            "run_one", RunEventType.RUNNING, lifecycle("running")
-        )
-        other = hub.publish(
-            "run_two", RunEventType.QUEUED, lifecycle("queued")
-        )
+        first = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
+        second = hub.publish("run_one", RunEventType.RUNNING, lifecycle("running"))
+        other = hub.publish("run_two", RunEventType.QUEUED, lifecycle("queued"))
         subscription = hub.subscribe("run_one", last_event_id=None)
 
         self.assertEqual((first.sequence, second.sequence), (1, 2))
@@ -134,16 +191,10 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
     async def test_reconnect_replays_only_events_after_last_id(self):
         hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")
-        first = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
-        second = hub.publish(
-            "run_one", RunEventType.RUNNING, lifecycle("running")
-        )
+        first = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
+        second = hub.publish("run_one", RunEventType.RUNNING, lifecycle("running"))
 
-        subscription = hub.subscribe(
-            "run_one", last_event_id=first.sequence
-        )
+        subscription = hub.subscribe("run_one", last_event_id=first.sequence)
 
         self.assertEqual(subscription.replay, (second,))
         self.assertFalse(subscription.reset_required)
@@ -153,9 +204,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub.open_run("run_one")
         subscription = hub.subscribe("run_one", last_event_id=None)
 
-        expected = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
+        expected = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
 
         self.assertEqual(await anext(subscription), expected)
 
@@ -163,9 +212,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RunEventHub(replay_capacity=2, clock=lambda: NOW)
         hub.open_run("run_one")
         events = [
-            hub.publish(
-                "run_one", RunEventType.PROGRESS, progress(str(value))
-            )
+            hub.publish("run_one", RunEventType.PROGRESS, progress(str(value)))
             for value in range(3)
         ]
 
@@ -178,9 +225,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")
         for value in range(3):
-            hub.publish(
-                "run_one", RunEventType.PROGRESS, progress(str(value))
-            )
+            hub.publish("run_one", RunEventType.PROGRESS, progress(str(value)))
 
         ahead = hub.subscribe("run_one", last_event_id=4)
 
@@ -188,9 +233,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ahead.replay, ())
         self.assertEqual(ahead.latest_sequence, 3)
         hub.publish("run_one", RunEventType.PROGRESS, progress("four"))
-        expected = hub.publish(
-            "run_one", RunEventType.PROGRESS, progress("five")
-        )
+        expected = hub.publish("run_one", RunEventType.PROGRESS, progress("five"))
         self.assertEqual(await anext(ahead), expected)
 
     async def test_place_result_replay_isolated_from_input_and_delivery(self):
@@ -203,9 +246,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
             mismatch_reason="기준 미충족",
         )
 
-        published = hub.publish(
-            "run_one", RunEventType.PLACE_RESULT, result
-        )
+        published = hub.publish("run_one", RunEventType.PLACE_RESULT, result)
         delivered = await anext(live)
         result.name = "입력 변경"
         published.data.name = "반환값 변경"
@@ -244,9 +285,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         replayed = hub.subscribe("run_one", last_event_id=None).replay[0]
         self.assertEqual(replayed.data.config.location, "신사역")
         self.assertEqual(
-            replayed.model_dump(mode="json", by_alias=True)["data"][
-                "runId"
-            ],
+            replayed.model_dump(mode="json", by_alias=True)["data"]["runId"],
             "run_one",
         )
 
@@ -255,15 +294,19 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub.open_run("run_one")
         subscription = hub.subscribe("run_one", last_event_id=None)
 
-        first = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
-        second = hub.publish(
-            "run_one", RunEventType.RUNNING, lifecycle("running")
-        )
+        first = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
+        with self.assertLogs(
+            "datespot_agent.api.events",
+            level="WARNING",
+        ) as captured:
+            second = hub.publish("run_one", RunEventType.RUNNING, lifecycle("running"))
 
         self.assertEqual((first.sequence, second.sequence), (1, 2))
         self.assertTrue(subscription.overflowed)
+        self.assertEqual(
+            captured.records[-1].datespot_event,
+            "sse.subscriber.overflowed",
+        )
         with self.assertRaises(StopAsyncIteration):
             await anext(subscription)
 
@@ -285,24 +328,18 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(StopAsyncIteration):
             await anext(reconnect)
         with self.assertRaises(RuntimeError):
-            hub.publish(
-                "run_one", RunEventType.PROGRESS, progress("too late")
-            )
+            hub.publish("run_one", RunEventType.PROGRESS, progress("too late"))
 
     async def test_terminal_lru_evicts_oldest_run(self):
         hub = RunEventHub(terminal_capacity=2, clock=lambda: NOW)
         for run_id in ("run_one", "run_two"):
             hub.open_run(run_id)
-            hub.publish(
-                run_id, RunEventType.COMPLETED, lifecycle("completed")
-            )
+            hub.publish(run_id, RunEventType.COMPLETED, lifecycle("completed"))
             hub.mark_terminal(run_id)
 
         hub.subscribe("run_one", last_event_id=None)
         hub.open_run("run_three")
-        hub.publish(
-            "run_three", RunEventType.COMPLETED, lifecycle("completed")
-        )
+        hub.publish("run_three", RunEventType.COMPLETED, lifecycle("completed"))
         hub.mark_terminal("run_three")
 
         with self.assertRaises(KeyError):
@@ -320,9 +357,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")
         subscription = hub.subscribe("run_one", last_event_id=None)
-        expected = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
+        expected = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
 
         await hub.close()
 
@@ -339,9 +374,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         active = hub.subscribe("run_one", last_event_id=None)
 
         closed.close()
-        expected = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
+        expected = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
 
         with self.assertRaises(StopAsyncIteration):
             await anext(closed)
@@ -370,9 +403,7 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RunEventHub(clock=lambda: NOW)
 
         hub.open_run("  run_one  ")
-        event = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
+        event = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
 
         self.assertEqual(event.run_id, "run_one")
         self.assertEqual(
@@ -384,6 +415,32 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
+    async def test_progress_publisher_keeps_structured_analysis_fields(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        publisher = RunEventPublisher(hub)
+
+        event = publisher.progress(
+            "run_one",
+            ProgressStage.REVIEW_ANALYSIS,
+            "리뷰 분석 완료",
+            status=ProgressStatus.COMPLETED,
+            place_id="place-1",
+            place_name="우니도",
+            input_count=12,
+            duration_ms=456,
+            score=9,
+            matched=True,
+        )
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        self.assertEqual(event.data.status, ProgressStatus.COMPLETED)
+        self.assertEqual(event.data.input_count, 12)
+        self.assertEqual(event.data.duration_ms, 456)
+        self.assertEqual(event.data.score, 9)
+        self.assertTrue(event.data.matched)
+
     async def test_hub_failures_are_logged_and_not_raised(self):
         hub = RunEventHub(clock=lambda: NOW)
         await hub.close()
@@ -407,9 +464,7 @@ class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIsNone(event)
-        queued = hub.publish(
-            "run_one", RunEventType.QUEUED, lifecycle("queued")
-        )
+        queued = hub.publish("run_one", RunEventType.QUEUED, lifecycle("queued"))
         self.assertEqual(queued.sequence, 1)
 
     async def test_invalid_publisher_payloads_are_isolated_and_logged(self):
@@ -420,19 +475,13 @@ class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
         invalid_status.status = "invalid"
 
         calls = (
-            lambda: publisher.lifecycle(
-                "run_one", RunEventType.QUEUED, invalid_status
-            ),
-            lambda: publisher.progress(
-                "run_one", ProgressStage.CANDIDATE_SEARCH, " "
-            ),
+            lambda: publisher.lifecycle("run_one", RunEventType.QUEUED, invalid_status),
+            lambda: publisher.progress("run_one", ProgressStage.CANDIDATE_SEARCH, " "),
             lambda: publisher.report_saved("run_one", " "),
         )
         for call in calls:
             with self.subTest(call=call):
-                with self.assertLogs(
-                    "datespot_agent.api.events", level="WARNING"
-                ):
+                with self.assertLogs("datespot_agent.api.events", level="WARNING"):
                     self.assertIsNone(call())
 
         self.assertEqual(

@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from inspect import isawaitable
 from pathlib import Path
+from time import monotonic
 from typing import Annotated, Literal
+from uuid import uuid4
 
 from fastapi import (
     Depends,
@@ -47,6 +51,7 @@ from datespot_agent.api.models import (
 from datespot_agent.api.runtime import AppRuntime, create_runtime
 from datespot_agent.browser.stream import BrowserStreamControl
 from datespot_agent.models import RunConfig, RunReport, RunStatus
+from datespot_agent.observability import bind_log_context, log_event
 from datespot_agent.reporting import (
     InvalidReportCursorError,
     InvalidRunIdError,
@@ -61,6 +66,8 @@ _SSE_RETRY_MILLISECONDS = 2_000
 _PUBLIC_EXECUTION_ERROR = "실행 처리 중 오류가 발생함"
 _TERMINAL_EVENTS = {RunEventType.COMPLETED, RunEventType.FAILED}
 _DEFAULT_FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+_RUN_ROUTE_PATTERN = re.compile(r"^/runs/([^/]+)(?:/|$)")
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,9 +112,7 @@ def _synthetic_event(
     return {
         "runId": run_id,
         "sequence": sequence,
-        "occurredAt": datetime.now(timezone.utc).isoformat().replace(
-            "+00:00", "Z"
-        ),
+        "occurredAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "type": event_type.value,
         "data": data,
     }
@@ -160,6 +165,71 @@ def create_app(
             await runtime.stop()
 
     app = FastAPI(title="datespot-agent", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def diagnostic_request_log(request: Request, call_next):
+        request_id = uuid4().hex
+        match = _RUN_ROUTE_PATTERN.match(request.url.path)
+        candidate_run_id = match.group(1) if match is not None else None
+        run_id = None
+        if candidate_run_id is not None:
+            try:
+                runtime = getattr(request.app.state, "runtime", None)
+                if (
+                    runtime is not None
+                    and runtime.coordinator.get_status(candidate_run_id) is not None
+                ):
+                    run_id = candidate_run_id
+            except Exception:
+                run_id = None
+        level = logging.DEBUG if request.url.path == "/health" else logging.INFO
+        started_at = monotonic()
+        context = {
+            "request_id": request_id,
+            "component": "api",
+        }
+        if run_id is not None:
+            context["run_id"] = run_id
+        with bind_log_context(**context):
+            log_event(
+                LOGGER,
+                "api.request.started",
+                "HTTP 요청 시작",
+                level=level,
+                method=request.method,
+                path=request.url.path,
+            )
+            try:
+                response = await call_next(request)
+            except Exception:
+                log_event(
+                    LOGGER,
+                    "api.request.failed",
+                    "HTTP 요청 처리 실패",
+                    level=logging.ERROR,
+                    exc_info=True,
+                    method=request.method,
+                    path=request.url.path,
+                    duration_ms=max(
+                        0,
+                        int((monotonic() - started_at) * 1_000),
+                    ),
+                )
+                raise
+            log_event(
+                LOGGER,
+                "api.request.completed",
+                "HTTP 요청 완료",
+                level=level,
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=max(
+                    0,
+                    int((monotonic() - started_at) * 1_000),
+                ),
+            )
+            return response
 
     @app.exception_handler(RequestValidationError)
     async def public_report_query_validation(
@@ -249,9 +319,7 @@ def create_app(
             snapshot=_public_snapshot(snapshot),
             subscription=subscription,
             latest_sequence=(
-                subscription.latest_sequence
-                if subscription is not None
-                else 0
+                subscription.latest_sequence if subscription is not None else 0
             ),
         )
 
@@ -291,6 +359,18 @@ def create_app(
         prepared: _PreparedRunEvents = Depends(prepare_run_events),
     ) -> AsyncIterator[ServerSentEvent]:
         subscription = prepared.subscription
+        log_event(
+            LOGGER,
+            "sse.subscriber.connected",
+            "SSE 구독 연결",
+            run_id=prepared.snapshot.run_id,
+            component="sse",
+            replay_count=(len(subscription.replay) if subscription is not None else 0),
+            reset_required=(
+                subscription.reset_required if subscription is not None else False
+            ),
+            latest_sequence=prepared.latest_sequence,
+        )
         try:
             if subscription is None:
                 yield _sse_message(
@@ -342,6 +422,19 @@ def create_app(
         finally:
             if subscription is not None:
                 subscription.close()
+            log_event(
+                LOGGER,
+                "sse.subscriber.disconnected",
+                "SSE 구독 종료",
+                run_id=prepared.snapshot.run_id,
+                component="sse",
+                overflowed=(
+                    getattr(subscription, "overflowed", False)
+                    if subscription is not None
+                    else False
+                ),
+                latest_sequence=prepared.latest_sequence,
+            )
 
     @app.get("/runs/{run_id}/report", response_model=RunReport)
     async def get_report(run_id: str, request: Request) -> RunReport:
@@ -376,7 +469,9 @@ def create_app(
         except InvalidReportCursorError as error:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=_detail("invalid_cursor", "리포트 페이지 cursor가 올바르지 않음"),
+                detail=_detail(
+                    "invalid_cursor", "리포트 페이지 cursor가 올바르지 않음"
+                ),
             ) from error
         except ReportCatalogUnavailableError as error:
             raise HTTPException(
@@ -515,9 +610,7 @@ def create_app(
                 if task is not None and not task.done():
                     task.cancel()
             pending = [
-                task
-                for task in (receive_task, message_task)
-                if task is not None
+                task for task in (receive_task, message_task) if task is not None
             ]
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)

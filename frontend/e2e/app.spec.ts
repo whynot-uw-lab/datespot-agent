@@ -57,11 +57,48 @@ test("new search flows through live progress into saved report", async ({ page }
   });
   await page.route("**/runs/run-e2e/events", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 350));
+    const progressEvents = Array.from({ length: 12 }, (_, index) => ({
+      sequence: index + 2,
+      type: "progress",
+      data: {
+        stage: "candidate_search",
+        message: index === 0 ? "성수역 후보 검색 중" : `진행 이벤트 ${index + 1}`,
+      },
+    }));
     const events = [
       { sequence: 1, type: "running", data: { status: "running", reportAvailable: false } },
-      { sequence: 2, type: "progress", data: { stage: "candidate_search", message: "성수역 후보 검색 중" } },
-      { sequence: 3, type: "place_result", data: report.results[0] },
-      { sequence: 4, type: "completed", data: { status: "completed", reportAvailable: true } },
+      ...progressEvents,
+      {
+        sequence: 14,
+        type: "progress",
+        data: {
+          stage: "photo_analysis",
+          message: "사진 2장 분석 시작",
+          status: "started",
+          placeName: "오스테리아 오르조",
+          inputCount: 2,
+          photoUrls: [
+            "https://images.example/one.jpg",
+            "https://images.example/two.jpg",
+          ],
+        },
+      },
+      {
+        sequence: 15,
+        type: "progress",
+        data: {
+          stage: "review_analysis",
+          message: "리뷰 분석 완료",
+          status: "completed",
+          placeName: "오스테리아 오르조",
+          inputCount: 50,
+          durationMs: 1456,
+          score: 8,
+          matched: true,
+        },
+      },
+      { sequence: 16, type: "place_result", data: report.results[0] },
+      { sequence: 17, type: "completed", data: { status: "completed", reportAvailable: true } },
     ].map((item) => [
       `id: ${item.sequence}`,
       `event: ${item.type}`,
@@ -97,6 +134,12 @@ test("new search flows through live progress into saved report", async ({ page }
   await page.route("**/reports/run-e2e", async (route) => {
     await route.fulfill({ contentType: "application/json", body: JSON.stringify(report) });
   });
+  await page.route("https://images.example/**", async (route) => {
+    await route.fulfill({
+      contentType: "image/jpeg",
+      body: Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q==", "base64"),
+    });
+  });
   await page.routeWebSocket("**/runs/run-e2e/browser-stream", (socket) => {
     socket.send(JSON.stringify({ type: "waiting" }));
     socket.send(Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAEf/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q==", "base64"));
@@ -113,6 +156,15 @@ test("new search flows through live progress into saved report", async ({ page }
   await expect(page).toHaveURL(/\/app\/runs\/run-e2e$/);
   await expect(page.getByRole("img", { name: "실시간 지도 탐색 화면" })).toBeVisible();
   await expect(page.getByText("성수역 후보 검색 중")).toBeVisible();
+  await expect(page.getByText("진행 이벤트 12")).toBeAttached();
+  await expect(page.getByText("입력 50건")).toBeAttached();
+  const timeline = page.getByRole("log", { name: "실행 진행 단계" });
+  expect(await timeline.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  const firstPhoto = page.getByRole("button", { name: "분석 사진 1 확대" });
+  await firstPhoto.click();
+  await expect(page.getByRole("dialog", { name: "분석 사진 미리보기" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "분석 사진 미리보기" })).toBeHidden();
   await expect(page.getByRole("heading", { name: "오스테리아 오르조" })).toBeVisible();
   await expect(page.getByLabel("최종 점수 8.5")).toBeVisible();
   await page.screenshot({ path: "output/playwright/result-1440.png", fullPage: true });

@@ -39,7 +39,11 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
             photo_urls=[f"https://example.com/{index}.jpg" for index in range(7)],
         )
 
-        result = await agent.analyze(detail, "어둡고 차분한 분위기")
+        with self.assertLogs(
+            "datespot_agent.analysis.photo",
+            level="INFO",
+        ) as captured:
+            result = await agent.analyze(detail, "어둡고 차분한 분위기")
 
         self.assertIs(result, parsed)
         self.assertEqual(responses.kwargs["model"], "gpt-5.4-nano")
@@ -50,6 +54,19 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("matched", content[0]["text"])
         self.assertEqual(len(content[1:]), 5)
         self.assertTrue(all(block["type"] == "input_image" for block in content[1:]))
+        self.assertEqual(
+            [record.datespot_event for record in captured.records],
+            [
+                "analysis.photo.prepared",
+                "analysis.photo.requested",
+                "analysis.photo.completed",
+            ],
+        )
+        self.assertEqual(captured.records[0].datespot_fields["input_count"], 5)
+        self.assertEqual(captured.records[-1].datespot_fields["score"], 8)
+        serialized_logs = " ".join(record.getMessage() for record in captured.records)
+        self.assertNotIn("어둡고 차분한 분위기", serialized_logs)
+        self.assertNotIn("example.com", serialized_logs)
 
     async def test_empty_photos_raise_input_error_without_api_call(self):
         responses = FakeResponses()
@@ -86,10 +103,19 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
             photo_urls=["https://example.com/1.jpg"],
         )
 
-        with self.assertRaises(AnalysisRequestError) as caught:
-            await agent.analyze(detail, "차분함")
+        with self.assertLogs(
+            "datespot_agent.analysis.photo",
+            level="ERROR",
+        ) as captured:
+            with self.assertRaises(AnalysisRequestError) as caught:
+                await agent.analyze(detail, "차분함")
 
         self.assertIs(caught.exception.__cause__, original)
+        self.assertEqual(
+            captured.records[-1].datespot_event,
+            "analysis.photo.failed",
+        )
+        self.assertIsNotNone(captured.records[-1].exc_info)
 
 
 if __name__ == "__main__":

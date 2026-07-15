@@ -1,3 +1,5 @@
+import type { PlaceResult } from "../api/contracts";
+
 export type RunEventType =
   | "snapshot"
   | "queued"
@@ -18,6 +20,67 @@ export interface RunEvent {
   type: RunEventType;
   data: Record<string, unknown>;
 }
+
+export type ProgressStatus =
+  | "started"
+  | "in_progress"
+  | "completed"
+  | "skipped"
+  | "failed";
+
+export interface RunProgressData {
+  stage: string;
+  message: string;
+  status?: ProgressStatus;
+  placeId?: string;
+  placeName?: string;
+  current?: number;
+  total?: number;
+  inputCount?: number;
+  durationMs?: number;
+  score?: number;
+  matched?: boolean;
+  photoUrls?: string[];
+}
+
+const optionalNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+export const getRunProgressData = (
+  event: RunEvent,
+): RunProgressData | null => {
+  if (event.type !== "progress") return null;
+  const stage = event.data.stage;
+  const message = event.data.message;
+  if (typeof stage !== "string" || typeof message !== "string") return null;
+  const rawStatus = event.data.status;
+  const status = ["started", "in_progress", "completed", "skipped", "failed"]
+    .includes(String(rawStatus))
+    ? rawStatus as ProgressStatus
+    : undefined;
+  const photoUrls = Array.isArray(event.data.photoUrls)
+    ? event.data.photoUrls
+      .filter(
+        (value): value is string =>
+          typeof value === "string" && /^https?:\/\//i.test(value),
+      )
+      .slice(0, 5)
+    : undefined;
+  return {
+    stage,
+    message,
+    status,
+    placeId: typeof event.data.placeId === "string" ? event.data.placeId : undefined,
+    placeName: typeof event.data.placeName === "string" ? event.data.placeName : undefined,
+    current: optionalNumber(event.data.current),
+    total: optionalNumber(event.data.total),
+    inputCount: optionalNumber(event.data.inputCount),
+    durationMs: optionalNumber(event.data.durationMs),
+    score: optionalNumber(event.data.score),
+    matched: typeof event.data.matched === "boolean" ? event.data.matched : undefined,
+    photoUrls,
+  };
+};
 
 export interface RunProjection {
   latestSequence: number;
@@ -115,4 +178,3 @@ export const reduceRunEvent = (
   }
   return next;
 };
-import type { PlaceResult } from "../api/contracts";

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+from time import monotonic
 from typing import TYPE_CHECKING, Callable
 from uuid import uuid4
 
@@ -15,6 +17,8 @@ from datespot_agent.analysis import (
     PlaceScoringService,
     ReviewAnalysisAgent,
 )
+from datespot_agent.analysis.photo import MAX_PHOTOS
+from datespot_agent.analysis.review import MAX_REVIEWS
 from datespot_agent.browser import BrowserService, BrowserServiceError
 from datespot_agent.models import (
     GraphState,
@@ -24,9 +28,13 @@ from datespot_agent.models import (
     RunReport,
     RunStatus,
 )
+from datespot_agent.observability import log_event
 
 if TYPE_CHECKING:
     from datespot_agent.api.events import RunEventPublisher
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def utc_now() -> datetime:
@@ -334,19 +342,69 @@ class GraphRunService:
                 state.run_id,
                 "photo_analysis",
                 "사진 분석 생략",
+                status="skipped",
                 place_id=current_place.place_id,
                 place_name=current_place.name,
+                input_count=0,
+                duration_ms=0,
             )
             return self._copy_state(state, photo_analysis=None, last_error=None)
 
         detail = self._require_detail(state)
-        self._emit(f"[run:{state.run_id}] 사진 분석 시작: {detail.name}")
+        photo_urls = tuple(url for url in detail.photo_urls if url)[:MAX_PHOTOS]
+        if not photo_urls:
+            message = f"사진 분석 자료가 없음: {detail.name}"
+            self._emit(f"[run:{state.run_id}] 사진 분석 생략: inputs=0")
+            log_event(
+                LOGGER,
+                "analysis.photo.skipped",
+                "사진 분석 입력 없음",
+                run_id=state.run_id,
+                component="photo_analysis",
+                stage="photo_analysis",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=0,
+                duration_ms=0,
+            )
+            self._progress(
+                state.run_id,
+                "photo_analysis",
+                "분석할 사진이 없어 건너뜀",
+                status="skipped",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=0,
+                duration_ms=0,
+            )
+            return self._copy_state(
+                state,
+                photo_analysis=None,
+                last_error=message,
+            )
+        started_at = monotonic()
+        self._emit(
+            f"[run:{state.run_id}] 사진 분석 시작: "
+            f"{detail.name}, inputs={len(photo_urls)}"
+        )
         self._progress(
             state.run_id,
             "photo_analysis",
-            "사진 분석 시작",
+            f"사진 {len(photo_urls)}장 분석 시작",
+            status="started",
             place_id=detail.place_id,
             place_name=detail.name,
+            input_count=len(photo_urls),
+            photo_urls=photo_urls,
+        )
+        self._progress(
+            state.run_id,
+            "photo_analysis",
+            "사진 분석 모델 응답 대기 중",
+            status="in_progress",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            input_count=len(photo_urls),
         )
         try:
             photo_analysis = await self._photo_agent.analyze(
@@ -359,8 +417,11 @@ class GraphRunService:
                 state.run_id,
                 "photo_analysis",
                 "사진 분석 실패",
+                status="failed",
                 place_id=detail.place_id,
                 place_name=detail.name,
+                input_count=len(photo_urls),
+                duration_ms=self._elapsed_ms(started_at),
             )
             return self._copy_state(
                 state,
@@ -375,8 +436,13 @@ class GraphRunService:
             state.run_id,
             "photo_analysis",
             "사진 분석 완료",
+            status="completed",
             place_id=detail.place_id,
             place_name=detail.name,
+            input_count=len(photo_urls),
+            duration_ms=self._elapsed_ms(started_at),
+            score=photo_analysis.photo_score,
+            matched=photo_analysis.matched,
         )
         return self._copy_state(
             state,
@@ -392,19 +458,67 @@ class GraphRunService:
                 state.run_id,
                 "review_analysis",
                 "리뷰 분석 생략",
+                status="skipped",
                 place_id=current_place.place_id,
                 place_name=current_place.name,
+                input_count=0,
+                duration_ms=0,
             )
             return self._copy_state(state, review_analysis=None, last_error=None)
 
         detail = self._require_detail(state)
-        self._emit(f"[run:{state.run_id}] 리뷰 분석 시작: {detail.name}")
+        input_count = len([review for review in detail.reviews if review][:MAX_REVIEWS])
+        if input_count == 0:
+            message = f"리뷰 분석 자료가 없음: {detail.name}"
+            self._emit(f"[run:{state.run_id}] 리뷰 분석 생략: inputs=0")
+            log_event(
+                LOGGER,
+                "analysis.review.skipped",
+                "리뷰 분석 입력 없음",
+                run_id=state.run_id,
+                component="review_analysis",
+                stage="review_analysis",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=0,
+                duration_ms=0,
+            )
+            self._progress(
+                state.run_id,
+                "review_analysis",
+                "분석할 리뷰가 없어 건너뜀",
+                status="skipped",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                input_count=0,
+                duration_ms=0,
+            )
+            return self._copy_state(
+                state,
+                review_analysis=None,
+                last_error=message,
+            )
+        started_at = monotonic()
+        self._emit(
+            f"[run:{state.run_id}] 리뷰 분석 시작: {detail.name}, inputs={input_count}"
+        )
         self._progress(
             state.run_id,
             "review_analysis",
-            "리뷰 분석 시작",
+            f"리뷰 {input_count}건 분석 시작",
+            status="started",
             place_id=detail.place_id,
             place_name=detail.name,
+            input_count=input_count,
+        )
+        self._progress(
+            state.run_id,
+            "review_analysis",
+            "리뷰 분석 모델 응답 대기 중",
+            status="in_progress",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            input_count=input_count,
         )
         try:
             review_analysis = await self._review_agent.analyze(
@@ -417,8 +531,11 @@ class GraphRunService:
                 state.run_id,
                 "review_analysis",
                 "리뷰 분석 실패",
+                status="failed",
                 place_id=detail.place_id,
                 place_name=detail.name,
+                input_count=input_count,
+                duration_ms=self._elapsed_ms(started_at),
             )
             return self._copy_state(
                 state,
@@ -433,8 +550,13 @@ class GraphRunService:
             state.run_id,
             "review_analysis",
             "리뷰 분석 완료",
+            status="completed",
             place_id=detail.place_id,
             place_name=detail.name,
+            input_count=input_count,
+            duration_ms=self._elapsed_ms(started_at),
+            score=review_analysis.review_score,
+            matched=review_analysis.matched,
         )
         return self._copy_state(
             state,
@@ -444,7 +566,18 @@ class GraphRunService:
 
     def _calculate_place_result(self, state: GraphState) -> GraphState:
         detail = self._require_detail(state)
+        started_at = monotonic()
         self._emit(f"[run:{state.run_id}] 결과 계산 시작: {detail.name}")
+        log_event(
+            LOGGER,
+            "scoring.started",
+            "장소 점수 계산 시작",
+            run_id=state.run_id,
+            component="scoring",
+            stage="scoring",
+            place_id=detail.place_id,
+            place_name=detail.name,
+        )
         self._progress(
             state.run_id,
             "scoring",
@@ -460,6 +593,19 @@ class GraphRunService:
                 state.review_analysis,
             )
         except AnalysisInputError as error:
+            log_event(
+                LOGGER,
+                "scoring.failed",
+                "장소 점수 계산 실패",
+                run_id=state.run_id,
+                component="scoring",
+                stage="scoring",
+                place_id=detail.place_id,
+                place_name=detail.name,
+                level=logging.ERROR,
+                exc_info=True,
+                duration_ms=self._elapsed_ms(started_at),
+            )
             self._emit(f"[run:{state.run_id}] 결과 계산 실패: {detail.name} - {error}")
             self._progress(
                 state.run_id,
@@ -475,6 +621,19 @@ class GraphRunService:
         self._emit(
             f"[run:{state.run_id}] 결과 계산 완료: {detail.name} "
             + ", ".join(result_bits)
+        )
+        log_event(
+            LOGGER,
+            "scoring.completed",
+            "장소 점수 계산 완료",
+            run_id=state.run_id,
+            component="scoring",
+            stage="scoring",
+            place_id=detail.place_id,
+            place_name=detail.name,
+            result_status=result.status,
+            final_score=result.final_score,
+            duration_ms=self._elapsed_ms(started_at),
         )
         self._progress(
             state.run_id,
@@ -525,7 +684,9 @@ class GraphRunService:
 
     def _build_completed_report(self, state: GraphState) -> GraphState:
         results = self._sorted_results(state.place_results)
-        analyzed = sum(1 for item in results if item.status is PlaceResultStatus.ANALYZED)
+        analyzed = sum(
+            1 for item in results if item.status is PlaceResultStatus.ANALYZED
+        )
         not_matched = sum(
             1 for item in results if item.status is PlaceResultStatus.NOT_MATCHED
         )
@@ -601,12 +762,34 @@ class GraphRunService:
         stage: str,
         message: str,
         *,
+        status: str | None = None,
         place_id: str | None = None,
         place_name: str | None = None,
+        current: int | None = None,
+        total: int | None = None,
+        input_count: int | None = None,
+        duration_ms: int | None = None,
+        score: int | None = None,
+        matched: bool | None = None,
+        photo_urls: tuple[str, ...] | None = None,
     ) -> None:
         if self._events is None:
             return
-        from datespot_agent.api.events import ProgressStage
+        from datespot_agent.api.events import ProgressStage, ProgressStatus
+
+        details: dict[str, object] = {}
+        for key, value in (
+            ("status", ProgressStatus(status) if status is not None else None),
+            ("current", current),
+            ("total", total),
+            ("input_count", input_count),
+            ("duration_ms", duration_ms),
+            ("score", score),
+            ("matched", matched),
+            ("photo_urls", photo_urls),
+        ):
+            if value is not None:
+                details[key] = value
 
         self._events.progress(
             run_id,
@@ -614,7 +797,12 @@ class GraphRunService:
             message,
             place_id=place_id,
             place_name=place_name,
+            **details,
         )
+
+    @staticmethod
+    def _elapsed_ms(started_at: float) -> int:
+        return max(0, int((monotonic() - started_at) * 1_000))
 
     def _report(
         self,

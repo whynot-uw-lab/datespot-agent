@@ -117,18 +117,35 @@ class _ClientProbe:
             raise self.close_error
 
 
+class _RunLogProbe:
+    def __init__(self) -> None:
+        self.started = False
+        self.stopped = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def stop(self) -> None:
+        self.stopped = True
+
+
 class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
     def test_settings_parse_api_paths(self):
         settings = Settings.model_validate(
             {
                 "OPENAI_API_KEY": "key",
                 "DATESPOT_REPORTS_ROOT": "custom-reports",
+                "DATESPOT_DIAGNOSTIC_LOGS_ROOT": "custom-logs",
                 "DATESPOT_CHROME_EXECUTABLE_PATH": "/tmp/chrome",
                 "DATESPOT_BROWSER_USER_DATA_DIR": "~/.cache/test-profile",
             }
         )
 
         self.assertEqual(settings.reports_root, Path("custom-reports"))
+        self.assertEqual(
+            settings.diagnostic_logs_root,
+            Path("custom-logs"),
+        )
         self.assertEqual(settings.chrome_executable_path, Path("/tmp/chrome"))
         self.assertEqual(
             settings.browser_user_data_dir,
@@ -197,6 +214,24 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "openai",
             ],
         )
+
+    async def test_app_runtime_starts_and_stops_run_log_manager(self):
+        log_manager = _RunLogProbe()
+        runtime = AppRuntime(
+            _CoordinatorProbe(),
+            _BrowserProbe(),
+            _EventHubProbe(),
+            _ClientProbe(),
+            _StreamProbe(),
+            JsonReportCatalog(),
+            log_manager,
+        )
+
+        await runtime.start()
+        await runtime.stop()
+
+        self.assertTrue(log_manager.started)
+        self.assertTrue(log_manager.stopped)
 
     async def test_stop_continues_cleanup_when_coordinator_stop_raises(self):
         coordinator = _CoordinatorProbe(RuntimeError("coordinator stop failed"))
@@ -338,6 +373,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                     "DATESPOT_CHROME_EXECUTABLE_PATH": "~/Chrome",
                     "DATESPOT_BROWSER_USER_DATA_DIR": "~/profile",
                     "DATESPOT_REPORTS_ROOT": "~/reports",
+                    "DATESPOT_DIAGNOSTIC_LOGS_ROOT": "~/diagnostic-logs",
                 }
             )
 
@@ -353,6 +389,10 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(runtime.stream_manager, CdpStreamManager)
         self.assertIsInstance(runtime.browser_service, BrowserService)
         self.assertIsInstance(runtime.coordinator, RunCoordinator)
+        self.assertEqual(
+            runtime.run_log_manager.root,
+            root / "diagnostic-logs",
+        )
 
         launcher = runtime.browser_service._cdp_launcher
         self.assertIsInstance(launcher, ChromeCdpLauncher)

@@ -7,6 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import monotonic
 from typing import TYPE_CHECKING, TypeVar
 
 from playwright.async_api import (
@@ -32,6 +33,7 @@ from datespot_agent.browser.naver_map import NaverMapPage
 from datespot_agent.browser.pacing import InteractionPacer
 from datespot_agent.browser.parsers import CandidateTarget
 from datespot_agent.models import CandidatePlace, PlaceDetail, RunConfig
+from datespot_agent.observability import log_event
 
 if TYPE_CHECKING:
     from datespot_agent.api.events import RunEventPublisher
@@ -91,9 +93,7 @@ class BrowserService:
                     is_local=True,
                 )
                 if not browser.contexts:
-                    raise BrowserSessionError(
-                        "CDP 브라우저 기본 컨텍스트를 찾지 못함"
-                    )
+                    raise BrowserSessionError("CDP 브라우저 기본 컨텍스트를 찾지 못함")
                 return browser, browser.contexts[0], cdp_process
             except BaseException:
                 await asyncio.shield(self._safe_close(cdp_process))
@@ -143,15 +143,30 @@ class BrowserService:
                 run_id=run_id,
             )
 
+        started_at = monotonic()
+        log_event(
+            LOGGER,
+            "browser.launch.started",
+            "브라우저 세션 시작",
+            run_id=run_id,
+            component="browser",
+            stage="session_start",
+            launch_mode=(
+                "cdp"
+                if self._cdp_launcher is not None
+                else "persistent"
+                if self._user_data_dir is not None
+                else "ephemeral"
+            ),
+            headless=self._headless,
+        )
         runtime = await async_playwright().start()
         browser: Browser | None = None
         context: BrowserContext | None = None
         page: Page | None = None
         cdp_process: ChromeCdpProcess | None = None
         try:
-            browser, context, cdp_process = (
-                await self._launch_browser_context(runtime)
-            )
+            browser, context, cdp_process = await self._launch_browser_context(runtime)
             page = await self._initial_page(context)
             navigator = NaverMapPage(
                 page,
@@ -173,7 +188,27 @@ class BrowserService:
                 cdp_process=cdp_process,
             )
             self._publish_browser_event(run_id, ready=True)
+            log_event(
+                LOGGER,
+                "browser.launch.completed",
+                "브라우저 세션 준비 완료",
+                run_id=run_id,
+                component="browser",
+                stage="session_start",
+                duration_ms=self._elapsed_ms(started_at),
+            )
         except BaseException:
+            log_event(
+                LOGGER,
+                "browser.launch.failed",
+                "브라우저 세션 시작 실패",
+                run_id=run_id,
+                component="browser",
+                stage="session_start",
+                level=logging.ERROR,
+                exc_info=True,
+                duration_ms=self._elapsed_ms(started_at),
+            )
             await asyncio.shield(
                 self._close_started_resources(
                     run_id,
@@ -197,12 +232,65 @@ class BrowserService:
         recover: Callable[[], Awaitable[None]] | None = None,
     ) -> T:
         for attempt in (1, 2):
+            started_at = monotonic()
+            log_event(
+                LOGGER,
+                "browser.operation.started",
+                "브라우저 작업 시작",
+                run_id=run_id,
+                component="browser",
+                step=step,
+                place_id=place_id,
+                attempt=attempt,
+                max_attempts=2,
+            )
             try:
-                return await operation()
+                result = await operation()
+                log_event(
+                    LOGGER,
+                    "browser.operation.completed",
+                    "브라우저 작업 완료",
+                    run_id=run_id,
+                    component="browser",
+                    step=step,
+                    place_id=place_id,
+                    attempt=attempt,
+                    max_attempts=2,
+                    duration_ms=self._elapsed_ms(started_at),
+                )
+                return result
             except (BrowserAccessBlockedError, BrowserSessionError):
+                log_event(
+                    LOGGER,
+                    "browser.operation.failed",
+                    "브라우저 작업 중단",
+                    run_id=run_id,
+                    component="browser",
+                    step=step,
+                    place_id=place_id,
+                    attempt=attempt,
+                    max_attempts=2,
+                    level=logging.ERROR,
+                    exc_info=True,
+                    duration_ms=self._elapsed_ms(started_at),
+                )
                 raise
             except Exception as error:
                 if attempt == 2:
+                    log_event(
+                        LOGGER,
+                        "browser.operation.failed",
+                        "브라우저 작업 재시도 후 실패",
+                        run_id=run_id,
+                        component="browser",
+                        step=step,
+                        place_id=place_id,
+                        attempt=attempt,
+                        max_attempts=2,
+                        level=logging.ERROR,
+                        exc_info=True,
+                        duration_ms=self._elapsed_ms(started_at),
+                    )
                     final_type = (
                         type(error)
                         if isinstance(error, BrowserServiceError)
@@ -214,6 +302,20 @@ class BrowserService:
                         step=step,
                         place_id=place_id,
                     ) from error
+                log_event(
+                    LOGGER,
+                    "browser.operation.retrying",
+                    "브라우저 작업 재시도 예정",
+                    run_id=run_id,
+                    component="browser",
+                    step=step,
+                    place_id=place_id,
+                    attempt=attempt,
+                    max_attempts=2,
+                    level=logging.WARNING,
+                    exc_info=True,
+                    duration_ms=self._elapsed_ms(started_at),
+                )
                 if recover is not None:
                     await recover()
                 await self._pacer.wait_before_retry()
@@ -314,6 +416,15 @@ class BrowserService:
         run_id: str,
         session: BrowserSession,
     ) -> None:
+        started_at = monotonic()
+        log_event(
+            LOGGER,
+            "browser.cleanup.started",
+            "브라우저 세션 정리 시작",
+            run_id=run_id,
+            component="browser",
+            stage="session_start",
+        )
         await self._safe_stream_detach(run_id)
         await self._safe_close(session.page)
         await self._safe_close(session.context)
@@ -321,6 +432,15 @@ class BrowserService:
         await self._safe_close(session.cdp_process)
         await self._safe_stop(session.playwright)
         self._publish_browser_event(run_id, ready=False)
+        log_event(
+            LOGGER,
+            "browser.cleanup.completed",
+            "브라우저 세션 정리 완료",
+            run_id=run_id,
+            component="browser",
+            stage="session_start",
+            duration_ms=self._elapsed_ms(started_at),
+        )
 
     async def close_all(self) -> None:
         cleanup_task = asyncio.create_task(
@@ -429,3 +549,7 @@ class BrowserService:
             await runtime.stop()
         except Exception:
             return
+
+    @staticmethod
+    def _elapsed_ms(started_at: float) -> int:
+        return max(0, int((monotonic() - started_at) * 1_000))

@@ -24,6 +24,7 @@ frontend/dist/
 
 # Browser diagnostics
 artifacts/browser/
+artifacts/logs/
 
 # Reports (generated)
 reports/*

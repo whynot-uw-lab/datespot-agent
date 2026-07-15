@@ -9,11 +9,13 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from enum import Enum
 from typing import TypeAlias, TypeVar, cast
+from urllib.parse import urlparse
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from datespot_agent.api.models import RunJobStatus, RunStatusResponse
 from datespot_agent.models import CamelModel, PlaceResult
+from datespot_agent.observability import log_event
 
 
 LOGGER = logging.getLogger(__name__)
@@ -46,6 +48,14 @@ class ProgressStage(str, Enum):
     REPORT_BUILD = "report_build"
 
 
+class ProgressStatus(str, Enum):
+    STARTED = "started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
 class _FrozenCamelModel(CamelModel):
     model_config = ConfigDict(frozen=True)
 
@@ -59,8 +69,36 @@ class RunLifecycleData(_FrozenCamelModel):
 class RunProgressData(_FrozenCamelModel):
     stage: ProgressStage
     message: str = Field(min_length=1)
+    status: ProgressStatus | None = None
     place_id: str | None = Field(default=None, min_length=1)
     place_name: str | None = Field(default=None, min_length=1)
+    current: int | None = Field(default=None, ge=0)
+    total: int | None = Field(default=None, ge=0)
+    input_count: int | None = Field(default=None, ge=0)
+    duration_ms: int | None = Field(default=None, ge=0)
+    score: int | None = Field(default=None, ge=0, le=10)
+    matched: bool | None = None
+    photo_urls: tuple[str, ...] | None = None
+
+    @model_validator(mode="after")
+    def validate_details(self) -> RunProgressData:
+        if (
+            self.current is not None
+            and self.total is not None
+            and self.current > self.total
+        ):
+            raise ValueError("current는 total보다 클 수 없다")
+        if self.photo_urls is None:
+            return self
+        if self.stage is not ProgressStage.PHOTO_ANALYSIS:
+            raise ValueError("photo_urls는 사진 분석 단계에서만 허용된다")
+        if len(self.photo_urls) > 5:
+            raise ValueError("photo_urls는 최대 5개다")
+        for url in self.photo_urls:
+            parsed = urlparse(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError("photo_urls는 http(s) URL이어야 한다")
+        return self
 
 
 class RunReportSavedData(_FrozenCamelModel):
@@ -141,9 +179,7 @@ class RunEventSubscription:
         self.latest_sequence = latest_sequence
         self.overflowed = False
         self._after_sequence = after_sequence
-        self._queue: asyncio.Queue[RunEvent | object] = asyncio.Queue(
-            maxsize=capacity
-        )
+        self._queue: asyncio.Queue[RunEvent | object] = asyncio.Queue(maxsize=capacity)
         self._on_close = on_close
         self._draining = False
         self._ended = False
@@ -170,10 +206,7 @@ class RunEventSubscription:
         self.close()
 
     def _put(self, event: RunEvent) -> None:
-        if (
-            self._after_sequence is not None
-            and event.sequence <= self._after_sequence
-        ):
+        if self._after_sequence is not None and event.sequence <= self._after_sequence:
             return
         self._queue.put_nowait(event)
 
@@ -261,6 +294,16 @@ class RunEventHub:
             try:
                 subscription._put(event.model_copy(deep=True))
             except asyncio.QueueFull:
+                log_event(
+                    LOGGER,
+                    "sse.subscriber.overflowed",
+                    "SSE 구독자 큐 초과",
+                    run_id=run_id,
+                    component="sse",
+                    level=logging.WARNING,
+                    sequence=event.sequence,
+                    subscriber_capacity=self._subscriber_capacity,
+                )
                 subscription._finish(drain=False, overflowed=True)
         return event.model_copy(deep=True)
 
@@ -309,9 +352,7 @@ class RunEventHub:
             replay_events = tuple(
                 event for event in events if event.sequence > last_event_id
             )
-        replay = tuple(
-            event.model_copy(deep=True) for event in replay_events
-        )
+        replay = tuple(event.model_copy(deep=True) for event in replay_events)
 
         def unregister(subscription: RunEventSubscription) -> None:
             buffer.subscribers.discard(subscription)
@@ -388,8 +429,16 @@ class RunEventPublisher:
         stage: ProgressStage,
         message: str,
         *,
+        status: ProgressStatus | None = None,
         place_id: str | None = None,
         place_name: str | None = None,
+        current: int | None = None,
+        total: int | None = None,
+        input_count: int | None = None,
+        duration_ms: int | None = None,
+        score: int | None = None,
+        matched: bool | None = None,
+        photo_urls: tuple[str, ...] | None = None,
     ) -> RunEvent | None:
         return self._safe(
             run_id,
@@ -400,8 +449,16 @@ class RunEventPublisher:
                 RunProgressData(
                     stage=stage,
                     message=message,
+                    status=status,
                     place_id=place_id,
                     place_name=place_name,
+                    current=current,
+                    total=total,
+                    input_count=input_count,
+                    duration_ms=duration_ms,
+                    score=score,
+                    matched=matched,
+                    photo_urls=photo_urls,
                 ),
             ),
         )
@@ -462,9 +519,7 @@ class RunEventPublisher:
         self._hub.mark_terminal(run_id)
         return event
 
-    def _browser(
-        self, run_id: str, event_type: RunEventType
-    ) -> RunEvent | None:
+    def _browser(self, run_id: str, event_type: RunEventType) -> RunEvent | None:
         return self._safe(
             run_id,
             event_type.value,
@@ -491,6 +546,7 @@ class RunEventPublisher:
 
 __all__ = [
     "ProgressStage",
+    "ProgressStatus",
     "RunBrowserData",
     "RunEvent",
     "RunEventHub",

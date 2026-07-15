@@ -40,7 +40,11 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
             review_count=128,
         )
 
-        result = await agent.analyze(detail, "조용하고 대화하기 좋음")
+        with self.assertLogs(
+            "datespot_agent.analysis.review",
+            level="INFO",
+        ) as captured:
+            result = await agent.analyze(detail, "조용하고 대화하기 좋음")
 
         self.assertIs(result, parsed)
         self.assertEqual(responses.kwargs["model"], "gpt-5.4-nano")
@@ -51,6 +55,19 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("matched", text)
         self.assertIn("50. 리뷰 49", text)
         self.assertNotIn("리뷰 50", text)
+        self.assertEqual(
+            [record.datespot_event for record in captured.records],
+            [
+                "analysis.review.prepared",
+                "analysis.review.requested",
+                "analysis.review.completed",
+            ],
+        )
+        self.assertEqual(captured.records[0].datespot_fields["input_count"], 50)
+        self.assertEqual(captured.records[-1].datespot_fields["score"], 8)
+        serialized_logs = " ".join(record.getMessage() for record in captured.records)
+        self.assertNotIn("조용하고 대화하기 좋음", serialized_logs)
+        self.assertNotIn("리뷰 49", serialized_logs)
 
     async def test_empty_reviews_raise_input_error_without_api_call(self):
         responses = FakeResponses()
@@ -79,10 +96,19 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         )
         detail = PlaceDetail(place_id="1", name="우니도", reviews=["조용해요"])
 
-        with self.assertRaises(AnalysisRequestError) as caught:
-            await agent.analyze(detail, "조용함")
+        with self.assertLogs(
+            "datespot_agent.analysis.review",
+            level="ERROR",
+        ) as captured:
+            with self.assertRaises(AnalysisRequestError) as caught:
+                await agent.analyze(detail, "조용함")
 
         self.assertIs(caught.exception.__cause__, original)
+        self.assertEqual(
+            captured.records[-1].datespot_event,
+            "analysis.review.failed",
+        )
+        self.assertIsNotNone(captured.records[-1].exc_info)
 
 
 if __name__ == "__main__":

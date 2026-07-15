@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -10,6 +12,7 @@ from datespot_agent.api.errors import CoordinatorUnavailableError
 from datespot_agent.api.events import RunEventPublisher
 from datespot_agent.api.models import RunJobStatus
 from datespot_agent.models import RunConfig, RunReport, RunStatus
+from datespot_agent.observability import RunLogManager
 from datespot_agent.reporting import ReportStorageError
 
 
@@ -81,9 +84,7 @@ class RecordingEventPublisher:
         )
 
     def report_saved(self, run_id: str, report_url: str) -> None:
-        self.events.setdefault(run_id, []).append(
-            ("report_saved", report_url)
-        )
+        self.events.setdefault(run_id, []).append(("report_saved", report_url))
 
     def terminal(self, run_id, event_type, status) -> None:
         self.events.setdefault(run_id, []).append(
@@ -112,6 +113,137 @@ async def wait_until(predicate, timeout: float = 1.0) -> None:
 
 
 class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_diagnostic_log_tracks_successful_run_lifecycle(self) -> None:
+        class ImmediateRunner:
+            async def run(self, config, *, run_id=None):
+                assert run_id is not None
+                return make_report(run_id, config=config)
+
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunLogManager(Path(directory))
+            manager.start()
+            coordinator = RunCoordinator(
+                ImmediateRunner(),
+                RecordingStore(),
+                clock=lambda: NOW,
+                run_id_factory=lambda: "run_logged_success",
+            )
+            await coordinator.start()
+            try:
+                accepted = coordinator.submit(make_config())
+                await wait_until(
+                    lambda: (
+                        coordinator.get_status(accepted.run_id).finished_at is not None
+                    )
+                )
+            finally:
+                await coordinator.stop()
+                manager.stop()
+
+            records = [
+                json.loads(line)
+                for line in (Path(directory) / "run_logged_success.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        events = [record["event"] for record in records]
+        self.assertEqual(
+            events,
+            [
+                "run.queued",
+                "run.started",
+                "report.save.started",
+                "report.save.completed",
+                "run.completed",
+            ],
+        )
+        self.assertTrue(all(record["runId"] == accepted.run_id for record in records))
+        self.assertIsInstance(records[-1]["durationMs"], int)
+
+    async def test_diagnostic_log_keeps_runner_exception_traceback(self) -> None:
+        class FailingRunner:
+            async def run(self, config, *, run_id=None):
+                raise RuntimeError("graph crashed with diagnostic context")
+
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunLogManager(Path(directory))
+            manager.start()
+            coordinator = RunCoordinator(
+                FailingRunner(),
+                RecordingStore(),
+                clock=lambda: NOW,
+                run_id_factory=lambda: "run_logged_failure",
+            )
+            await coordinator.start()
+            try:
+                accepted = coordinator.submit(make_config())
+                await wait_until(
+                    lambda: (
+                        coordinator.get_status(accepted.run_id).finished_at is not None
+                    )
+                )
+            finally:
+                await coordinator.stop()
+                manager.stop()
+
+            records = [
+                json.loads(line)
+                for line in (Path(directory) / "run_logged_failure.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        failure = next(record for record in records if record["event"] == "run.failed")
+        self.assertEqual(failure["errorType"], "RuntimeError")
+        self.assertIn("graph crashed with diagnostic context", failure["errorMessage"])
+        self.assertIn("RuntimeError", failure["traceback"])
+
+    async def test_diagnostic_log_tracks_report_storage_failure(self) -> None:
+        class ImmediateRunner:
+            async def run(self, config, *, run_id=None):
+                assert run_id is not None
+                return make_report(run_id, config=config)
+
+        error = ReportStorageError(
+            "저장 실패",
+            run_id="run_report_save_failed",
+            path=Path("/private/report.json"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            manager = RunLogManager(Path(directory))
+            manager.start()
+            coordinator = RunCoordinator(
+                ImmediateRunner(),
+                RecordingStore(error),
+                clock=lambda: NOW,
+                run_id_factory=lambda: "run_report_save_failed",
+            )
+            await coordinator.start()
+            try:
+                accepted = coordinator.submit(make_config())
+                await wait_until(
+                    lambda: (
+                        coordinator.get_status(accepted.run_id).finished_at is not None
+                    )
+                )
+            finally:
+                await coordinator.stop()
+                manager.stop()
+
+            records = [
+                json.loads(line)
+                for line in (Path(directory) / "run_report_save_failed.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+
+        failure = next(
+            record for record in records if record["event"] == "report.save.failed"
+        )
+        self.assertEqual(failure["errorType"], "ReportStorageError")
+        self.assertIsInstance(failure["durationMs"], int)
+
     async def asyncSetUp(self) -> None:
         self.runner = ControlledRunner()
         self.store = RecordingStore()
@@ -150,8 +282,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
 
         self.runner.gates[accepted.run_id].set()
         await wait_until(
-            lambda: self.coordinator.get_status(accepted.run_id).finished_at
-            is not None
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at is not None
         )
         completed = self.coordinator.get_status(accepted.run_id)
         assert completed is not None
@@ -165,8 +296,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         await wait_until(lambda: accepted.run_id in self.runner.gates)
         self.runner.gates[accepted.run_id].set()
         await wait_until(
-            lambda: self.coordinator.get_status(accepted.run_id).finished_at
-            is not None
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at is not None
         )
 
         self.assertEqual(self.publisher.opened, [accepted.run_id])
@@ -192,13 +322,10 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             RunJobStatus.QUEUED,
         )
         self.runner.gates[first.run_id].set()
-        await wait_until(
-            lambda: self.runner.started == [first.run_id, second.run_id]
-        )
+        await wait_until(lambda: self.runner.started == [first.run_id, second.run_id])
         self.runner.gates[second.run_id].set()
         await wait_until(
-            lambda: self.coordinator.get_status(second.run_id).finished_at
-            is not None
+            lambda: self.coordinator.get_status(second.run_id).finished_at is not None
         )
 
         self.assertEqual(
@@ -236,8 +363,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             await wait_until(lambda: accepted.run_id in self.runner.gates)
             self.runner.gates[accepted.run_id].set()
             await wait_until(
-                lambda: coordinator.get_status(accepted.run_id).finished_at
-                is not None
+                lambda: coordinator.get_status(accepted.run_id).finished_at is not None
             )
 
             snapshot = coordinator.get_status(accepted.run_id)
@@ -268,8 +394,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         await wait_until(lambda: accepted.run_id in self.runner.gates)
         self.runner.gates[accepted.run_id].set()
         await wait_until(
-            lambda: self.coordinator.get_status(accepted.run_id).finished_at
-            is not None
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at is not None
         )
 
         snapshot = self.coordinator.get_status(accepted.run_id)
@@ -289,8 +414,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         await wait_until(lambda: accepted.run_id in self.runner.gates)
         self.runner.gates[accepted.run_id].set()
         await wait_until(
-            lambda: self.coordinator.get_status(accepted.run_id).finished_at
-            is not None
+            lambda: self.coordinator.get_status(accepted.run_id).finished_at is not None
         )
 
         self.assertEqual(
@@ -319,8 +443,9 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
                 await wait_until(lambda: accepted.run_id in self.runner.gates)
                 self.runner.gates[accepted.run_id].set()
                 await wait_until(
-                    lambda: coordinator.get_status(accepted.run_id).finished_at
-                    is not None
+                    lambda: (
+                        coordinator.get_status(accepted.run_id).finished_at is not None
+                    )
                 )
 
             snapshot = coordinator.get_status(accepted.run_id)
@@ -358,8 +483,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
         try:
             accepted = coordinator.submit(make_config())
             await wait_until(
-                lambda: coordinator.get_status(accepted.run_id).finished_at
-                is not None
+                lambda: coordinator.get_status(accepted.run_id).finished_at is not None
             )
 
             snapshot = coordinator.get_status(accepted.run_id)
@@ -411,8 +535,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
             first = coordinator.submit(make_config())
             second = coordinator.submit(make_config("홍대입구역"))
             await wait_until(
-                lambda: coordinator.get_status(second.run_id).finished_at
-                is not None
+                lambda: coordinator.get_status(second.run_id).finished_at is not None
             )
 
             self.assertEqual(
@@ -526,8 +649,7 @@ class RunCoordinatorTests(unittest.IsolatedAsyncioTestCase):
 
             self.runner.gates[accepted.run_id].set()
             await wait_until(
-                lambda: coordinator.get_status(accepted.run_id).finished_at
-                is not None
+                lambda: coordinator.get_status(accepted.run_id).finished_at is not None
             )
             finished = coordinator.get_status(accepted.run_id)
             assert finished is not None
