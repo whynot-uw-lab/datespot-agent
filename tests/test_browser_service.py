@@ -15,6 +15,10 @@ from datespot_agent.browser.errors import (
 from datespot_agent.browser.parsers import CandidateTarget
 from datespot_agent.browser.naver_map import NaverMapPage
 from datespot_agent.browser.service import BrowserService, BrowserSession
+from datespot_agent.browser.stream import (
+    BrowserStreamControl,
+    CdpStreamManager,
+)
 from datespot_agent.models import CandidatePlace, RunConfig
 
 
@@ -64,8 +68,16 @@ class FakePacer:
 
 
 class RecordingEventPublisher:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        lifecycle_calls: list[str] | None = None,
+        *,
+        fail_browser_events: bool = False,
+    ) -> None:
         self.progress_events: list[tuple[str, str, str]] = []
+        self.browser_events: list[tuple[str, str]] = []
+        self.lifecycle_calls = lifecycle_calls
+        self.fail_browser_events = fail_browser_events
 
     def progress(
         self,
@@ -77,6 +89,20 @@ class RecordingEventPublisher:
         place_name=None,
     ) -> None:
         self.progress_events.append((run_id, stage.value, message))
+
+    def browser_ready(self, run_id: str) -> None:
+        self.browser_events.append((run_id, "browser_ready"))
+        if self.lifecycle_calls is not None:
+            self.lifecycle_calls.append("event:browser_ready")
+        if self.fail_browser_events:
+            raise RuntimeError("publisher ready failed")
+
+    def browser_closed(self, run_id: str) -> None:
+        self.browser_events.append((run_id, "browser_closed"))
+        if self.lifecycle_calls is not None:
+            self.lifecycle_calls.append("event:browser_closed")
+        if self.fail_browser_events:
+            raise RuntimeError("publisher closed failed")
 
 
 class FakeLaunchContext:
@@ -177,6 +203,7 @@ class RecordingStreamManager:
 class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_stream_page_attaches_before_navigation_and_detaches_before_close(self):
         calls: list[str] = []
+        publisher = RecordingEventPublisher(calls)
 
         class Closeable:
             def __init__(self, name: str) -> None:
@@ -210,6 +237,7 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         service = BrowserService(
             pacer=FakePacer(),
             stream_manager=RecordingStreamManager(calls),
+            event_publisher=publisher,
         )
         context = Context()
 
@@ -226,12 +254,26 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         ):
             await service.start_session("run-stream")
             await service.close_session("run-stream")
+            await service.close_session("run-stream")
 
         self.assertLess(calls.index("attach:run-stream"), calls.index("open"))
         self.assertLess(calls.index("detach:run-stream"), calls.index("page"))
+        self.assertLess(calls.index("open"), calls.index("event:browser_ready"))
+        self.assertLess(
+            calls.index("playwright"),
+            calls.index("event:browser_closed"),
+        )
+        self.assertEqual(
+            publisher.browser_events,
+            [
+                ("run-stream", "browser_ready"),
+                ("run-stream", "browser_closed"),
+            ],
+        )
 
-    async def test_stream_failures_do_not_fail_browser_lifecycle(self):
+    async def test_stream_and_event_failures_do_not_fail_browser_lifecycle(self):
         calls: list[str] = []
+        publisher = RecordingEventPublisher(fail_browser_events=True)
 
         class Closeable:
             def __init__(self, name: str) -> None:
@@ -269,6 +311,7 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
                 attach_error=RuntimeError("attach failed"),
                 detach_error=RuntimeError("detach failed"),
             ),
+            event_publisher=publisher,
         )
         context = Context()
 
@@ -288,9 +331,17 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("open", calls)
         self.assertIn("page", calls)
+        self.assertEqual(
+            publisher.browser_events,
+            [
+                ("run-stream-errors", "browser_ready"),
+                ("run-stream-errors", "browser_closed"),
+            ],
+        )
 
     async def test_navigation_failure_detaches_stream_before_page_cleanup(self):
         calls: list[str] = []
+        publisher = RecordingEventPublisher(calls)
 
         class Closeable:
             def __init__(self, name: str) -> None:
@@ -324,6 +375,7 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
         service = BrowserService(
             pacer=FakePacer(),
             stream_manager=RecordingStreamManager(calls),
+            event_publisher=publisher,
         )
         context = Context()
 
@@ -345,6 +397,7 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             calls.index("detach:run-stream-failure"),
             calls.index("page"),
         )
+        self.assertEqual(publisher.browser_events, [])
 
     async def test_default_launch_uses_isolated_context_and_new_page(self):
         context = FakeLaunchContext()
@@ -657,6 +710,151 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
 
         await service.close_session("missing")
         await service.close_all()
+
+    async def test_close_missing_session_detaches_waiting_stream_viewer(self):
+        stream_manager = CdpStreamManager()
+        viewer = await stream_manager.subscribe("run-waiting-close")
+        self.assertEqual(
+            await viewer.next_message(),
+            BrowserStreamControl.waiting(),
+        )
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=stream_manager,
+        )
+
+        await service.close_session("run-waiting-close")
+
+        self.assertEqual(
+            await asyncio.wait_for(viewer.next_message(), 0.1),
+            BrowserStreamControl.ended(),
+        )
+        self.assertEqual(len(stream_manager._states), 0)
+
+    async def test_cancelled_close_session_finishes_all_owned_resources(self):
+        calls: list[str] = []
+        detach_started = asyncio.Event()
+        release_detach = asyncio.Event()
+
+        class BlockingStreamManager:
+            async def detach_page(self, run_id: str) -> None:
+                calls.append(f"detach:{run_id}")
+                detach_started.set()
+                await release_detach.wait()
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=BlockingStreamManager(),
+            event_publisher=RecordingEventPublisher(calls),
+        )
+        service._sessions["run-cancel-close"] = BrowserSession(
+            Runtime(),
+            Closeable("browser"),
+            Closeable("context"),
+            Closeable("page"),
+            FakeNavigator(),
+            {},
+            Closeable("chrome"),
+        )
+        closing = asyncio.create_task(
+            service.close_session("run-cancel-close")
+        )
+        await detach_started.wait()
+        self.assertNotIn("run-cancel-close", service._sessions)
+
+        closing.cancel()
+        release_detach.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await closing
+
+        self.assertEqual(
+            calls,
+            [
+                "detach:run-cancel-close",
+                "page",
+                "context",
+                "browser",
+                "chrome",
+                "playwright",
+                "event:browser_closed",
+            ],
+        )
+        self.assertNotIn("run-cancel-close", service._sessions)
+
+    async def test_cancelled_close_all_finishes_every_tracked_session(self):
+        calls: list[str] = []
+        first_detach_started = asyncio.Event()
+        release_first_detach = asyncio.Event()
+
+        class BlockingStreamManager:
+            async def detach_page(self, run_id: str) -> None:
+                calls.append(f"detach:{run_id}")
+                if run_id == "run-one":
+                    first_detach_started.set()
+                    await release_first_detach.wait()
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        class Runtime:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def stop(self) -> None:
+                calls.append(self.name)
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=BlockingStreamManager(),
+        )
+        for run_id, suffix in (("run-one", "one"), ("run-two", "two")):
+            service._sessions[run_id] = BrowserSession(
+                Runtime(f"playwright:{suffix}"),
+                Closeable(f"browser:{suffix}"),
+                Closeable(f"context:{suffix}"),
+                Closeable(f"page:{suffix}"),
+                FakeNavigator(),
+                {},
+            )
+        closing = asyncio.create_task(service.close_all())
+        await first_detach_started.wait()
+
+        closing.cancel()
+        release_first_detach.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await closing
+
+        self.assertEqual(service._sessions, {})
+        self.assertEqual(
+            calls,
+            [
+                "detach:run-one",
+                "page:one",
+                "context:one",
+                "browser:one",
+                "playwright:one",
+                "detach:run-two",
+                "page:two",
+                "context:two",
+                "browser:two",
+                "playwright:two",
+            ],
+        )
 
     async def test_close_session_uses_page_context_browser_runtime_order(self):
         calls: list[str] = []

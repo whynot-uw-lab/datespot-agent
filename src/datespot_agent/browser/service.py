@@ -171,6 +171,7 @@ class BrowserService:
                 navigator,
                 cdp_process=cdp_process,
             )
+            self._publish_browser_event(run_id, ready=True)
         except BaseException:
             await asyncio.shield(
                 self._close_started_resources(
@@ -279,17 +280,50 @@ class BrowserService:
     async def close_session(self, run_id: str) -> None:
         session = self._sessions.pop(run_id, None)
         if session is None:
+            cleanup_task = asyncio.create_task(
+                self._safe_stream_detach(run_id),
+                name=f"datespot-browser-detach-{run_id}",
+            )
+            await self._await_cleanup(cleanup_task)
             return
+        cleanup_task = asyncio.create_task(
+            self._finalize_session(run_id, session),
+            name=f"datespot-browser-close-{run_id}",
+        )
+        await self._await_cleanup(cleanup_task)
+
+    async def _finalize_session(
+        self,
+        run_id: str,
+        session: BrowserSession,
+    ) -> None:
         await self._safe_stream_detach(run_id)
         await self._safe_close(session.page)
         await self._safe_close(session.context)
         await self._safe_close(session.browser)
         await self._safe_close(session.cdp_process)
         await self._safe_stop(session.playwright)
+        self._publish_browser_event(run_id, ready=False)
 
     async def close_all(self) -> None:
-        for run_id in list(self._sessions):
+        cleanup_task = asyncio.create_task(
+            self._close_all_sessions(),
+            name="datespot-browser-close-all",
+        )
+        await self._await_cleanup(cleanup_task)
+
+    async def _close_all_sessions(self) -> None:
+        while self._sessions:
+            run_id = next(iter(self._sessions))
             await self.close_session(run_id)
+
+    @staticmethod
+    async def _await_cleanup(cleanup_task: asyncio.Task[None]) -> None:
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            await cleanup_task
+            raise
 
     def _progress(
         self,
@@ -311,6 +345,17 @@ class BrowserService:
             place_id=place_id,
             place_name=place_name,
         )
+
+    def _publish_browser_event(self, run_id: str, *, ready: bool) -> None:
+        if self._events is None:
+            return
+        try:
+            if ready:
+                self._events.browser_ready(run_id)
+            else:
+                self._events.browser_closed(run_id)
+        except Exception:
+            LOGGER.warning("browser lifecycle event 발행 실패")
 
     async def _close_started_resources(
         self,
