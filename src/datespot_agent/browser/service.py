@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,8 +35,10 @@ from datespot_agent.models import CandidatePlace, PlaceDetail, RunConfig
 
 if TYPE_CHECKING:
     from datespot_agent.api.events import RunEventPublisher
+    from datespot_agent.browser.stream import CdpStreamManager
 
 T = TypeVar("T")
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -62,6 +65,7 @@ class BrowserService:
         pacer: InteractionPacer | None = None,
         log: Callable[[str], None] | None = None,
         event_publisher: RunEventPublisher | None = None,
+        stream_manager: CdpStreamManager | None = None,
     ) -> None:
         self._headless = headless
         self._browser_channel = browser_channel
@@ -70,6 +74,7 @@ class BrowserService:
         self._pacer = pacer or InteractionPacer()
         self._log = log
         self._events = event_publisher
+        self._stream_manager = stream_manager
         self._sessions: dict[str, BrowserSession] = {}
 
     async def _launch_browser_context(
@@ -154,6 +159,7 @@ class BrowserService:
                 log=self._log,
                 event_publisher=self._events,
             )
+            await self._safe_stream_attach(run_id, page)
             self._progress(run_id, "session_start", "네이버지도 열기 시작")
             await navigator.open()
             self._progress(run_id, "session_start", "네이버지도 열기 완료")
@@ -168,6 +174,7 @@ class BrowserService:
         except BaseException:
             await asyncio.shield(
                 self._close_started_resources(
+                    run_id,
                     page,
                     context,
                     browser,
@@ -273,6 +280,7 @@ class BrowserService:
         session = self._sessions.pop(run_id, None)
         if session is None:
             return
+        await self._safe_stream_detach(run_id)
         await self._safe_close(session.page)
         await self._safe_close(session.context)
         await self._safe_close(session.browser)
@@ -306,17 +314,35 @@ class BrowserService:
 
     async def _close_started_resources(
         self,
+        run_id,
         page,
         context,
         browser,
         cdp_process,
         runtime,
     ) -> None:
+        await self._safe_stream_detach(run_id)
         await self._safe_close(page)
         await self._safe_close(context)
         await self._safe_close(browser)
         await self._safe_close(cdp_process)
         await self._safe_stop(runtime)
+
+    async def _safe_stream_attach(self, run_id: str, page: Page) -> None:
+        if self._stream_manager is None:
+            return
+        try:
+            await self._stream_manager.attach_page(run_id, page)
+        except Exception:
+            LOGGER.warning("browser stream page 연결 실패")
+
+    async def _safe_stream_detach(self, run_id: str) -> None:
+        if self._stream_manager is None:
+            return
+        try:
+            await self._stream_manager.detach_page(run_id)
+        except Exception:
+            LOGGER.warning("browser stream page 정리 실패")
 
     @staticmethod
     async def _safe_close(resource) -> None:

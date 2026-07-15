@@ -151,7 +151,201 @@ class FakeCdpLauncher:
         return self.process
 
 
+class RecordingStreamManager:
+    def __init__(
+        self,
+        calls: list[str],
+        *,
+        attach_error: Exception | None = None,
+        detach_error: Exception | None = None,
+    ) -> None:
+        self.calls = calls
+        self.attach_error = attach_error
+        self.detach_error = detach_error
+
+    async def attach_page(self, run_id: str, page) -> None:
+        self.calls.append(f"attach:{run_id}")
+        if self.attach_error is not None:
+            raise self.attach_error
+
+    async def detach_page(self, run_id: str) -> None:
+        self.calls.append(f"detach:{run_id}")
+        if self.detach_error is not None:
+            raise self.detach_error
+
+
 class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stream_page_attaches_before_navigation_and_detaches_before_close(self):
+        calls: list[str] = []
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        page = Closeable("page")
+
+        class Context(Closeable):
+            def __init__(self) -> None:
+                super().__init__("context")
+                self.pages = [page]
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        class RuntimeManager:
+            async def start(self):
+                return Runtime()
+
+        class Navigator:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            async def open(self) -> None:
+                calls.append("open")
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=RecordingStreamManager(calls),
+        )
+        context = Context()
+
+        async def launch_browser_context(_runtime):
+            return Closeable("browser"), context, None
+
+        service._launch_browser_context = launch_browser_context
+        with (
+            patch(
+                "datespot_agent.browser.service.async_playwright",
+                return_value=RuntimeManager(),
+            ),
+            patch("datespot_agent.browser.service.NaverMapPage", Navigator),
+        ):
+            await service.start_session("run-stream")
+            await service.close_session("run-stream")
+
+        self.assertLess(calls.index("attach:run-stream"), calls.index("open"))
+        self.assertLess(calls.index("detach:run-stream"), calls.index("page"))
+
+    async def test_stream_failures_do_not_fail_browser_lifecycle(self):
+        calls: list[str] = []
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        page = Closeable("page")
+
+        class Context(Closeable):
+            def __init__(self) -> None:
+                super().__init__("context")
+                self.pages = [page]
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        class RuntimeManager:
+            async def start(self):
+                return Runtime()
+
+        class Navigator:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            async def open(self) -> None:
+                calls.append("open")
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=RecordingStreamManager(
+                calls,
+                attach_error=RuntimeError("attach failed"),
+                detach_error=RuntimeError("detach failed"),
+            ),
+        )
+        context = Context()
+
+        async def launch_browser_context(_runtime):
+            return Closeable("browser"), context, None
+
+        service._launch_browser_context = launch_browser_context
+        with (
+            patch(
+                "datespot_agent.browser.service.async_playwright",
+                return_value=RuntimeManager(),
+            ),
+            patch("datespot_agent.browser.service.NaverMapPage", Navigator),
+        ):
+            await service.start_session("run-stream-errors")
+            await service.close_session("run-stream-errors")
+
+        self.assertIn("open", calls)
+        self.assertIn("page", calls)
+
+    async def test_navigation_failure_detaches_stream_before_page_cleanup(self):
+        calls: list[str] = []
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        page = Closeable("page")
+
+        class Context(Closeable):
+            def __init__(self) -> None:
+                super().__init__("context")
+                self.pages = [page]
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        class RuntimeManager:
+            async def start(self):
+                return Runtime()
+
+        class Navigator:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            async def open(self) -> None:
+                raise RuntimeError("navigation failed")
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=RecordingStreamManager(calls),
+        )
+        context = Context()
+
+        async def launch_browser_context(_runtime):
+            return Closeable("browser"), context, None
+
+        service._launch_browser_context = launch_browser_context
+        with (
+            patch(
+                "datespot_agent.browser.service.async_playwright",
+                return_value=RuntimeManager(),
+            ),
+            patch("datespot_agent.browser.service.NaverMapPage", Navigator),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "navigation failed"):
+                await service.start_session("run-stream-failure")
+
+        self.assertLess(
+            calls.index("detach:run-stream-failure"),
+            calls.index("page"),
+        )
+
     async def test_default_launch_uses_isolated_context_and_new_page(self):
         context = FakeLaunchContext()
         browser = FakeLaunchBrowser(context)

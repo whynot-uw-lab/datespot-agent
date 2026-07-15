@@ -13,7 +13,11 @@ from datespot_agent.api.runtime import (
     RuntimeConfigurationError,
     create_runtime,
 )
-from datespot_agent.browser import BrowserService, ChromeCdpLauncher
+from datespot_agent.browser import (
+    BrowserService,
+    CdpStreamManager,
+    ChromeCdpLauncher,
+)
 from datespot_agent.config import Settings
 from datespot_agent.graph import GraphRunService
 from datespot_agent.reporting import JsonReportStore
@@ -55,6 +59,24 @@ class _BrowserProbe:
         self.closed = True
         if self.order is not None:
             self.order.append("browser")
+        if self.close_error is not None:
+            raise self.close_error
+
+
+class _StreamProbe:
+    def __init__(
+        self,
+        close_error: Exception | None = None,
+        order: list[str] | None = None,
+    ) -> None:
+        self.closed = False
+        self.close_error = close_error
+        self.order = order
+
+    async def close(self) -> None:
+        self.closed = True
+        if self.order is not None:
+            self.order.append("stream_manager")
         if self.close_error is not None:
             raise self.close_error
 
@@ -136,65 +158,126 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_app_runtime_starts_and_stops_all_resources(self):
         order: list[str] = []
         coordinator = _CoordinatorProbe(order=order)
+        stream_manager = _StreamProbe(order=order)
         browser = _BrowserProbe(order=order)
         event_hub = _EventHubProbe(order=order)
         client = _ClientProbe(order=order)
-        runtime = AppRuntime(coordinator, browser, event_hub, client)
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
 
         await runtime.start()
         await runtime.stop()
 
         self.assertTrue(coordinator.started)
         self.assertTrue(coordinator.stopped)
+        self.assertTrue(stream_manager.closed)
         self.assertTrue(browser.closed)
         self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
         self.assertEqual(
             order,
-            ["coordinator", "browser", "event_hub", "openai"],
+            [
+                "coordinator",
+                "stream_manager",
+                "browser",
+                "event_hub",
+                "openai",
+            ],
         )
 
     async def test_stop_continues_cleanup_when_coordinator_stop_raises(self):
         coordinator = _CoordinatorProbe(RuntimeError("coordinator stop failed"))
+        stream_manager = _StreamProbe()
         browser = _BrowserProbe()
         event_hub = _EventHubProbe()
         client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, event_hub, client)
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
 
         with self.assertRaisesRegex(RuntimeError, "coordinator stop failed"):
             await runtime.stop()
 
         self.assertTrue(coordinator.stopped)
+        self.assertTrue(stream_manager.closed)
         self.assertTrue(browser.closed)
         self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
 
     async def test_stop_closes_client_when_browser_cleanup_raises(self):
         coordinator = _CoordinatorProbe()
+        stream_manager = _StreamProbe()
         browser = _BrowserProbe(RuntimeError("browser cleanup failed"))
         event_hub = _EventHubProbe()
         client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, event_hub, client)
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
 
         with self.assertRaisesRegex(RuntimeError, "browser cleanup failed"):
             await runtime.stop()
 
         self.assertTrue(coordinator.stopped)
+        self.assertTrue(stream_manager.closed)
+        self.assertTrue(browser.closed)
+        self.assertTrue(event_hub.closed)
+        self.assertTrue(client.closed)
+
+    async def test_stop_continues_cleanup_when_stream_manager_raises(self):
+        coordinator = _CoordinatorProbe()
+        stream_manager = _StreamProbe(RuntimeError("stream cleanup failed"))
+        browser = _BrowserProbe()
+        event_hub = _EventHubProbe()
+        client = _ClientProbe()
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stream cleanup failed"):
+            await runtime.stop()
+
+        self.assertTrue(coordinator.stopped)
+        self.assertTrue(stream_manager.closed)
         self.assertTrue(browser.closed)
         self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
 
     async def test_stop_closes_client_when_event_hub_cleanup_raises(self):
         coordinator = _CoordinatorProbe()
+        stream_manager = _StreamProbe()
         browser = _BrowserProbe()
         event_hub = _EventHubProbe(RuntimeError("event hub cleanup failed"))
         client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, event_hub, client)
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
 
         with self.assertRaisesRegex(RuntimeError, "event hub cleanup failed"):
             await runtime.stop()
 
         self.assertTrue(coordinator.stopped)
+        self.assertTrue(stream_manager.closed)
         self.assertTrue(browser.closed)
         self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
@@ -222,6 +305,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         client_type.assert_called_once_with(api_key="key")
         self.assertIs(runtime.openai_client, client_type.return_value)
         self.assertIsInstance(runtime.event_hub, RunEventHub)
+        self.assertIsInstance(runtime.stream_manager, CdpStreamManager)
         self.assertIsInstance(runtime.browser_service, BrowserService)
         self.assertIsInstance(runtime.coordinator, RunCoordinator)
 
@@ -237,6 +321,10 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(runtime.coordinator._events, runner._events)
         self.assertIs(runtime.coordinator._events, runtime.browser_service._events)
         self.assertIs(runtime.coordinator._events._hub, runtime.event_hub)
+        self.assertIs(
+            runtime.browser_service._stream_manager,
+            runtime.stream_manager,
+        )
         self.assertIsInstance(report_store, JsonReportStore)
         self.assertEqual(report_store.root, root / "reports")
         self.assertIs(runner._photo_agent._client, runtime.openai_client)

@@ -14,7 +14,11 @@ from datespot_agent.analysis import (
 )
 from datespot_agent.api.coordinator import RunCoordinator
 from datespot_agent.api.events import RunEventHub, RunEventPublisher
-from datespot_agent.browser import BrowserService, ChromeCdpLauncher
+from datespot_agent.browser import (
+    BrowserService,
+    CdpStreamManager,
+    ChromeCdpLauncher,
+)
 from datespot_agent.config import Settings, get_settings
 from datespot_agent.graph import GraphRunService
 from datespot_agent.reporting import JsonReportStore
@@ -35,6 +39,7 @@ class AppRuntime:
     browser_service: BrowserService
     event_hub: RunEventHub
     openai_client: AsyncOpenAI
+    stream_manager: CdpStreamManager
 
     async def start(self) -> None:
         await self.coordinator.start()
@@ -44,12 +49,15 @@ class AppRuntime:
             await self.coordinator.stop()
         finally:
             try:
-                await self.browser_service.close_all()
+                await self.stream_manager.close()
             finally:
                 try:
-                    await self.event_hub.close()
+                    await self.browser_service.close_all()
                 finally:
-                    await self.openai_client.close()
+                    try:
+                        await self.event_hub.close()
+                    finally:
+                        await self.openai_client.close()
 
 
 async def create_runtime(settings: Settings | None = None) -> AppRuntime:
@@ -71,6 +79,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
     try:
         event_hub = RunEventHub()
         event_publisher = RunEventPublisher(event_hub)
+        stream_manager = CdpStreamManager()
         browser = BrowserService(
             headless=False,
             cdp_launcher=ChromeCdpLauncher(
@@ -79,6 +88,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             ),
             log=logger.info,
             event_publisher=event_publisher,
+            stream_manager=stream_manager,
         )
         runner = GraphRunService(
             browser_service=browser,
@@ -99,7 +109,13 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             JsonReportStore(reports_root),
             event_publisher=event_publisher,
         )
-        return AppRuntime(coordinator, browser, event_hub, client)
+        return AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+        )
     except BaseException:
         try:
             await client.close()

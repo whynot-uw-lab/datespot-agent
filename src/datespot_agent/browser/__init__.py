@@ -9,6 +9,11 @@ from datespot_agent.browser.errors import (
     BrowserSessionError,
 )
 from datespot_agent.browser.service import BrowserService
+from datespot_agent.browser.stream import (
+    BrowserStreamControl,
+    BrowserStreamSubscription,
+    CdpStreamManager,
+)
 
 __all__ = [
     "BrowserAccessBlockedError",
@@ -17,5 +22,8 @@ __all__ = [
     "BrowserService",
     "BrowserServiceError",
     "BrowserSessionError",
+    "BrowserStreamControl",
+    "BrowserStreamSubscription",
+    "CdpStreamManager",
     "ChromeCdpLauncher",
 ]

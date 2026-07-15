@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -9,8 +10,17 @@ from datetime import datetime, timezone
 from inspect import isawaitable
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    status,
+)
 from fastapi.sse import EventSourceResponse, ServerSentEvent
+from starlette.websockets import WebSocketDisconnect
 
 from datespot_agent.api.coordinator import RunCoordinator
 from datespot_agent.api.errors import CoordinatorUnavailableError
@@ -26,6 +36,7 @@ from datespot_agent.api.models import (
     RunStatusResponse,
 )
 from datespot_agent.api.runtime import AppRuntime, create_runtime
+from datespot_agent.browser.stream import BrowserStreamControl
 from datespot_agent.models import RunConfig, RunReport
 
 
@@ -274,6 +285,106 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
             status_code=status.HTTP_409_CONFLICT,
             detail=_detail(code, message),
         )
+
+    @app.websocket("/runs/{run_id}/browser-stream")
+    async def browser_stream(websocket: WebSocket, run_id: str) -> None:
+        runtime = websocket.app.state.runtime
+        snapshot = runtime.coordinator.get_status(run_id)
+        if snapshot is None:
+            await websocket.close(code=4404)
+            return
+        if snapshot.status in (
+            RunJobStatus.COMPLETED,
+            RunJobStatus.FAILED,
+        ) and not runtime.stream_manager.has_page(run_id):
+            await websocket.close(code=4409)
+            return
+
+        await websocket.accept()
+        subscription = None
+        receive_task: asyncio.Task[dict[str, object]] | None = None
+        message_task: asyncio.Task[object] | None = None
+        try:
+            try:
+                subscription = await runtime.stream_manager.subscribe(run_id)
+            except Exception:
+                await websocket.send_json(
+                    BrowserStreamControl.unavailable().model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude_none=True,
+                    )
+                )
+                await websocket.close(code=1011)
+                return
+
+            receive_task = asyncio.create_task(websocket.receive())
+            while True:
+                if message_task is None:
+                    message_task = asyncio.create_task(anext(subscription))
+                done, _ = await asyncio.wait(
+                    {receive_task, message_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if receive_task in done:
+                    incoming = receive_task.result()
+                    receive_task = None
+                    if incoming["type"] == "websocket.disconnect":
+                        return
+                    receive_task = asyncio.create_task(websocket.receive())
+                if message_task not in done:
+                    continue
+                try:
+                    message = message_task.result()
+                except StopAsyncIteration:
+                    await websocket.close(code=1000)
+                    return
+                finally:
+                    message_task = None
+
+                if isinstance(message, bytes):
+                    await websocket.send_bytes(message)
+                    continue
+                await websocket.send_json(
+                    message.model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude_none=True,
+                    )
+                )
+                if message.type == "ended":
+                    await websocket.close(code=1000)
+                    return
+                if message.type == "error":
+                    await websocket.close(code=1011)
+                    return
+        except (WebSocketDisconnect, asyncio.CancelledError):
+            return
+        except Exception:
+            try:
+                await websocket.send_json(
+                    BrowserStreamControl.unavailable().model_dump(
+                        mode="json",
+                        by_alias=True,
+                        exclude_none=True,
+                    )
+                )
+                await websocket.close(code=1011)
+            except (RuntimeError, WebSocketDisconnect):
+                return
+        finally:
+            for task in (receive_task, message_task):
+                if task is not None and not task.done():
+                    task.cancel()
+            pending = [
+                task
+                for task in (receive_task, message_task)
+                if task is not None
+            ]
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            if subscription is not None:
+                await subscription.close()
 
     return app
 
