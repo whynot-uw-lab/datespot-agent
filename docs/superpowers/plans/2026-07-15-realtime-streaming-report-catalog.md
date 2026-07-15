@@ -19,6 +19,16 @@
 - 기존 `/runs` 계약과 실제 Chrome 전용 profile 동작 유지
 - 사용자 변경 `blind-date-recommend.iml` 제외
 
+## 구현 완료 상태
+
+- 완료일: 2026-07-15
+- SSE: `GET /runs/{run_id}/events`, terminal 수신 후 client close, 메모리 replay 한정
+- 브라우저 영상: `WS /runs/{run_id}/browser-stream`, JSON control + binary JPEG
+- 저장 리포트: `GET /reports`, `GET /reports/{run_id}`, JSON 파일 O(N) scan
+- 운영 범위: 인증·CORS·멀티프로세스 fan-out 없는 loopback 로컬 단일 프로세스
+- 실통합: `run_20260715_033946_03682236` completed, SSE resume `1 → 2..22`,
+  WebSocket JPEG 530 frame, 저장 JSON·catalog detail 일치 확인
+
 ---
 
 ### Task 1: Implement typed run events and bounded replay hub
@@ -36,7 +46,7 @@
 - Produces: `RunEventPublisher` failure-isolating adapter
 - Produces: `RunEventSubscription.replay`, async live iteration, `reset_required`, `latest_sequence`
 
-- [ ] **Step 1: Write failing model, replay, overflow, terminal and LRU tests**
+- [x] **Step 1: Write failing model, replay, overflow, terminal and LRU tests**
 
 ```python
 class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
@@ -65,13 +75,13 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(subscription.overflowed)
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_run_event_hub -v`
 
 Expected: `ModuleNotFoundError: datespot_agent.api.events`.
 
-- [ ] **Step 3: Implement immutable Pydantic events and event-loop-local hub**
+- [x] **Step 3: Implement immutable Pydantic events and event-loop-local hub**
 
 ```python
 class RunEventType(str, Enum):
@@ -100,7 +110,7 @@ Use `deque(maxlen=replay_capacity)`, `asyncio.Queue(maxsize=subscriber_capacity)
 `OrderedDict` for terminal LRU. On overflow, unregister the subscriber, clear its queue, and push
 an internal close sentinel. `RunEventPublisher` catches hub exceptions and logs a warning.
 
-- [ ] **Step 4: Run focused tests and full regression**
+- [x] **Step 4: Run focused tests and full regression**
 
 Run: `uv run python -m unittest tests.test_run_event_hub -v`
 
@@ -108,7 +118,7 @@ Run: `uv run python -W error -m unittest discover -s tests -p 'test_*.py'`
 
 Expected: all tests pass without warnings.
 
-- [ ] **Step 5: Commit event hub**
+- [x] **Step 5: Commit event hub**
 
 ```bash
 git add src/datespot_agent/api/events.py src/datespot_agent/api/__init__.py tests/test_run_event_hub.py
@@ -136,7 +146,7 @@ git commit -m "feat: add replayable run event hub"
 - Produces: graph `progress` and `place_result` typed events
 - Produces: browser `security_check` and navigation progress events without log-prefix parsing
 
-- [ ] **Step 1: Write failing event-order and isolation tests**
+- [x] **Step 1: Write failing event-order and isolation tests**
 
 ```python
 async def test_worker_publishes_saved_report_before_terminal(self):
@@ -161,13 +171,13 @@ async def test_event_publisher_failure_does_not_fail_run(self):
     self.assertEqual(coordinator.get_status(accepted.run_id).status, RunJobStatus.COMPLETED)
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_run_coordinator tests.test_graph_service tests.test_browser_service -v`
 
 Expected: constructors reject `event_publisher` and expected events are absent.
 
-- [ ] **Step 3: Add optional publisher dependencies and exact ordering**
+- [x] **Step 3: Add optional publisher dependencies and exact ordering**
 
 ```python
 class RunCoordinator:
@@ -194,18 +204,18 @@ Extend Graph and Browser constructors with an optional publisher. Keep existing 
 Emit `place_result` immediately after a result is appended. Pass `run_id` directly to publisher;
 never recover it from formatted log text.
 
-- [ ] **Step 4: Mark queued jobs failed during shutdown and test terminal events**
+- [x] **Step 4: Mark queued jobs failed during shutdown and test terminal events**
 
 Drain queued IDs with `get_nowait()`, call `task_done()`, set `finished_at`, set the public shutdown
 error, publish `failed`, and mark terminal. Cancel the active worker after accepting becomes false.
 
-- [ ] **Step 5: Run focused and full tests**
+- [x] **Step 5: Run focused and full tests**
 
 Run: `uv run python -m unittest tests.test_run_coordinator tests.test_graph_service tests.test_browser_service -v`
 
 Run: `uv run python -W error -m unittest discover -s tests -p 'test_*.py'`
 
-- [ ] **Step 6: Commit typed publishers**
+- [x] **Step 6: Commit typed publishers**
 
 ```bash
 git add src/datespot_agent/api/coordinator.py src/datespot_agent/graph/service.py src/datespot_agent/browser tests/test_run_coordinator.py tests/test_graph_service.py tests/test_browser_service.py
@@ -228,7 +238,7 @@ git commit -m "feat: publish typed run progress events"
 - Consumes: `RunEventHub`, coordinator status lookup
 - Produces: `GET /runs/{run_id}/events`
 
-- [ ] **Step 1: Write failing SSE status, replay, reset and terminal tests**
+- [x] **Step 1: Write failing SSE status, replay, reset and terminal tests**
 
 ```python
 def test_sse_replays_after_last_event_id(self):
@@ -246,30 +256,30 @@ def test_sse_rejects_invalid_last_event_id(self):
     self.assertEqual(response.json()["detail"]["code"], "invalid_event_id")
 ```
 
-- [ ] **Step 2: Run test and verify RED**
+- [x] **Step 2: Run test and verify RED**
 
 Run: `uv run python -m unittest tests.test_api_events -v`
 
 Expected: `404` because the route does not exist.
 
-- [ ] **Step 3: Implement native FastAPI SSE route**
+- [x] **Step 3: Implement native FastAPI SSE route**
 
 Validate run and header before constructing `EventSourceResponse`. Yield synthetic
 `replay_reset`/`snapshot` without SSE IDs, replay canonical events with ID/event/data/retry, send a
 comment every 15 seconds, and return after a terminal event. Serialize using `by_alias=True`.
 
-- [ ] **Step 4: Wire one hub through runtime, coordinator and graph/browser publishers**
+- [x] **Step 4: Wire one hub through runtime, coordinator and graph/browser publishers**
 
 `AppRuntime` gains `event_hub`; `create_runtime()` creates exactly one hub and injects its publisher
 into all producers. `stop()` closes the hub after coordinator/browser cleanup.
 
-- [ ] **Step 5: Run SSE, runtime and full tests**
+- [x] **Step 5: Run SSE, runtime and full tests**
 
 Run: `uv run python -m unittest tests.test_api_events tests.test_api_runtime -v`
 
 Run: `uv run python -W error -m unittest discover -s tests -p 'test_*.py'`
 
-- [ ] **Step 6: Commit SSE API**
+- [x] **Step 6: Commit SSE API**
 
 ```bash
 git add src/datespot_agent/api/app.py src/datespot_agent/api/runtime.py tests/test_api_events.py tests/test_api_runtime.py
@@ -298,7 +308,7 @@ git commit -m "feat: stream replayable run events over SSE"
 - Produces: `BrowserStreamControl`, `BrowserStreamSubscription`
 - Produces: `WS /runs/{run_id}/browser-stream`
 
-- [ ] **Step 1: Write failing manager lifecycle and latest-frame tests**
+- [x] **Step 1: Write failing manager lifecycle and latest-frame tests**
 
 ```python
 async def test_first_viewer_starts_and_last_viewer_stops_screencast(self):
@@ -319,38 +329,38 @@ async def test_frame_ack_does_not_wait_for_slow_viewer(self):
     session.send.assert_any_await("Page.screencastFrameAck", {"sessionId": 2})
 ```
 
-- [ ] **Step 2: Run manager tests and verify RED**
+- [x] **Step 2: Run manager tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_cdp_stream_manager -v`
 
 Expected: `ModuleNotFoundError: datespot_agent.browser.stream`.
 
-- [ ] **Step 3: Implement per-run locked manager without FastAPI dependencies**
+- [x] **Step 3: Implement per-run locked manager without FastAPI dependencies**
 
 Use a run-local `asyncio.Lock`, create one `CDPSession` on the first subscriber after page attach,
 start screencast with the fixed options, and keep one latest-frame slot per subscriber. ACK every
 frame in `finally`. `detach_page()` emits `ended`, stops CDP, detaches the session, and closes all
 subscriptions.
 
-- [ ] **Step 4: Attach before navigation and detach before page close**
+- [x] **Step 4: Attach before navigation and detach before page close**
 
 Inject an optional manager into `BrowserService`. Call `attach_page(run_id, page)` before
 `navigator.open()` and call `detach_page(run_id)` on normal close plus every failed-start cleanup
 path.
 
-- [ ] **Step 5: Write and implement WebSocket contract tests**
+- [x] **Step 5: Write and implement WebSocket contract tests**
 
 Test `waiting`, `ready`, binary JPEG, `ended`, `4404`, `4409`, and `1011`. The route owns the
 FastAPI WebSocket and consumes manager subscription messages. A WebSocket disconnect closes only
 that subscription.
 
-- [ ] **Step 6: Run stream, browser, API and full tests**
+- [x] **Step 6: Run stream, browser, API and full tests**
 
 Run: `uv run python -m unittest tests.test_cdp_stream_manager tests.test_api_browser_stream tests.test_browser_service tests.test_api_runtime -v`
 
 Run: `uv run python -W error -m unittest discover -s tests -p 'test_*.py'`
 
-- [ ] **Step 7: Commit CDP WebSocket stream**
+- [x] **Step 7: Commit CDP WebSocket stream**
 
 ```bash
 git add src/datespot_agent/browser src/datespot_agent/api tests/test_cdp_stream_manager.py tests/test_api_browser_stream.py tests/test_browser_service.py tests/test_api_runtime.py
@@ -379,7 +389,7 @@ git commit -m "feat: stream browser frames over WebSocket"
 - Produces: `JsonReportCatalog.list_reports()`, `get_report()`
 - Produces: `GET /reports`, `GET /reports/{run_id}`
 
-- [ ] **Step 1: Write failing sort, filter, cursor and corruption tests**
+- [x] **Step 1: Write failing sort, filter, cursor and corruption tests**
 
 ```python
 def test_list_reports_filters_and_paginates_newest_first(self):
@@ -396,36 +406,36 @@ def test_cursor_from_other_filters_is_rejected(self):
         catalog.list_reports(ReportQuery(status=RunStatus.FAILED, cursor=cursor))
 ```
 
-- [ ] **Step 2: Run catalog tests and verify RED**
+- [x] **Step 2: Run catalog tests and verify RED**
 
 Run: `uv run python -m unittest tests.test_json_report_catalog -v`
 
 Expected: `ModuleNotFoundError: datespot_agent.reporting.catalog`.
 
-- [ ] **Step 3: Implement read-only filesystem catalog**
+- [x] **Step 3: Implement read-only filesystem catalog**
 
 Scan only numeric UTC date paths and non-dot JSON files. Validate each `RunReport`, verify path date,
 deduplicate run IDs, normalize substring filters with `casefold()`, sort by `(created_at, run_id)`
 descending, and encode a versioned base64url cursor with SHA-256 filter fingerprint. Root absence is
 an empty page; permission/I/O errors raise `ReportCatalogUnavailableError`.
 
-- [ ] **Step 4: Write failing HTTP contract tests and implement routes**
+- [x] **Step 4: Write failing HTTP contract tests and implement routes**
 
 Test camelCase summary/page payloads, filter validation, persisted detail after an empty coordinator,
 404, 422 cursor/ID, corrupt detail, and catalog unavailable errors. Keep `/runs/{id}/report`
 unchanged.
 
-- [ ] **Step 5: Wire catalog with the same expanded reports root**
+- [x] **Step 5: Wire catalog with the same expanded reports root**
 
 `AppRuntime` gains `report_catalog`; runtime passes the same `reports_root` to store and catalog.
 
-- [ ] **Step 6: Run catalog, API, runtime and full tests**
+- [x] **Step 6: Run catalog, API, runtime and full tests**
 
 Run: `uv run python -m unittest tests.test_json_report_catalog tests.test_api_reports tests.test_api_runtime -v`
 
 Run: `uv run python -W error -m unittest discover -s tests -p 'test_*.py'`
 
-- [ ] **Step 7: Commit report catalog**
+- [x] **Step 7: Commit report catalog**
 
 ```bash
 git add src/datespot_agent/reporting src/datespot_agent/api tests/test_json_report_catalog.py tests/test_api_reports.py tests/test_api_runtime.py
@@ -448,23 +458,23 @@ git commit -m "feat: add persisted report catalog API"
 - Consumes: all Tasks 1–5
 - Produces: deterministic shutdown and documented complete backend workflow
 
-- [ ] **Step 1: Write failing cleanup continuation test**
+- [x] **Step 1: Write failing cleanup continuation test**
 
 Assert cleanup order and continuation when coordinator, stream manager, browser, or event hub close
 raises. Required order: coordinator → stream manager → browser → event hub → OpenAI client.
 
-- [ ] **Step 2: Implement nested cleanup guarantees and run runtime tests**
+- [x] **Step 2: Implement nested cleanup guarantees and run runtime tests**
 
 Use a small async cleanup loop that records the first exception, awaits every cleanup operation, then
 re-raises the first exception. Run `uv run python -m unittest tests.test_api_runtime -v`.
 
-- [ ] **Step 3: Update README endpoints, local-only limits and roadmap**
+- [x] **Step 3: Update README endpoints, local-only limits and roadmap**
 
 Document `/runs/{id}/events`, `/runs/{id}/browser-stream`, `/reports`, `/reports/{id}`, SSE terminal
 client close, binary JPEG frames, memory-only replay, and file-scan catalog. Mark all remaining
 backend roadmap items complete.
 
-- [ ] **Step 4: Run fresh automated verification**
+- [x] **Step 4: Run fresh automated verification**
 
 Run: `uv lock --check`
 
@@ -474,18 +484,18 @@ Run: `git diff --check`
 
 Expected: lock clean, all tests pass without warnings, no diff whitespace errors.
 
-- [ ] **Step 5: Run real combined integration**
+- [x] **Step 5: Run real combined integration**
 
 Start Uvicorn on `127.0.0.1:8000`, submit `성수역/일식/maxPlaces=1`, connect SSE and browser
 WebSocket, verify at least one binary JPEG frame, reconnect SSE with `Last-Event-ID`, wait for
 terminal, search `/reports`, load `/reports/{run_id}`, and compare it to the saved `RunReport`.
 
-- [ ] **Step 6: Verify cleanup**
+- [x] **Step 6: Verify cleanup**
 
 Stop Uvicorn and verify port 8000, the dedicated Chrome profile process, CDP tasks, subscribers, and
 report `.tmp` files are absent.
 
-- [ ] **Step 7: Commit docs and final lifecycle changes**
+- [x] **Step 7: Commit docs and final lifecycle changes**
 
 ```bash
 git add src/datespot_agent/api/runtime.py tests/test_api_runtime.py README.md docs/superpowers/plans/2026-07-15-realtime-streaming-report-catalog.md

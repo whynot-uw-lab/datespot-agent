@@ -100,14 +100,21 @@ class _EventHubProbe:
 
 
 class _ClientProbe:
-    def __init__(self, order: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        close_error: Exception | None = None,
+        order: list[str] | None = None,
+    ) -> None:
         self.closed = False
+        self.close_error = close_error
         self.order = order
 
     async def close(self) -> None:
         self.closed = True
         if self.order is not None:
             self.order.append("openai")
+        if self.close_error is not None:
+            raise self.close_error
 
 
 class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -214,6 +221,39 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(browser.closed)
         self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
+
+    async def test_stop_preserves_first_error_when_all_cleanups_raise(self):
+        order: list[str] = []
+        coordinator = _CoordinatorProbe(
+            RuntimeError("coordinator first failure"),
+            order,
+        )
+        stream_manager = _StreamProbe(RuntimeError("stream failure"), order)
+        browser = _BrowserProbe(RuntimeError("browser failure"), order)
+        event_hub = _EventHubProbe(RuntimeError("event failure"), order)
+        client = _ClientProbe(RuntimeError("client failure"), order)
+        runtime = AppRuntime(
+            coordinator,
+            browser,
+            event_hub,
+            client,
+            stream_manager,
+            JsonReportCatalog(),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "coordinator first failure"):
+            await runtime.stop()
+
+        self.assertEqual(
+            order,
+            [
+                "coordinator",
+                "stream_manager",
+                "browser",
+                "event_hub",
+                "openai",
+            ],
+        )
 
     async def test_stop_closes_client_when_browser_cleanup_raises(self):
         coordinator = _CoordinatorProbe()

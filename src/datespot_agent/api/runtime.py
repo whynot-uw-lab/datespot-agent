@@ -46,19 +46,22 @@ class AppRuntime:
         await self.coordinator.start()
 
     async def stop(self) -> None:
-        try:
-            await self.coordinator.stop()
-        finally:
+        first_error: BaseException | None = None
+        cleanup_operations = (
+            self.coordinator.stop,
+            self.stream_manager.close,
+            self.browser_service.close_all,
+            self.event_hub.close,
+            self.openai_client.close,
+        )
+        for cleanup in cleanup_operations:
             try:
-                await self.stream_manager.close()
-            finally:
-                try:
-                    await self.browser_service.close_all()
-                finally:
-                    try:
-                        await self.event_hub.close()
-                    finally:
-                        await self.openai_client.close()
+                await cleanup()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        if first_error is not None:
+            raise first_error
 
 
 async def create_runtime(settings: Settings | None = None) -> AppRuntime:

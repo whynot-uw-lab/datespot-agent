@@ -88,7 +88,11 @@ uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 8000
 
 - `POST /runs`: 탐색 실행 접수 (`202 Accepted`)
 - `GET /runs/{run_id}`: queue 및 실행 상태 조회
+- `GET /runs/{run_id}/events`: 실행 lifecycle·진행 단계·장소 결과 SSE
+- `WS /runs/{run_id}/browser-stream`: 실행 중 Chrome 화면 JPEG stream
 - `GET /runs/{run_id}/report`: 저장 완료된 리포트 조회
+- `GET /reports`: 저장된 JSON 리포트 목록·검색
+- `GET /reports/{run_id}`: 서버 재시작 후에도 가능한 저장 리포트 상세 조회
 - `GET /health`: coordinator 상태 조회
 
 실행 접수 예시:
@@ -99,15 +103,45 @@ curl -sS -X POST http://127.0.0.1:8000/runs \
   -d '{"location":"성수역","searchKeyword":"일식","maxPlaces":1}'
 ```
 
+`POST /runs` 응답의 `runId`로 SSE를 연결한다. canonical SSE event의 `id`는 실행별로
+증가하며, 재접속할 때 `Last-Event-ID`를 보내면 그 이후 event를 replay한다. `completed`
+또는 `failed` terminal event를 받은 client는 `EventSource.close()`를 호출해야 한다.
+
+```bash
+curl -N http://127.0.0.1:8000/runs/<run_id>/events \
+  -H 'Accept: text/event-stream' \
+  -H 'Last-Event-ID: 12'
+```
+
+browser stream은 먼저 JSON control message `waiting`, `ready`, `ended`, `error` 중 하나를
+보내고, `ready` 이후 화면 frame을 WebSocket binary JPEG message로 전송한다. 첫 viewer가
+연결될 때 CDP screencast를 시작하고 마지막 viewer가 나가면 종료한다. 영상은 JPEG quality
+70, 최대 1280×720, 매 두 번째 frame 설정이며, viewer의 키보드·마우스 입력 중계는
+제공하지 않는다.
+
+저장 리포트 목록은 최신순 cursor pagination을 사용한다. `limit`은 기본 20, 최대 100이며
+`status`, `location`, `searchKeyword`, `dateFrom`, `dateTo`, `cursor` query를 지원한다.
+
+```bash
+curl -sS 'http://127.0.0.1:8000/reports?location=성수&searchKeyword=일식&limit=20'
+curl -sS http://127.0.0.1:8000/reports/<run_id>
+```
+
 경로는 환경변수로 변경할 수 있다.
 
 - `DATESPOT_REPORTS_ROOT`: JSON 리포트 루트, 기본 `reports`
 - `DATESPOT_CHROME_EXECUTABLE_PATH`: Google Chrome 실행 파일 경로
 - `DATESPOT_BROWSER_USER_DATA_DIR`: API 전용 Chrome 프로필 경로
 
-실행 상태는 프로세스 메모리에만 유지되므로 서버 재시작 시 초기화된다. 작업은 단일 FIFO
-worker가 한 번에 하나씩 처리한다. 현재 API는 인증·CORS가 없는 로컬 전용이며 외부에
-노출하지 않는다.
+실행 상태와 SSE event는 프로세스 메모리에만 유지되므로 서버 재시작 시 초기화된다.
+SSE replay는 실행당 최근 1,000개, subscriber queue는 128개, 종료 실행 LRU는 100개로
+제한된다. 저장 리포트 카탈로그는 `reports/YYYY/MM/DD/*.json`을 source of truth로 삼아
+요청마다 O(N) 파일 scan하며 DB나 별도 index를 사용하지 않는다.
+
+작업은 단일 프로세스의 FIFO worker 하나가 순차 처리한다. 멀티프로세스 event fan-out,
+실행 취소, browser 원격 입력은 제공하지 않는다. 현재 API는 인증·CORS가 없는 로컬
+전용이며 외부에 노출하지 않는다. SSE에는 공개 가능한 lifecycle·진행·장소 결과만 담고,
+raw prompt·숨겨진 추론·API key·traceback·로컬 내부 경로는 전송하지 않는다.
 
 ---
 
@@ -151,17 +185,17 @@ worker가 한 번에 하나씩 처리한다. 현재 API는 인증·CORS가 없�
 - [x] **2-5 LangGraph 실행 루프 구현**: 후보 검색 → 장소 순회 → 분석 → `analyzed`/`not_matched`/`failed` 리포트 반영
 - [x] **2-7 JSON 리포트 출력**: 분석/기준 미충족/실패 장소를 UTC 날짜별 JSON 결과로 저장
 
-### 3단계: 백엔드 로직 구현 (1~2주)
+### 3단계: 백엔드 로직 구현 (1~2주) ✅ 완료
 
 - [x] FastAPI 실행 API: 탐색 설정 입력 → 에이전트 실행
-- [ ] WebSocket/SSE로 에이전트 판단 로그·리포트 갱신 실시간 push
-- [ ] CDP 브라우저 스트림을 프론트로 중계
-- [ ] 저장된 리포트 목록·검색 API
+- [x] SSE로 공개 실행 단계·장소 결과·리포트 갱신 실시간 push 및 replay
+- [x] CDP 브라우저 스트림을 WebSocket binary JPEG로 중계
+- [x] 저장된 JSON 리포트 목록·검색·상세 API
 
 ### 4단계: 프론트엔드 (~2주)
 
 - [ ] 취향 설정 폼 (탐색 조건 + 사진·리뷰 평가 기준 + 점수 가중치)
-- [ ] 진행 화면: 브라우저 스트림 + 에이전트 사고과정 로그 + 실시간 리포트
+- [ ] 진행 화면: 브라우저 스트림 + 공개 실행 단계 로그 + 실시간 리포트
 - [ ] 최종 리포트 뷰 (점수순 정렬, 기준 미충족 사유 포함)
 
 ### 5단계: 다듬기 (1주+)
