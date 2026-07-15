@@ -48,6 +48,61 @@ class _FakePage:
 
 
 class CdpStreamManagerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_clean_detaches_keep_only_bounded_tombstones(self):
+        manager = CdpStreamManager(tombstone_capacity=3)
+
+        for index in range(10):
+            await manager.detach_page(f"run_{index}")
+
+        self.assertEqual(len(manager._states), 0)
+        self.assertEqual(len(manager._tombstones), 3)
+        self.assertEqual(
+            tuple(manager._tombstones),
+            ("run_7", "run_8", "run_9"),
+        )
+        recent = await manager.subscribe("run_9")
+        self.assertEqual(
+            await recent.next_message(),
+            BrowserStreamControl.ended(),
+        )
+
+        default_manager = CdpStreamManager()
+        for index in range(105):
+            await default_manager.detach_page(f"default_{index}")
+        self.assertEqual(len(default_manager._tombstones), 100)
+
+    async def test_repeated_attach_detach_releases_heavy_run_states(self):
+        manager = CdpStreamManager(tombstone_capacity=2)
+
+        for index in range(5):
+            run_id = f"run_cycle_{index}"
+            await manager.attach_page(run_id, _FakePage(_FakeCdpSession()))
+            await manager.detach_page(run_id)
+
+        self.assertEqual(len(manager._states), 0)
+        self.assertEqual(
+            tuple(manager._tombstones),
+            ("run_cycle_3", "run_cycle_4"),
+        )
+
+    async def test_close_releases_waiting_states_with_bounded_tombstones(self):
+        manager = CdpStreamManager(tombstone_capacity=2)
+        viewers = []
+        for index in range(4):
+            viewer = await manager.subscribe(f"run_wait_{index}")
+            await viewer.next_message()
+            viewers.append(viewer)
+
+        await manager.close()
+
+        self.assertEqual(len(manager._states), 0)
+        self.assertEqual(len(manager._tombstones), 2)
+        for viewer in viewers:
+            self.assertEqual(
+                await viewer.next_message(),
+                BrowserStreamControl.ended(),
+            )
+
     async def test_queued_viewer_waits_then_page_attach_starts_stream(self):
         session = _FakeCdpSession()
         page = _FakePage(session)

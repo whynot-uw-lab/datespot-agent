@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from collections import deque
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Literal
@@ -163,8 +163,12 @@ class _RunStreamState:
 class CdpStreamManager:
     """Playwright Page와 viewer 수명에 맞춰 CDP screencast를 관리함."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, tombstone_capacity: int = 100) -> None:
+        if tombstone_capacity <= 0:
+            raise ValueError("tombstone_capacity는 1 이상이어야 함")
         self._states: dict[str, _RunStreamState] = {}
+        self._tombstones: OrderedDict[str, None] = OrderedDict()
+        self._tombstone_capacity = tombstone_capacity
         self._frame_tasks: set[asyncio.Task[None]] = set()
         self._closed = False
         self._close_task: asyncio.Task[None] | None = None
@@ -175,6 +179,18 @@ class CdpStreamManager:
             state = _RunStreamState()
             self._states[run_id] = state
         return state
+
+    def _is_tombstoned(self, run_id: str) -> bool:
+        if run_id not in self._tombstones:
+            return False
+        self._tombstones.move_to_end(run_id)
+        return True
+
+    def _remember_tombstone(self, run_id: str) -> None:
+        self._tombstones[run_id] = None
+        self._tombstones.move_to_end(run_id)
+        while len(self._tombstones) > self._tombstone_capacity:
+            self._tombstones.popitem(last=False)
 
     def has_page(self, run_id: str) -> bool:
         state = self._states.get(run_id.strip())
@@ -187,6 +203,8 @@ class CdpStreamManager:
     async def attach_page(self, run_id: str, page: Page) -> None:
         normalized = run_id.strip()
         if not normalized or self._closed:
+            return
+        if self._is_tombstoned(normalized):
             return
         state = self._state(normalized)
         async with state.lock:
@@ -217,7 +235,10 @@ class CdpStreamManager:
         normalized = run_id.strip()
         if not normalized:
             return
-        state = self._state(normalized)
+        state = self._states.get(normalized)
+        if state is None:
+            self._remember_tombstone(normalized)
+            return
         cancelled: asyncio.CancelledError | None = None
         async with state.lock:
             state.lifecycle = _PageLifecycle.DETACHED
@@ -229,6 +250,10 @@ class CdpStreamManager:
             for subscription in tuple(state.subscribers):
                 subscription._finish(BrowserStreamControl.ended())
             state.subscribers.clear()
+        if state.session is None:
+            if self._states.get(normalized) is state:
+                self._states.pop(normalized, None)
+            self._remember_tombstone(normalized)
         if cancelled is not None:
             raise cancelled
 
@@ -238,6 +263,10 @@ class CdpStreamManager:
             raise ValueError("run_id가 비어 있음")
         if self._closed:
             raise RuntimeError("browser stream manager가 종료됨")
+        if self._is_tombstoned(normalized):
+            subscription = BrowserStreamSubscription(self, normalized)
+            subscription._finish(BrowserStreamControl.ended())
+            return subscription
         state = self._state(normalized)
         subscription = BrowserStreamSubscription(self, normalized)
         async with state.lock:
