@@ -76,6 +76,7 @@ class BrowserService:
         self._events = event_publisher
         self._stream_manager = stream_manager
         self._sessions: dict[str, BrowserSession] = {}
+        self._closing: dict[str, asyncio.Task[None]] = {}
 
     async def _launch_browser_context(
         self,
@@ -136,9 +137,9 @@ class BrowserService:
         return session
 
     async def start_session(self, run_id: str) -> None:
-        if run_id in self._sessions:
+        if run_id in self._sessions or run_id in self._closing:
             raise BrowserSessionError(
-                "이미 존재하는 브라우저 세션",
+                "이미 존재하거나 정리 중인 브라우저 세션",
                 run_id=run_id,
             )
 
@@ -278,19 +279,35 @@ class BrowserService:
         )
 
     async def close_session(self, run_id: str) -> None:
-        session = self._sessions.pop(run_id, None)
-        if session is None:
-            cleanup_task = asyncio.create_task(
-                self._safe_stream_detach(run_id),
-                name=f"datespot-browser-detach-{run_id}",
+        cleanup_task = self._closing.get(run_id)
+        if cleanup_task is None:
+            session = self._sessions.pop(run_id, None)
+            if session is None:
+                cleanup_task = asyncio.create_task(
+                    self._safe_stream_detach(run_id),
+                    name=f"datespot-browser-detach-{run_id}",
+                )
+            else:
+                cleanup_task = asyncio.create_task(
+                    self._finalize_session(run_id, session),
+                    name=f"datespot-browser-close-{run_id}",
+                )
+            self._closing[run_id] = cleanup_task
+            cleanup_task.add_done_callback(
+                lambda task, owned_run_id=run_id: self._forget_cleanup(
+                    owned_run_id,
+                    task,
+                )
             )
-            await self._await_cleanup(cleanup_task)
-            return
-        cleanup_task = asyncio.create_task(
-            self._finalize_session(run_id, session),
-            name=f"datespot-browser-close-{run_id}",
-        )
         await self._await_cleanup(cleanup_task)
+
+    def _forget_cleanup(
+        self,
+        run_id: str,
+        cleanup_task: asyncio.Task[None],
+    ) -> None:
+        if self._closing.get(run_id) is cleanup_task:
+            self._closing.pop(run_id, None)
 
     async def _finalize_session(
         self,
@@ -313,9 +330,15 @@ class BrowserService:
         await self._await_cleanup(cleanup_task)
 
     async def _close_all_sessions(self) -> None:
-        while self._sessions:
-            run_id = next(iter(self._sessions))
-            await self.close_session(run_id)
+        while self._sessions or self._closing:
+            in_flight = tuple(self._closing.values())
+            if in_flight:
+                await asyncio.gather(*in_flight)
+                for run_id, task in tuple(self._closing.items()):
+                    if task.done() and self._closing.get(run_id) is task:
+                        self._closing.pop(run_id, None)
+                continue
+            await self.close_session(next(iter(self._sessions)))
 
     @staticmethod
     async def _await_cleanup(cleanup_task: asyncio.Task[None]) -> None:

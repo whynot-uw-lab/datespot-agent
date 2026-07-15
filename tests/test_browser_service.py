@@ -856,6 +856,146 @@ class BrowserServiceTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_concurrent_close_callers_share_one_in_flight_cleanup(self):
+        calls: list[str] = []
+        page_close_started = asyncio.Event()
+        release_page_close = asyncio.Event()
+        publisher = RecordingEventPublisher(calls)
+
+        class StreamManager:
+            async def detach_page(self, run_id: str) -> None:
+                calls.append(f"detach:{run_id}")
+
+        class BlockingPage:
+            async def close(self) -> None:
+                calls.append("page:start")
+                page_close_started.set()
+                await release_page_close.wait()
+                calls.append("page:end")
+
+        class Closeable:
+            def __init__(self, name: str) -> None:
+                self.name = name
+
+            async def close(self) -> None:
+                calls.append(self.name)
+
+        class Runtime:
+            async def stop(self) -> None:
+                calls.append("playwright")
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=StreamManager(),
+            event_publisher=publisher,
+        )
+        service._sessions["run-concurrent"] = BrowserSession(
+            Runtime(),
+            Closeable("browser"),
+            Closeable("context"),
+            BlockingPage(),
+            FakeNavigator(),
+            {},
+            Closeable("chrome"),
+        )
+        first = asyncio.create_task(service.close_session("run-concurrent"))
+        await page_close_started.wait()
+
+        second = asyncio.create_task(service.close_session("run-concurrent"))
+        close_all = asyncio.create_task(service.close_all())
+        await asyncio.sleep(0)
+
+        self.assertFalse(second.done())
+        self.assertFalse(close_all.done())
+        self.assertEqual(calls.count("detach:run-concurrent"), 1)
+
+        release_page_close.set()
+        await asyncio.gather(first, second, close_all)
+
+        self.assertEqual(
+            calls,
+            [
+                "detach:run-concurrent",
+                "page:start",
+                "page:end",
+                "context",
+                "browser",
+                "chrome",
+                "playwright",
+                "event:browser_closed",
+            ],
+        )
+        self.assertEqual(
+            publisher.browser_events,
+            [("run-concurrent", "browser_closed")],
+        )
+        self.assertEqual(service._sessions, {})
+        self.assertEqual(service._closing, {})
+
+    async def test_start_rejects_run_while_session_cleanup_is_in_flight(self):
+        page_close_started = asyncio.Event()
+        release_page_close = asyncio.Event()
+
+        class Page:
+            async def close(self) -> None:
+                page_close_started.set()
+                await release_page_close.wait()
+
+        class RuntimeManager:
+            async def start(self):
+                raise AssertionError("Playwright start must not run")
+
+        service = BrowserService(pacer=FakePacer())
+        service._sessions["run-closing"] = BrowserSession(
+            None,
+            None,
+            None,
+            Page(),
+            FakeNavigator(),
+            {},
+        )
+        closing = asyncio.create_task(service.close_session("run-closing"))
+        await page_close_started.wait()
+
+        with patch(
+            "datespot_agent.browser.service.async_playwright",
+            return_value=RuntimeManager(),
+        ):
+            with self.assertRaises(BrowserSessionError):
+                await service.start_session("run-closing")
+
+        release_page_close.set()
+        await closing
+
+    async def test_concurrent_missing_closes_share_one_stream_detach(self):
+        detach_started = asyncio.Event()
+        release_detach = asyncio.Event()
+        detach_calls = 0
+
+        class StreamManager:
+            async def detach_page(self, run_id: str) -> None:
+                nonlocal detach_calls
+                detach_calls += 1
+                detach_started.set()
+                await release_detach.wait()
+
+        service = BrowserService(
+            pacer=FakePacer(),
+            stream_manager=StreamManager(),
+        )
+        first = asyncio.create_task(service.close_session("run-missing"))
+        await detach_started.wait()
+        second = asyncio.create_task(service.close_session("run-missing"))
+        await asyncio.sleep(0)
+
+        self.assertEqual(detach_calls, 1)
+        self.assertFalse(second.done())
+
+        release_detach.set()
+        await asyncio.gather(first, second)
+        self.assertEqual(detach_calls, 1)
+        self.assertEqual(service._closing, {})
+
     async def test_close_session_uses_page_context_browser_runtime_order(self):
         calls: list[str] = []
 
