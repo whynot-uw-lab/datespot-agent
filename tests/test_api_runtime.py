@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from datespot_agent.api.coordinator import RunCoordinator
+from datespot_agent.api.events import RunEventHub
 from datespot_agent.api.runtime import (
     AppRuntime,
     RuntimeConfigurationError,
@@ -19,37 +20,72 @@ from datespot_agent.reporting import JsonReportStore
 
 
 class _CoordinatorProbe:
-    def __init__(self, stop_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        stop_error: Exception | None = None,
+        order: list[str] | None = None,
+    ) -> None:
         self.started = False
         self.stopped = False
         self.stop_error = stop_error
+        self.order = order
 
     async def start(self) -> None:
         self.started = True
 
     async def stop(self) -> None:
         self.stopped = True
+        if self.order is not None:
+            self.order.append("coordinator")
         if self.stop_error is not None:
             raise self.stop_error
 
 
 class _BrowserProbe:
-    def __init__(self, close_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        close_error: Exception | None = None,
+        order: list[str] | None = None,
+    ) -> None:
         self.closed = False
         self.close_error = close_error
+        self.order = order
 
     async def close_all(self) -> None:
         self.closed = True
+        if self.order is not None:
+            self.order.append("browser")
+        if self.close_error is not None:
+            raise self.close_error
+
+
+class _EventHubProbe:
+    def __init__(
+        self,
+        close_error: Exception | None = None,
+        order: list[str] | None = None,
+    ) -> None:
+        self.closed = False
+        self.close_error = close_error
+        self.order = order
+
+    async def close(self) -> None:
+        self.closed = True
+        if self.order is not None:
+            self.order.append("event_hub")
         if self.close_error is not None:
             raise self.close_error
 
 
 class _ClientProbe:
-    def __init__(self) -> None:
+    def __init__(self, order: list[str] | None = None) -> None:
         self.closed = False
+        self.order = order
 
     async def close(self) -> None:
         self.closed = True
+        if self.order is not None:
+            self.order.append("openai")
 
 
 class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -98,10 +134,12 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         client_type.assert_not_called()
 
     async def test_app_runtime_starts_and_stops_all_resources(self):
-        coordinator = _CoordinatorProbe()
-        browser = _BrowserProbe()
-        client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, client)
+        order: list[str] = []
+        coordinator = _CoordinatorProbe(order=order)
+        browser = _BrowserProbe(order=order)
+        event_hub = _EventHubProbe(order=order)
+        client = _ClientProbe(order=order)
+        runtime = AppRuntime(coordinator, browser, event_hub, client)
 
         await runtime.start()
         await runtime.stop()
@@ -109,32 +147,56 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(coordinator.started)
         self.assertTrue(coordinator.stopped)
         self.assertTrue(browser.closed)
+        self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
+        self.assertEqual(
+            order,
+            ["coordinator", "browser", "event_hub", "openai"],
+        )
 
     async def test_stop_continues_cleanup_when_coordinator_stop_raises(self):
         coordinator = _CoordinatorProbe(RuntimeError("coordinator stop failed"))
         browser = _BrowserProbe()
+        event_hub = _EventHubProbe()
         client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, client)
+        runtime = AppRuntime(coordinator, browser, event_hub, client)
 
         with self.assertRaisesRegex(RuntimeError, "coordinator stop failed"):
             await runtime.stop()
 
         self.assertTrue(coordinator.stopped)
         self.assertTrue(browser.closed)
+        self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
 
     async def test_stop_closes_client_when_browser_cleanup_raises(self):
         coordinator = _CoordinatorProbe()
         browser = _BrowserProbe(RuntimeError("browser cleanup failed"))
+        event_hub = _EventHubProbe()
         client = _ClientProbe()
-        runtime = AppRuntime(coordinator, browser, client)
+        runtime = AppRuntime(coordinator, browser, event_hub, client)
 
         with self.assertRaisesRegex(RuntimeError, "browser cleanup failed"):
             await runtime.stop()
 
         self.assertTrue(coordinator.stopped)
         self.assertTrue(browser.closed)
+        self.assertTrue(event_hub.closed)
+        self.assertTrue(client.closed)
+
+    async def test_stop_closes_client_when_event_hub_cleanup_raises(self):
+        coordinator = _CoordinatorProbe()
+        browser = _BrowserProbe()
+        event_hub = _EventHubProbe(RuntimeError("event hub cleanup failed"))
+        client = _ClientProbe()
+        runtime = AppRuntime(coordinator, browser, event_hub, client)
+
+        with self.assertRaisesRegex(RuntimeError, "event hub cleanup failed"):
+            await runtime.stop()
+
+        self.assertTrue(coordinator.stopped)
+        self.assertTrue(browser.closed)
+        self.assertTrue(event_hub.closed)
         self.assertTrue(client.closed)
 
     async def test_create_runtime_expands_and_wires_paths(self):
@@ -159,6 +221,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
         client_type.assert_called_once_with(api_key="key")
         self.assertIs(runtime.openai_client, client_type.return_value)
+        self.assertIsInstance(runtime.event_hub, RunEventHub)
         self.assertIsInstance(runtime.browser_service, BrowserService)
         self.assertIsInstance(runtime.coordinator, RunCoordinator)
 
@@ -171,6 +234,9 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         report_store = runtime.coordinator._report_store
         self.assertIsInstance(runner, GraphRunService)
         self.assertIs(runner._browser_service, runtime.browser_service)
+        self.assertIs(runtime.coordinator._events, runner._events)
+        self.assertIs(runtime.coordinator._events, runtime.browser_service._events)
+        self.assertIs(runtime.coordinator._events._hub, runtime.event_hub)
         self.assertIsInstance(report_store, JsonReportStore)
         self.assertEqual(report_store.root, root / "reports")
         self.assertIs(runner._photo_agent._client, runtime.openai_client)

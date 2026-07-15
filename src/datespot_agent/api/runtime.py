@@ -13,6 +13,7 @@ from datespot_agent.analysis import (
     ReviewAnalysisAgent,
 )
 from datespot_agent.api.coordinator import RunCoordinator
+from datespot_agent.api.events import RunEventHub, RunEventPublisher
 from datespot_agent.browser import BrowserService, ChromeCdpLauncher
 from datespot_agent.config import Settings, get_settings
 from datespot_agent.graph import GraphRunService
@@ -32,6 +33,7 @@ class AppRuntime:
 
     coordinator: RunCoordinator
     browser_service: BrowserService
+    event_hub: RunEventHub
     openai_client: AsyncOpenAI
 
     async def start(self) -> None:
@@ -44,7 +46,10 @@ class AppRuntime:
             try:
                 await self.browser_service.close_all()
             finally:
-                await self.openai_client.close()
+                try:
+                    await self.event_hub.close()
+                finally:
+                    await self.openai_client.close()
 
 
 async def create_runtime(settings: Settings | None = None) -> AppRuntime:
@@ -64,6 +69,8 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
     reports_root = effective_settings.reports_root.expanduser()
     client = AsyncOpenAI(api_key=api_key)
     try:
+        event_hub = RunEventHub()
+        event_publisher = RunEventPublisher(event_hub)
         browser = BrowserService(
             headless=False,
             cdp_launcher=ChromeCdpLauncher(
@@ -71,6 +78,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
                 user_data_dir=profile_path,
             ),
             log=logger.info,
+            event_publisher=event_publisher,
         )
         runner = GraphRunService(
             browser_service=browser,
@@ -84,9 +92,14 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             ),
             scoring_service=PlaceScoringService(),
             log=logger.info,
+            event_publisher=event_publisher,
         )
-        coordinator = RunCoordinator(runner, JsonReportStore(reports_root))
-        return AppRuntime(coordinator, browser, client)
+        coordinator = RunCoordinator(
+            runner,
+            JsonReportStore(reports_root),
+            event_publisher=event_publisher,
+        )
+        return AppRuntime(coordinator, browser, event_hub, client)
     except BaseException:
         try:
             await client.close()
