@@ -430,7 +430,7 @@ class GraphRunService:
             )
         self._emit(
             f"[run:{state.run_id}] 사진 분석 완료: "
-            f"score={photo_analysis.photo_score}, matched={photo_analysis.matched}"
+            f"score={photo_analysis.photo_score}"
         )
         self._progress(
             state.run_id,
@@ -442,7 +442,6 @@ class GraphRunService:
             input_count=len(photo_urls),
             duration_ms=self._elapsed_ms(started_at),
             score=photo_analysis.photo_score,
-            matched=photo_analysis.matched,
         )
         return self._copy_state(
             state,
@@ -544,7 +543,7 @@ class GraphRunService:
             )
         self._emit(
             f"[run:{state.run_id}] 리뷰 분석 완료: "
-            f"score={review_analysis.review_score}, matched={review_analysis.matched}"
+            f"score={review_analysis.review_score}"
         )
         self._progress(
             state.run_id,
@@ -556,7 +555,6 @@ class GraphRunService:
             input_count=input_count,
             duration_ms=self._elapsed_ms(started_at),
             score=review_analysis.review_score,
-            matched=review_analysis.matched,
         )
         return self._copy_state(
             state,
@@ -687,9 +685,6 @@ class GraphRunService:
         analyzed = sum(
             1 for item in results if item.status is PlaceResultStatus.ANALYZED
         )
-        not_matched = sum(
-            1 for item in results if item.status is PlaceResultStatus.NOT_MATCHED
-        )
         failed = sum(1 for item in results if item.status is PlaceResultStatus.FAILED)
         report = self._report(
             state,
@@ -699,7 +694,7 @@ class GraphRunService:
         )
         self._emit(
             f"[run:{state.run_id}] report 생성 완료: "
-            f"completed, analyzed={analyzed}, not_matched={not_matched}, failed={failed}"
+            f"completed, analyzed={analyzed}, failed={failed}"
         )
         self._progress(state.run_id, "report_build", "리포트 생성 완료")
         return self._copy_state(
@@ -770,7 +765,6 @@ class GraphRunService:
         input_count: int | None = None,
         duration_ms: int | None = None,
         score: int | None = None,
-        matched: bool | None = None,
         photo_urls: tuple[str, ...] | None = None,
     ) -> None:
         if self._events is None:
@@ -785,7 +779,6 @@ class GraphRunService:
             ("input_count", input_count),
             ("duration_ms", duration_ms),
             ("score", score),
-            ("matched", matched),
             ("photo_urls", photo_urls),
         ):
             if value is not None:
@@ -860,8 +853,7 @@ class GraphRunService:
     def _sorted_results(results: list[PlaceResult]) -> list[PlaceResult]:
         status_order = {
             PlaceResultStatus.ANALYZED: 0,
-            PlaceResultStatus.NOT_MATCHED: 1,
-            PlaceResultStatus.FAILED: 2,
+            PlaceResultStatus.FAILED: 1,
         }
 
         def key(item: tuple[int, PlaceResult]) -> tuple[int, float, int]:

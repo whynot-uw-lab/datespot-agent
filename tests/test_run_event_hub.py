@@ -119,7 +119,6 @@ class RunEventModelTests(unittest.TestCase):
             input_count=2,
             duration_ms=123,
             score=8,
-            matched=True,
             photo_urls=(
                 "https://images.example/one.jpg",
                 "https://images.example/two.jpg",
@@ -139,7 +138,6 @@ class RunEventModelTests(unittest.TestCase):
                 "inputCount": 2,
                 "durationMs": 123,
                 "score": 8,
-                "matched": True,
                 "photoUrls": [
                     "https://images.example/one.jpg",
                     "https://images.example/two.jpg",
@@ -241,9 +239,9 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub.open_run("run_one")
         live = hub.subscribe("run_one", last_event_id=None)
         result = PlaceResult(
-            status="not_matched",
+            status="analyzed",
             name="원본 장소",
-            mismatch_reason="기준 미충족",
+            final_score=7.5,
         )
 
         published = hub.publish("run_one", RunEventType.PLACE_RESULT, result)
@@ -257,17 +255,16 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             replayed.model_dump(mode="json", by_alias=True)["data"],
             {
-                "status": "not_matched",
+                "status": "analyzed",
                 "placeId": None,
                 "name": "원본 장소",
                 "category": None,
                 "address": None,
                 "photoScore": None,
                 "reviewScore": None,
-                "finalScore": None,
+                "finalScore": 7.5,
                 "photoReason": None,
                 "reviewReason": None,
-                "mismatchReason": "기준 미충족",
                 "failureReason": None,
             },
         )
@@ -430,7 +427,6 @@ class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
             input_count=12,
             duration_ms=456,
             score=9,
-            matched=True,
         )
 
         self.assertIsNotNone(event)
@@ -439,7 +435,7 @@ class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event.data.input_count, 12)
         self.assertEqual(event.data.duration_ms, 456)
         self.assertEqual(event.data.score, 9)
-        self.assertTrue(event.data.matched)
+        self.assertNotIn("matched", event.data.model_dump())
 
     async def test_hub_failures_are_logged_and_not_raised(self):
         hub = RunEventHub(clock=lambda: NOW)

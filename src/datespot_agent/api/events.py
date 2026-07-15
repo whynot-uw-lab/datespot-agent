@@ -77,7 +77,6 @@ class RunProgressData(_FrozenCamelModel):
     input_count: int | None = Field(default=None, ge=0)
     duration_ms: int | None = Field(default=None, ge=0)
     score: int | None = Field(default=None, ge=0, le=10)
-    matched: bool | None = None
     photo_urls: tuple[str, ...] | None = None
 
     @model_validator(mode="after")
@@ -437,7 +436,6 @@ class RunEventPublisher:
         input_count: int | None = None,
         duration_ms: int | None = None,
         score: int | None = None,
-        matched: bool | None = None,
         photo_urls: tuple[str, ...] | None = None,
     ) -> RunEvent | None:
         return self._safe(
@@ -457,7 +455,6 @@ class RunEventPublisher:
                     input_count=input_count,
                     duration_ms=duration_ms,
                     score=score,
-                    matched=matched,
                     photo_urls=photo_urls,
                 ),
             ),

@@ -78,12 +78,12 @@ class EmptyReviewBrowserService(SuccessfulBrowserService):
 
 class PhotoAgent:
     async def analyze(self, detail, criteria):
-        return PhotoAnalysis(photo_score=8, matched=True, reason="차분함")
+        return PhotoAnalysis(photo_score=8, reason="차분함")
 
 
 class ReviewAgent:
     async def analyze(self, detail, criteria):
-        return ReviewAnalysis(review_score=9, matched=True, reason="조용함")
+        return ReviewAnalysis(review_score=9, reason="조용함")
 
 
 class ScoringService:
@@ -236,7 +236,7 @@ class GraphRunIdTests(unittest.IsolatedAsyncioTestCase):
             tuple(f"https://example.com/photo-{index}.jpg" for index in range(5)),
         )
         self.assertEqual(photo_events[2]["score"], 8)
-        self.assertTrue(photo_events[2]["matched"])
+        self.assertNotIn("matched", photo_events[2])
         self.assertIsInstance(photo_events[2]["duration_ms"], int)
 
         self.assertEqual(
@@ -246,7 +246,7 @@ class GraphRunIdTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(review_events[0]["input_count"], 50)
         self.assertNotIn("photo_urls", review_events[0])
         self.assertEqual(review_events[2]["score"], 9)
-        self.assertTrue(review_events[2]["matched"])
+        self.assertNotIn("matched", review_events[2])
         self.assertIsInstance(review_events[2]["duration_ms"], int)
 
     async def test_run_uses_caller_provided_run_id(self):
