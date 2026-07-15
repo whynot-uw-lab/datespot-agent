@@ -10,8 +10,8 @@
 
 ## 기술 스택
 
-- **client**: React
-- **backend/agent**: Python (FastAPI 권장)
+- **client**: React + TypeScript + Vite
+- **backend/agent**: Python + FastAPI
 - **agent framework**: LangGraph (+ LangChain)
 - **browser automation**: Playwright
 - **browser streaming**: Playwright CDP 기반 스트리밍
@@ -43,6 +43,9 @@ src/datespot_agent/
   reporting/          # 실행 리포트 JSON 저장
   config.py           # 환경 설정
   models.py           # 실행 설정·상태·리포트 모델
+frontend/
+  src/                # React 화면·API client·SSE/WebSocket adapter
+  e2e/                # 고정 fixture 기반 Playwright E2E
 tests/
   test_*.py           # 외부 호출 없는 자동 테스트
   run_graph_live.py   # 네이버지도·OpenAI 수동 통합 실행기
@@ -81,7 +84,25 @@ uv run python tests/run_graph_live.py
 `.env`에 `OPENAI_API_KEY`를 설정한 뒤 로컬 loopback에서 실행한다.
 
 ```bash
-uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 8000
+uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 20003
+```
+
+개발용 frontend는 별도 terminal에서 실행한다.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+브라우저에서 `http://127.0.0.1:10003/app/`을 연다. Vite가 HTTP·SSE·WebSocket을
+`127.0.0.1:20003`으로 proxy한다.
+
+production build는 FastAPI가 동일 origin의 `/app/`에서 제공한다.
+
+```bash
+cd frontend && npm run build && cd ..
+uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 20003
 ```
 
 제공 엔드포인트:
@@ -98,17 +119,17 @@ uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 8000
 실행 접수 예시:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8000/runs \
+curl -sS -X POST http://127.0.0.1:20003/runs \
   -H 'content-type: application/json' \
   -d '{"location":"성수역","searchKeyword":"일식","maxPlaces":1}'
 ```
 
 `POST /runs` 응답의 `runId`로 SSE를 연결한다. canonical SSE event의 `id`는 실행별로
 증가하며, 재접속할 때 `Last-Event-ID`를 보내면 그 이후 event를 replay한다. `completed`
-또는 `failed` terminal event를 받은 client는 `EventSource.close()`를 호출해야 한다.
+또는 `failed` terminal event를 받은 client는 SSE fetch stream을 abort해야 한다.
 
 ```bash
-curl -N http://127.0.0.1:8000/runs/<run_id>/events \
+curl -N http://127.0.0.1:20003/runs/<run_id>/events \
   -H 'Accept: text/event-stream' \
   -H 'Last-Event-ID: 12'
 ```
@@ -123,8 +144,8 @@ browser stream은 먼저 JSON control message `waiting`, `ready`, `ended`, `erro
 `status`, `location`, `searchKeyword`, `dateFrom`, `dateTo`, `cursor` query를 지원한다.
 
 ```bash
-curl -sS 'http://127.0.0.1:8000/reports?location=성수&searchKeyword=일식&limit=20'
-curl -sS http://127.0.0.1:8000/reports/<run_id>
+curl -sS 'http://127.0.0.1:20003/reports?location=성수&searchKeyword=일식&limit=20'
+curl -sS http://127.0.0.1:20003/reports/<run_id>
 ```
 
 경로는 환경변수로 변경할 수 있다.
@@ -192,11 +213,12 @@ raw prompt·숨겨진 추론·API key·traceback·로컬 내부 경로는 전송
 - [x] CDP 브라우저 스트림을 WebSocket binary JPEG로 중계
 - [x] 저장된 JSON 리포트 목록·검색·상세 API
 
-### 4단계: 프론트엔드 (~2주)
+### 4단계: 프론트엔드 (~2주) ✅ 완료
 
-- [ ] 취향 설정 폼 (탐색 조건 + 사진·리뷰 평가 기준 + 점수 가중치)
-- [ ] 진행 화면: 브라우저 스트림 + 공개 실행 단계 로그 + 실시간 리포트
-- [ ] 최종 리포트 뷰 (점수순 정렬, 기준 미충족 사유 포함)
+- [x] 취향 설정 폼 (탐색 조건 + 사진·리뷰 평가 기준 + 점수 가중치)
+- [x] 진행 화면: 브라우저 스트림 + 공개 실행 단계 로그 + 실시간 리포트
+- [x] 최종 리포트 뷰 (점수순 정렬, 기준 미충족 사유 포함)
+- [x] 저장 리포트 목록·filter·cursor pagination·상세 화면
 
 ### 5단계: 다듬기 (1주+)
 

@@ -16,6 +16,11 @@ venv/
 # Playwright
 playwright-report/
 test-results/
+frontend/output/
+
+# Frontend build and dependencies
+frontend/node_modules/
+frontend/dist/
 
 # Browser diagnostics
 artifacts/browser/

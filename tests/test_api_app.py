@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
+import tempfile
 from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
@@ -183,3 +185,49 @@ class ApiAppTests(unittest.TestCase):
             response.json()["detail"]["code"],
             "report_unavailable",
         )
+
+    def test_frontend_build_serves_assets_and_spa_fallback(self):
+        runtime = FakeRuntime()
+        with tempfile.TemporaryDirectory() as directory:
+            frontend_dist = Path(directory)
+            (frontend_dist / "assets").mkdir()
+            (frontend_dist / "index.html").write_text(
+                "<html><body>DateSpot app</body></html>",
+                encoding="utf-8",
+            )
+            (frontend_dist / "assets" / "app.js").write_text(
+                "console.log('datespot')",
+                encoding="utf-8",
+            )
+
+            with TestClient(
+                create_app(lambda: runtime, frontend_dist=frontend_dist)
+            ) as client:
+                root = client.get("/", follow_redirects=False)
+                index = client.get("/app/")
+                nested = client.get("/app/reports/run_api")
+                asset = client.get("/app/assets/app.js")
+                health = client.get("/health")
+
+        self.assertEqual(root.status_code, 307)
+        self.assertEqual(root.headers["location"], "/app/")
+        self.assertEqual(index.status_code, 200)
+        self.assertIn("DateSpot app", index.text)
+        self.assertEqual(nested.status_code, 200)
+        self.assertIn("DateSpot app", nested.text)
+        self.assertEqual(asset.status_code, 200)
+        self.assertIn("datespot", asset.text)
+        self.assertEqual(health.status_code, 200)
+
+    def test_missing_frontend_build_keeps_api_only_app_available(self):
+        runtime = FakeRuntime()
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / "missing-dist"
+            with TestClient(
+                create_app(lambda: runtime, frontend_dist=missing)
+            ) as client:
+                frontend = client.get("/app/")
+                health = client.get("/health")
+
+        self.assertEqual(frontend.status_code, 404)
+        self.assertEqual(health.status_code, 200)

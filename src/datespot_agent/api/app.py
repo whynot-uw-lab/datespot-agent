@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from inspect import isawaitable
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import (
@@ -22,9 +23,10 @@ from fastapi import (
 )
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import ValidationError
+from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 
 from datespot_agent.api.coordinator import RunCoordinator
@@ -58,6 +60,7 @@ RuntimeFactory = Callable[[], AppRuntime | Awaitable[AppRuntime]]
 _SSE_RETRY_MILLISECONDS = 2_000
 _PUBLIC_EXECUTION_ERROR = "실행 처리 중 오류가 발생함"
 _TERMINAL_EVENTS = {RunEventType.COMPLETED, RunEventType.FAILED}
+_DEFAULT_FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +139,11 @@ def _detail(code: str, message: str) -> dict[str, str]:
     return {"code": code, "message": message}
 
 
-def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
+def create_app(
+    runtime_factory: RuntimeFactory = create_runtime,
+    *,
+    frontend_dist: Path = _DEFAULT_FRONTEND_DIST,
+) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         runtime_or_awaitable = runtime_factory()
@@ -516,6 +523,28 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
                 await asyncio.gather(*pending, return_exceptions=True)
             if subscription is not None:
                 await subscription.close()
+
+    frontend_root = Path(frontend_dist).resolve()
+    frontend_index = frontend_root / "index.html"
+    if frontend_index.is_file():
+        frontend_assets = frontend_root / "assets"
+        if frontend_assets.is_dir():
+            app.mount(
+                "/app/assets",
+                StaticFiles(directory=frontend_assets),
+                name="frontend-assets",
+            )
+
+        @app.get("/", include_in_schema=False)
+        async def frontend_root_redirect() -> RedirectResponse:
+            return RedirectResponse("/app/")
+
+        @app.get("/app/{path:path}", include_in_schema=False)
+        async def frontend_spa(path: str) -> FileResponse:
+            candidate = (frontend_root / path).resolve()
+            if candidate.is_relative_to(frontend_root) and candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(frontend_index)
 
     return app
 
