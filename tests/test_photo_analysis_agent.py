@@ -53,6 +53,8 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("어둡고 차분한 분위기", content[0]["text"])
         self.assertNotIn("matched", content[0]["text"])
         self.assertIn("점수에 반영", content[0]["text"])
+        self.assertIn("통과 여부를 판정하지 않는다", content[0]["text"])
+        self.assertIn("관찰 근거와 감점 요인만", content[0]["text"])
         self.assertEqual(len(content[1:]), 5)
         self.assertTrue(all(block["type"] == "input_image" for block in content[1:]))
         self.assertEqual(

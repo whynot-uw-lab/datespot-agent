@@ -54,6 +54,8 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("조용하고 대화하기 좋음", text)
         self.assertNotIn("matched", text)
         self.assertIn("점수에 반영", text)
+        self.assertIn("통과 여부를 판정하지 않는다", text)
+        self.assertIn("관찰 근거와 감점 요인만", text)
         self.assertIn("50. 리뷰 49", text)
         self.assertNotIn("리뷰 50", text)
         self.assertEqual(

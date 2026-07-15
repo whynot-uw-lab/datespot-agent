@@ -39,8 +39,9 @@ def build_review_prompt(detail: PlaceDetail, criteria: str, reviews: list[str]) 
         "조용함, 대화 적합성, 친절함, 청결함, 대기·혼잡, "
         "데이트 적합성을 리뷰 근거로 평가한다. "
         "review_score는 0~10 정수다. "
-        "평가 기준에 부합하는 정도를 review_score와 reason으로 설명한다. "
-        "직접 근거가 부족하거나 상반되면 낮은 점수에 반영하고 reason에 명시한다.\n\n"
+        "평가 기준은 점수를 산정하는 관점일 뿐 통과 여부를 판정하지 않는다. "
+        "직접 근거가 부족하거나 상반되면 낮은 점수에 반영한다. "
+        "reason에는 관찰 근거와 감점 요인만 작성하고 이진 판정이나 추천 결론을 넣지 않는다.\n\n"
         f"리뷰 목록:\n{numbered}"
     )
 
