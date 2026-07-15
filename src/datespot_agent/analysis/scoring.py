@@ -1,4 +1,4 @@
-"""장소 분석 기준 충족 판정과 최종 점수 계산."""
+"""장소 분석 결과의 가중 최종 점수 계산."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class PlaceScoringService:
         photo_analysis: PhotoAnalysis | None,
         review_analysis: ReviewAnalysis | None,
     ) -> PlaceResult:
-        """활성 분석의 기준 충족 여부를 판정하고 가중 점수를 계산한다."""
+        """활성 분석 결과를 검증하고 가중 점수를 계산한다."""
         photo_active = weights.photo_percent > 0
         review_active = weights.review_percent > 0
 
@@ -47,18 +47,6 @@ class PlaceScoringService:
             "photo_reason": photo.reason if photo else None,
             "review_reason": review.reason if review else None,
         }
-
-        mismatches: list[str] = []
-        if photo is not None and not photo.matched:
-            mismatches.append(f"사진 기준 미충족: {photo.reason}")
-        if review is not None and not review.matched:
-            mismatches.append(f"리뷰 기준 미충족: {review.reason}")
-        if mismatches:
-            return PlaceResult(
-                status="not_matched",
-                mismatch_reason="; ".join(mismatches),
-                **common,
-            )
 
         weighted_total = Decimal(0)
         if photo is not None:

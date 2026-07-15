@@ -34,8 +34,8 @@ def build_photo_prompt(detail: PlaceDetail, criteria: str) -> str:
         f"사진 평가 기준: {criteria}\n\n"
         "조명, 좌석 배치, 공간감, 혼잡 신호, 대화 적합성을 평가한다. "
         "photo_score는 0~10 정수다. "
-        "사진 근거가 평가 기준을 전체적으로 충족할 때만 matched=true로 판단한다. "
-        "확인할 수 없는 조건은 충족한 것으로 간주하지 말고 reason에 명시한다."
+        "평가 기준에 부합하는 정도를 photo_score와 reason으로 설명한다. "
+        "확인할 수 없거나 상반되는 조건은 낮은 점수에 반영하고 reason에 명시한다."
     )
 
 
@@ -166,7 +166,6 @@ class PhotoAnalysisAgent:
             model=self._model,
             response_id=getattr(response, "id", None),
             score=parsed.photo_score,
-            matched=parsed.matched,
             duration_ms=max(
                 0,
                 int((monotonic() - started_at) * 1_000),

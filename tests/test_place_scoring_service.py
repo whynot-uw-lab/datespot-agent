@@ -20,8 +20,8 @@ class PlaceScoringServiceTests(unittest.TestCase):
         result = self.service.calculate(
             self.detail,
             Weights(photo_percent=50, review_percent=50),
-            PhotoAnalysis(photo_score=7, matched=True, reason="차분함"),
-            ReviewAnalysis(review_score=8, matched=True, reason="조용함"),
+            PhotoAnalysis(photo_score=7, reason="차분함"),
+            ReviewAnalysis(review_score=8, reason="조용함"),
         )
 
         self.assertEqual(result.status.value, "analyzed")
@@ -33,8 +33,8 @@ class PlaceScoringServiceTests(unittest.TestCase):
         result = self.service.calculate(
             self.detail,
             Weights(photo_percent=55, review_percent=45),
-            PhotoAnalysis(photo_score=7, matched=True, reason="차분함"),
-            ReviewAnalysis(review_score=8, matched=True, reason="조용함"),
+            PhotoAnalysis(photo_score=7, reason="차분함"),
+            ReviewAnalysis(review_score=8, reason="조용함"),
         )
 
         self.assertEqual(result.final_score, 7.5)
@@ -44,7 +44,7 @@ class PlaceScoringServiceTests(unittest.TestCase):
             self.detail,
             Weights(photo_percent=0, review_percent=100),
             None,
-            ReviewAnalysis(review_score=8, matched=True, reason="조용함"),
+            ReviewAnalysis(review_score=8, reason="조용함"),
         )
 
         self.assertEqual(result.status.value, "analyzed")
@@ -57,25 +57,21 @@ class PlaceScoringServiceTests(unittest.TestCase):
                 self.detail,
                 Weights(photo_percent=50, review_percent=50),
                 None,
-                ReviewAnalysis(review_score=8, matched=True, reason="조용함"),
+                ReviewAnalysis(review_score=8, reason="조용함"),
             )
 
-    def test_any_active_mismatch_returns_not_matched_with_reasons(self):
+    def test_low_scores_are_still_analyzed_and_weighted(self):
         result = self.service.calculate(
             self.detail,
             Weights(photo_percent=50, review_percent=50),
-            PhotoAnalysis(photo_score=6, matched=False, reason="좌석 간격 확인 불가"),
-            ReviewAnalysis(review_score=8, matched=False, reason="소음 우려"),
+            PhotoAnalysis(photo_score=0, reason="좌석 간격 확인 불가"),
+            ReviewAnalysis(review_score=2, reason="소음 우려"),
         )
 
-        self.assertEqual(result.status.value, "not_matched")
-        self.assertIsNone(result.final_score)
-        self.assertEqual(result.photo_score, 6)
-        self.assertEqual(result.review_score, 8)
-        self.assertEqual(
-            result.mismatch_reason,
-            "사진 기준 미충족: 좌석 간격 확인 불가; 리뷰 기준 미충족: 소음 우려",
-        )
+        self.assertEqual(result.status.value, "analyzed")
+        self.assertEqual(result.final_score, 1.0)
+        self.assertEqual(result.photo_score, 0)
+        self.assertEqual(result.review_score, 2)
 
 
 if __name__ == "__main__":

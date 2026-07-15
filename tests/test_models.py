@@ -113,26 +113,23 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
             ["https://example.com/1.jpg"],
         )
 
-    def test_analysis_models_require_match_and_integer_score_in_range(self):
-        photo = PhotoAnalysis(photo_score=7, matched=True, reason="차분함")
-        review = ReviewAnalysis(review_score=8, matched=False, reason="소음 근거가 있음")
+    def test_analysis_models_require_integer_score_and_reason_only(self):
+        photo = PhotoAnalysis(photo_score=7, reason="차분함")
+        review = ReviewAnalysis(review_score=8, reason="소음 근거가 있음")
 
-        self.assertTrue(photo.matched)
-        self.assertFalse(review.matched)
+        self.assertNotIn("matched", photo.model_dump())
+        self.assertNotIn("matched", review.model_dump())
 
         for score in (-1, 11, 7.5):
             with self.subTest(score=score):
                 with self.assertRaises(ValidationError):
-                    PhotoAnalysis(photo_score=score, matched=True, reason="근거")
-
-        with self.assertRaises(ValidationError):
-            PhotoAnalysis(photo_score=7, reason="근거")
+                    PhotoAnalysis(photo_score=score, reason="근거")
 
     def test_identifying_fields_and_reasons_cannot_be_blank(self):
         with self.assertRaises(ValidationError):
             CandidatePlace(place_id=" ", name="우니도")
         with self.assertRaises(ValidationError):
-            ReviewAnalysis(review_score=8, matched=True, reason=" ")
+            ReviewAnalysis(review_score=8, reason=" ")
 
 
 class ResultAndReportModelTests(unittest.TestCase):
@@ -161,22 +158,19 @@ class ResultAndReportModelTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             PlaceResult(status="analyzed", name="우니도", final_score=7.55)
 
-    def test_not_matched_requires_reason_and_forbids_final_score(self):
-        result = PlaceResult(
-            status="not_matched",
-            name="우니도",
-            photo_score=6,
-            photo_reason="사진 기준 미충족",
-            mismatch_reason="사진 기준 미충족: 사진 기준 미충족",
-        )
-
-        self.assertIsNone(result.final_score)
+    def test_place_result_rejects_removed_match_contract(self):
         with self.assertRaises(ValidationError):
             PlaceResult(
                 status="not_matched",
                 name="우니도",
+                mismatch_reason="기준 미충족",
+            )
+        with self.assertRaises(ValidationError):
+            PlaceResult(
+                status="analyzed",
+                name="우니도",
                 final_score=6.0,
-                mismatch_reason="사진 기준 미충족",
+                mismatch_reason="제거된 필드",
             )
 
     def test_run_report_requires_aware_datetime_and_normalizes_utc(self):
@@ -213,9 +207,9 @@ class ResultAndReportModelTests(unittest.TestCase):
             config=RunConfig(location="신사역", search_keyword="음식점"),
             results=[
                 PlaceResult(
-                    status="not_matched",
+                    status="analyzed",
                     name="우니도",
-                    mismatch_reason="리뷰 기준 미충족",
+                    final_score=7.5,
                 )
             ],
             created_at=datetime(2026, 7, 13, tzinfo=timezone.utc),
@@ -225,7 +219,8 @@ class ResultAndReportModelTests(unittest.TestCase):
 
         self.assertEqual(payload["runId"], "run-1")
         self.assertEqual(payload["config"]["searchKeyword"], "음식점")
-        self.assertEqual(payload["results"][0]["mismatchReason"], "리뷰 기준 미충족")
+        self.assertEqual(payload["results"][0]["finalScore"], 7.5)
+        self.assertNotIn("mismatchReason", payload["results"][0])
 
 
 class GraphStateModelTests(unittest.TestCase):

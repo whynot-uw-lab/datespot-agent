@@ -72,13 +72,11 @@ class PlaceDetail(CamelModel):
 
 class PhotoAnalysis(CamelModel):
     photo_score: int = Field(ge=0, le=10)
-    matched: bool
     reason: str = Field(min_length=1)
 
 
 class ReviewAnalysis(CamelModel):
     review_score: int = Field(ge=0, le=10)
-    matched: bool
     reason: str = Field(min_length=1)
 
 
@@ -91,7 +89,6 @@ class RunStatus(str, Enum):
 
 class PlaceResultStatus(str, Enum):
     ANALYZED = "analyzed"
-    NOT_MATCHED = "not_matched"
     FAILED = "failed"
 
 
@@ -106,7 +103,6 @@ class PlaceResult(CamelModel):
     final_score: float | None = Field(default=None, ge=0, le=10, multiple_of=0.1)
     photo_reason: str | None = None
     review_reason: str | None = None
-    mismatch_reason: str | None = None
     failure_reason: str | None = None
 
     @model_validator(mode="after")
@@ -114,13 +110,6 @@ class PlaceResult(CamelModel):
         if self.status is PlaceResultStatus.ANALYZED:
             if self.final_score is None:
                 raise ValueError("분석 완료 결과에는 final_score가 필요하다")
-            if self.mismatch_reason is not None:
-                raise ValueError("분석 완료 결과에는 mismatch_reason을 넣을 수 없다")
-        if self.status is PlaceResultStatus.NOT_MATCHED:
-            if not self.mismatch_reason:
-                raise ValueError("기준 미충족 결과에는 mismatch_reason이 필요하다")
-            if self.final_score is not None:
-                raise ValueError("기준 미충족 결과에는 final_score를 넣을 수 없다")
         if self.status is PlaceResultStatus.FAILED and not self.failure_reason:
             raise ValueError("실패 결과에는 failure_reason이 필요하다")
         return self

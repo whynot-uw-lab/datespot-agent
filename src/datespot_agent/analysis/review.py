@@ -39,8 +39,8 @@ def build_review_prompt(detail: PlaceDetail, criteria: str, reviews: list[str]) 
         "조용함, 대화 적합성, 친절함, 청결함, 대기·혼잡, "
         "데이트 적합성을 리뷰 근거로 평가한다. "
         "review_score는 0~10 정수다. "
-        "리뷰 근거가 평가 기준을 전체적으로 충족할 때만 matched=true로 판단한다. "
-        "직접 근거가 부족하면 충족한 것으로 간주하지 말고 reason에 명시한다.\n\n"
+        "평가 기준에 부합하는 정도를 review_score와 reason으로 설명한다. "
+        "직접 근거가 부족하거나 상반되면 낮은 점수에 반영하고 reason에 명시한다.\n\n"
         f"리뷰 목록:\n{numbered}"
     )
 
@@ -176,7 +176,6 @@ class ReviewAnalysisAgent:
             model=self._model,
             response_id=getattr(response, "id", None),
             score=parsed.review_score,
-            matched=parsed.matched,
             duration_ms=max(
                 0,
                 int((monotonic() - started_at) * 1_000),

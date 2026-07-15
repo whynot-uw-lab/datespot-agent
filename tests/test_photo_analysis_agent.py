@@ -27,7 +27,7 @@ class FakeResponses:
 
 class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_uses_criteria_and_at_most_five_photos(self):
-        parsed = PhotoAnalysis(photo_score=8, matched=True, reason="차분한 조명")
+        parsed = PhotoAnalysis(photo_score=8, reason="차분한 조명")
         responses = FakeResponses(parsed=parsed)
         client = SimpleNamespace(responses=responses)
         agent = PhotoAnalysisAgent(client, model="gpt-5.4-nano", max_output_tokens=700)
@@ -51,7 +51,8 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(responses.kwargs["text_format"], PhotoAnalysis)
         content = responses.kwargs["input"][0]["content"]
         self.assertIn("어둡고 차분한 분위기", content[0]["text"])
-        self.assertIn("matched", content[0]["text"])
+        self.assertNotIn("matched", content[0]["text"])
+        self.assertIn("점수에 반영", content[0]["text"])
         self.assertEqual(len(content[1:]), 5)
         self.assertTrue(all(block["type"] == "input_image" for block in content[1:]))
         self.assertEqual(

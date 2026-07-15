@@ -27,7 +27,7 @@ class FakeResponses:
 
 class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_uses_criteria_and_at_most_fifty_reviews(self):
-        parsed = ReviewAnalysis(review_score=8, matched=True, reason="조용함 언급")
+        parsed = ReviewAnalysis(review_score=8, reason="조용함 언급")
         responses = FakeResponses(parsed=parsed)
         client = SimpleNamespace(responses=responses)
         agent = ReviewAnalysisAgent(client, model="gpt-5.4-nano", max_output_tokens=700)
@@ -52,7 +52,8 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(responses.kwargs["text_format"], ReviewAnalysis)
         text = responses.kwargs["input"][0]["content"][0]["text"]
         self.assertIn("조용하고 대화하기 좋음", text)
-        self.assertIn("matched", text)
+        self.assertNotIn("matched", text)
+        self.assertIn("점수에 반영", text)
         self.assertIn("50. 리뷰 49", text)
         self.assertNotIn("리뷰 50", text)
         self.assertEqual(
