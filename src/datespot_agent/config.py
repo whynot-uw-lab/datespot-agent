@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from dotenv import dotenv_values
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -42,6 +43,18 @@ class Settings(BaseSettings):
     )
 
 
+def resolve_project_openai_api_key(
+    configured_key: str,
+    *,
+    env_path: Path = Path(".env"),
+) -> str:
+    """프로젝트 .env 키가 있으면 상속된 셸 키보다 우선함."""
+    dotenv_key = dotenv_values(env_path).get("OPENAI_API_KEY")
+    if isinstance(dotenv_key, str) and dotenv_key.strip():
+        return dotenv_key.strip()
+    return configured_key.strip()
+
+
 @lru_cache
 def get_settings() -> Settings:
     """캐시된 Settings 인스턴스."""
@@ -57,4 +70,5 @@ __all__ = [
     "Settings",
     "Weights",
     "get_settings",
+    "resolve_project_openai_api_key",
 ]

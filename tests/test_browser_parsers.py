@@ -61,6 +61,47 @@ class BrowserParserTests(unittest.TestCase):
 
         self.assertEqual(candidates[0].place_id, "1720070048")
 
+    def test_candidate_rows_prefer_dedicated_title_over_joined_link_text(self):
+        candidates, targets = parse_candidate_rows(
+            [
+                {
+                    "domIndex": 7,
+                    "name": "하루인이자카야",
+                    "title": "하루인",
+                    "rawText": "하루인이자카야 영업 중 리뷰 675",
+                    "href": "#",
+                }
+            ],
+            [{"id": "1916168522", "name": "하루인"}],
+        )
+
+        self.assertEqual(
+            [(item.place_id, item.name) for item in candidates],
+            [("1916168522", "하루인")],
+        )
+        self.assertEqual(targets["1916168522"].dom_index, 7)
+
+    def test_candidate_rows_fall_back_to_longest_apollo_name_prefix(self):
+        candidates, _ = parse_candidate_rows(
+            [
+                {
+                    "domIndex": 7,
+                    "name": "하루인이자카야",
+                    "rawText": "하루인이자카야 영업 중 리뷰 675",
+                    "href": "#",
+                }
+            ],
+            [
+                {"id": "100", "name": "하루"},
+                {"id": "1916168522", "name": "하루인"},
+            ],
+        )
+
+        self.assertEqual(
+            [(item.place_id, item.name) for item in candidates],
+            [("1916168522", "하루인")],
+        )
+
     def test_home_photo_review_and_zoom_parsers(self):
         metadata = parse_home_text(
             [

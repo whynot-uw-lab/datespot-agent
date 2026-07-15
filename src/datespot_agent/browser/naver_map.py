@@ -354,6 +354,8 @@ class NaverMapPage:
               return {
                 domIndex,
                 rawText: (row.innerText || '').replace(/\\s+/g, ' ').trim(),
+                title: (link?.querySelector('.TYaxT')?.textContent || '')
+                  .replace(/\\s+/g, ' ').trim(),
                 name: (link?.textContent || '').replace(/\\s+/g, ' ').trim(),
                 href: link?.getAttribute('href') || '',
               };

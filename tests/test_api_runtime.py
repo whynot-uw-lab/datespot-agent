@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+from datespot_agent import config as config_module
 from datespot_agent.api.coordinator import RunCoordinator
 from datespot_agent.api.events import RunEventHub
 from datespot_agent.api.runtime import (
@@ -130,6 +131,26 @@ class _RunLogProbe:
 
 
 class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
+    def test_project_dotenv_api_key_overrides_inherited_shell_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            env_path.write_text(
+                "OPENAI_API_KEY=project-dotenv-key\n",
+                encoding="utf-8",
+            )
+            resolver = getattr(
+                config_module,
+                "resolve_project_openai_api_key",
+                lambda configured_key, *, env_path: None,
+            )
+
+            resolved = resolver(
+                "inherited-shell-key",
+                env_path=env_path,
+            )
+
+        self.assertEqual(resolved, "project-dotenv-key")
+
     def test_settings_parse_api_paths(self):
         settings = Settings.model_validate(
             {
@@ -178,6 +199,32 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
                     await create_runtime(settings)
 
         client_type.assert_not_called()
+
+    async def test_create_runtime_uses_project_dotenv_api_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            chrome = Path(directory) / "Chrome"
+            chrome.write_text("binary", encoding="utf-8")
+            settings = Settings(
+                OPENAI_API_KEY="inherited-shell-key",
+                DATESPOT_CHROME_EXECUTABLE_PATH=chrome,
+            )
+
+            with (
+                patch(
+                    "datespot_agent.api.runtime.get_settings",
+                    return_value=settings,
+                ),
+                patch(
+                    "datespot_agent.api.runtime.resolve_project_openai_api_key",
+                    return_value="project-dotenv-key",
+                    create=True,
+                ) as resolver,
+                patch("datespot_agent.api.runtime.AsyncOpenAI") as client_type,
+            ):
+                await create_runtime()
+
+        resolver.assert_called_once_with("inherited-shell-key")
+        client_type.assert_called_once_with(api_key="project-dotenv-key")
 
     async def test_app_runtime_starts_and_stops_all_resources(self):
         order: list[str] = []

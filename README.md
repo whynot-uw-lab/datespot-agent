@@ -82,6 +82,7 @@ uv run python tests/run_graph_live.py
 ### FastAPI 실행 API
 
 `.env`에 `OPENAI_API_KEY`를 설정한 뒤 로컬 loopback에서 실행한다.
+FastAPI runtime도 상속된 셸 환경변수보다 프로젝트 `.env`의 키를 우선 사용한다.
 
 ```bash
 uv run uvicorn datespot_agent.api.app:app --host 127.0.0.1 --port 20003

@@ -6,7 +6,6 @@ import asyncio
 import sys
 from pathlib import Path
 
-from dotenv import dotenv_values
 from openai import AsyncOpenAI
 
 from datespot_agent.analysis import (
@@ -15,7 +14,7 @@ from datespot_agent.analysis import (
     ReviewAnalysisAgent,
 )
 from datespot_agent.browser import BrowserService, ChromeCdpLauncher
-from datespot_agent.config import get_settings
+from datespot_agent.config import get_settings, resolve_project_openai_api_key
 from datespot_agent.graph import GraphRunService
 from datespot_agent.models import RunConfig, RunReport, RunStatus
 from datespot_agent.reporting import JsonReportStore, ReportStorageError
@@ -82,10 +81,7 @@ def resolve_live_api_key(
     *,
     env_path: Path = PROJECT_ENV_PATH,
 ) -> str:
-    dotenv_key = dotenv_values(env_path).get("OPENAI_API_KEY")
-    if isinstance(dotenv_key, str) and dotenv_key.strip():
-        return dotenv_key.strip()
-    return configured_key.strip()
+    return resolve_project_openai_api_key(configured_key, env_path=env_path)
 
 
 # /** 라이브 실행용 외부 Chrome CDP 서비스를 만듦. */

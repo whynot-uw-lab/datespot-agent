@@ -70,14 +70,29 @@ def parse_candidate_rows(
         for item in businesses
         if item.get("id") and item.get("name")
     }
+    apollo_names_by_length = sorted(apollo_ids, key=len, reverse=True)
     candidates: list[CandidatePlace] = []
     targets: dict[str, CandidateTarget] = {}
     for row in rows:
         raw_text = normalize_text(str(row.get("rawText", "")))
-        name = clean_place_name(str(row.get("name", "")))
+        name = clean_place_name(
+            str(row.get("title") or row.get("name", ""))
+        )
         if not name or "광고" in raw_text:
             continue
         place_id = extract_place_id(str(row.get("href", ""))) or apollo_ids.get(name)
+        if not place_id:
+            matched_name = next(
+                (
+                    apollo_name
+                    for apollo_name in apollo_names_by_length
+                    if name.startswith(apollo_name)
+                ),
+                None,
+            )
+            if matched_name is not None:
+                name = matched_name
+                place_id = apollo_ids[matched_name]
         if not place_id or place_id in targets:
             continue
         target = CandidateTarget(

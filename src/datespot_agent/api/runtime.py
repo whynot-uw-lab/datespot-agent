@@ -19,7 +19,11 @@ from datespot_agent.browser import (
     CdpStreamManager,
     ChromeCdpLauncher,
 )
-from datespot_agent.config import Settings, get_settings
+from datespot_agent.config import (
+    Settings,
+    get_settings,
+    resolve_project_openai_api_key,
+)
 from datespot_agent.graph import GraphRunService
 from datespot_agent.observability import RunLogManager, log_event
 from datespot_agent.reporting import JsonReportCatalog, JsonReportStore
@@ -86,7 +90,11 @@ class AppRuntime:
 async def create_runtime(settings: Settings | None = None) -> AppRuntime:
     """설정을 검증하고 운영용 의존성 graph를 조립함."""
     effective_settings = settings or get_settings()
-    api_key = effective_settings.openai_api_key.strip()
+    api_key = (
+        resolve_project_openai_api_key(effective_settings.openai_api_key)
+        if settings is None
+        else effective_settings.openai_api_key.strip()
+    )
     if not api_key:
         raise RuntimeConfigurationError("OPENAI_API_KEY가 비어 있음")
 
