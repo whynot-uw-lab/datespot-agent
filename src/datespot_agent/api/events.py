@@ -133,12 +133,14 @@ class RunEventSubscription:
         reset_required: bool,
         latest_sequence: int,
         capacity: int,
+        after_sequence: int | None,
         on_close: Callable[[RunEventSubscription], None] | None,
     ) -> None:
         self.replay = replay
         self.reset_required = reset_required
         self.latest_sequence = latest_sequence
         self.overflowed = False
+        self._after_sequence = after_sequence
         self._queue: asyncio.Queue[RunEvent | object] = asyncio.Queue(
             maxsize=capacity
         )
@@ -168,6 +170,11 @@ class RunEventSubscription:
         self.close()
 
     def _put(self, event: RunEvent) -> None:
+        if (
+            self._after_sequence is not None
+            and event.sequence <= self._after_sequence
+        ):
+            return
         self._queue.put_nowait(event)
 
     def _finish(self, *, drain: bool, overflowed: bool = False) -> None:
@@ -220,8 +227,7 @@ class RunEventHub:
 
     def open_run(self, run_id: str) -> None:
         self._ensure_open()
-        if not run_id.strip():
-            raise ValueError("run_id는 비어 있을 수 없다")
+        run_id = self._normalize_run_id(run_id)
         if run_id in self._active or run_id in self._terminal:
             raise ValueError(f"이미 열린 run: {run_id}")
         self._active[run_id] = _RunBuffer(self._replay_capacity)
@@ -233,6 +239,7 @@ class RunEventHub:
         data: object,
     ) -> RunEvent:
         self._ensure_open()
+        run_id = self._normalize_run_id(run_id)
         if run_id in self._terminal:
             raise RuntimeError(f"terminal run에는 publish할 수 없음: {run_id}")
         buffer = self._active.get(run_id)
@@ -247,18 +254,19 @@ class RunEventHub:
                 "type": event_type,
                 "data": data,
             }
-        )
+        ).model_copy(deep=True)
         buffer.latest_sequence = sequence
         buffer.events.append(event)
         for subscription in tuple(buffer.subscribers):
             try:
-                subscription._put(event)
+                subscription._put(event.model_copy(deep=True))
             except asyncio.QueueFull:
                 subscription._finish(drain=False, overflowed=True)
-        return event
+        return event.model_copy(deep=True)
 
     def mark_terminal(self, run_id: str) -> None:
         self._ensure_open()
+        run_id = self._normalize_run_id(run_id)
         if run_id in self._terminal:
             self._terminal.move_to_end(run_id)
             return
@@ -277,36 +285,43 @@ class RunEventHub:
         last_event_id: int | None,
     ) -> RunEventSubscription:
         self._ensure_open()
+        run_id = self._normalize_run_id(run_id)
         if last_event_id is not None and last_event_id < 0:
             raise ValueError("last_event_id는 0 이상이어야 한다")
-        buffer = self._active.get(run_id) or self._terminal.get(run_id)
+        buffer = self._active.get(run_id)
+        is_terminal = False
+        if buffer is None:
+            buffer = self._terminal.get(run_id)
+            if buffer is not None:
+                self._terminal.move_to_end(run_id)
+                is_terminal = True
         if buffer is None:
             raise KeyError(run_id)
         events = tuple(buffer.events)
         latest = buffer.latest_sequence
         reset_required = False
         if last_event_id is None:
-            replay = events
-        elif last_event_id > latest:
-            reset_required = True
-            replay = ()
+            replay_events = events
         elif events and last_event_id < events[0].sequence - 1:
             reset_required = True
-            replay = ()
+            replay_events = events
         else:
-            replay = tuple(
+            replay_events = tuple(
                 event for event in events if event.sequence > last_event_id
             )
+        replay = tuple(
+            event.model_copy(deep=True) for event in replay_events
+        )
 
         def unregister(subscription: RunEventSubscription) -> None:
             buffer.subscribers.discard(subscription)
 
-        is_terminal = run_id in self._terminal
         subscription = RunEventSubscription(
             replay=replay,
             reset_required=reset_required,
             latest_sequence=latest,
             capacity=self._subscriber_capacity,
+            after_sequence=last_event_id,
             on_close=None if is_terminal else unregister,
         )
         if is_terminal:
@@ -330,6 +345,13 @@ class RunEventHub:
         if self._closed:
             raise RuntimeError("run event hub가 닫힘")
 
+    @staticmethod
+    def _normalize_run_id(run_id: str) -> str:
+        normalized = run_id.strip()
+        if not normalized:
+            raise ValueError("run_id는 비어 있을 수 없다")
+        return normalized
+
 
 class RunEventPublisher:
     """Hub 오류를 실행 workflow에서 격리하는 typed publisher."""
@@ -346,15 +368,18 @@ class RunEventPublisher:
         event_type: RunEventType,
         status: RunStatusResponse,
     ) -> RunEvent | None:
-        data = RunLifecycleData(
-            status=status.status,
-            report_available=status.report_available,
-            error=status.error,
-        )
         return self._safe(
             run_id,
             event_type.value,
-            lambda: self._hub.publish(run_id, event_type, data),
+            lambda: self._hub.publish(
+                run_id,
+                event_type,
+                RunLifecycleData(
+                    status=status.status,
+                    report_available=status.report_available,
+                    error=status.error,
+                ),
+            ),
         )
 
     def progress(
@@ -366,16 +391,19 @@ class RunEventPublisher:
         place_id: str | None = None,
         place_name: str | None = None,
     ) -> RunEvent | None:
-        data = RunProgressData(
-            stage=stage,
-            message=message,
-            place_id=place_id,
-            place_name=place_name,
-        )
         return self._safe(
             run_id,
             RunEventType.PROGRESS.value,
-            lambda: self._hub.publish(run_id, RunEventType.PROGRESS, data),
+            lambda: self._hub.publish(
+                run_id,
+                RunEventType.PROGRESS,
+                RunProgressData(
+                    stage=stage,
+                    message=message,
+                    place_id=place_id,
+                    place_name=place_name,
+                ),
+            ),
         )
 
     def place_result(self, run_id: str, result: PlaceResult) -> RunEvent | None:
@@ -394,11 +422,14 @@ class RunEventPublisher:
         return self._browser(run_id, RunEventType.BROWSER_CLOSED)
 
     def report_saved(self, run_id: str, report_url: str) -> RunEvent | None:
-        data = RunReportSavedData(report_url=report_url)
         return self._safe(
             run_id,
             RunEventType.REPORT_SAVED.value,
-            lambda: self._hub.publish(run_id, RunEventType.REPORT_SAVED, data),
+            lambda: self._hub.publish(
+                run_id,
+                RunEventType.REPORT_SAVED,
+                RunReportSavedData(report_url=report_url),
+            ),
         )
 
     def terminal(
@@ -407,22 +438,37 @@ class RunEventPublisher:
         event_type: RunEventType,
         status: RunStatusResponse,
     ) -> RunEvent | None:
-        event = self.lifecycle(run_id, event_type, status)
-        self._safe(
+        return self._safe(
             run_id,
-            "mark_terminal",
-            lambda: self._hub.mark_terminal(run_id),
+            event_type.value,
+            lambda: self._publish_terminal(run_id, event_type, status),
         )
+
+    def _publish_terminal(
+        self,
+        run_id: str,
+        event_type: RunEventType,
+        status: RunStatusResponse,
+    ) -> RunEvent:
+        event = self._hub.publish(
+            run_id,
+            event_type,
+            RunLifecycleData(
+                status=status.status,
+                report_available=status.report_available,
+                error=status.error,
+            ),
+        )
+        self._hub.mark_terminal(run_id)
         return event
 
     def _browser(
         self, run_id: str, event_type: RunEventType
     ) -> RunEvent | None:
-        data = RunBrowserData()
         return self._safe(
             run_id,
             event_type.value,
-            lambda: self._hub.publish(run_id, event_type, data),
+            lambda: self._hub.publish(run_id, event_type, RunBrowserData()),
         )
 
     def _safe(

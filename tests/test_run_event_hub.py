@@ -13,6 +13,8 @@ from datespot_agent.api.events import (
     RunEventPublisher,
     RunEventType,
 )
+from datespot_agent.api.models import RunJobStatus, RunStatusResponse
+from datespot_agent.models import PlaceResult, RunConfig
 
 
 NOW = datetime(2026, 7, 15, 1, 2, 3, tzinfo=timezone.utc)
@@ -33,6 +35,16 @@ def progress(message: str) -> dict[str, object]:
         "placeId": None,
         "placeName": None,
     }
+
+
+def status_response(status: RunJobStatus) -> RunStatusResponse:
+    return RunStatusResponse(
+        run_id="run_one",
+        status=status,
+        config=RunConfig(location="신사역", search_keyword="음식점"),
+        created_at=NOW,
+        report_available=status is RunJobStatus.COMPLETED,
+    )
 
 
 class RunEventModelTests(unittest.TestCase):
@@ -147,21 +159,96 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(await anext(subscription), expected)
 
-    async def test_old_or_ahead_id_requires_reset_without_partial_replay(self):
+    async def test_old_id_requires_reset_and_replays_retained_events(self):
         hub = RunEventHub(replay_capacity=2, clock=lambda: NOW)
+        hub.open_run("run_one")
+        events = [
+            hub.publish(
+                "run_one", RunEventType.PROGRESS, progress(str(value))
+            )
+            for value in range(3)
+        ]
+
+        old = hub.subscribe("run_one", last_event_id=0)
+
+        self.assertTrue(old.reset_required)
+        self.assertEqual(old.replay, tuple(events[-2:]))
+
+    async def test_ahead_id_waits_for_events_after_id_without_reset(self):
+        hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")
         for value in range(3):
             hub.publish(
                 "run_one", RunEventType.PROGRESS, progress(str(value))
             )
 
-        old = hub.subscribe("run_one", last_event_id=0)
         ahead = hub.subscribe("run_one", last_event_id=4)
 
-        self.assertTrue(old.reset_required)
-        self.assertEqual(old.replay, ())
-        self.assertTrue(ahead.reset_required)
+        self.assertFalse(ahead.reset_required)
+        self.assertEqual(ahead.replay, ())
         self.assertEqual(ahead.latest_sequence, 3)
+        hub.publish("run_one", RunEventType.PROGRESS, progress("four"))
+        expected = hub.publish(
+            "run_one", RunEventType.PROGRESS, progress("five")
+        )
+        self.assertEqual(await anext(ahead), expected)
+
+    async def test_place_result_replay_isolated_from_input_and_delivery(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        live = hub.subscribe("run_one", last_event_id=None)
+        result = PlaceResult(
+            status="not_matched",
+            name="원본 장소",
+            mismatch_reason="기준 미충족",
+        )
+
+        published = hub.publish(
+            "run_one", RunEventType.PLACE_RESULT, result
+        )
+        delivered = await anext(live)
+        result.name = "입력 변경"
+        published.data.name = "반환값 변경"
+        delivered.data.name = "구독값 변경"
+
+        replayed = hub.subscribe("run_one", last_event_id=None).replay[0]
+        self.assertEqual(replayed.data.name, "원본 장소")
+        self.assertEqual(
+            replayed.model_dump(mode="json", by_alias=True)["data"],
+            {
+                "status": "not_matched",
+                "placeId": None,
+                "name": "원본 장소",
+                "category": None,
+                "address": None,
+                "photoScore": None,
+                "reviewScore": None,
+                "finalScore": None,
+                "photoReason": None,
+                "reviewReason": None,
+                "mismatchReason": "기준 미충족",
+                "failureReason": None,
+            },
+        )
+
+    async def test_snapshot_replay_isolated_from_input_and_subscription(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        snapshot = status_response(RunJobStatus.QUEUED)
+
+        hub.publish("run_one", RunEventType.SNAPSHOT, snapshot)
+        snapshot.config.location = "입력 변경"
+        delivered = hub.subscribe("run_one", last_event_id=None).replay[0]
+        delivered.data.config.location = "구독값 변경"
+
+        replayed = hub.subscribe("run_one", last_event_id=None).replay[0]
+        self.assertEqual(replayed.data.config.location, "신사역")
+        self.assertEqual(
+            replayed.model_dump(mode="json", by_alias=True)["data"][
+                "runId"
+            ],
+            "run_one",
+        )
 
     async def test_subscriber_overflow_does_not_block_publish(self):
         hub = RunEventHub(subscriber_capacity=1, clock=lambda: NOW)
@@ -204,17 +291,24 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_terminal_lru_evicts_oldest_run(self):
         hub = RunEventHub(terminal_capacity=2, clock=lambda: NOW)
-        for run_id in ("run_one", "run_two", "run_three"):
+        for run_id in ("run_one", "run_two"):
             hub.open_run(run_id)
             hub.publish(
                 run_id, RunEventType.COMPLETED, lifecycle("completed")
             )
             hub.mark_terminal(run_id)
 
+        hub.subscribe("run_one", last_event_id=None)
+        hub.open_run("run_three")
+        hub.publish(
+            "run_three", RunEventType.COMPLETED, lifecycle("completed")
+        )
+        hub.mark_terminal("run_three")
+
         with self.assertRaises(KeyError):
-            hub.subscribe("run_one", last_event_id=None)
+            hub.subscribe("run_two", last_event_id=None)
         self.assertEqual(
-            hub.subscribe("run_two", last_event_id=None).latest_sequence,
+            hub.subscribe("run_one", last_event_id=None).latest_sequence,
             1,
         )
         self.assertEqual(
@@ -272,6 +366,22 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             hub.subscribe("run_one", last_event_id=-1)
 
+    async def test_run_id_is_normalized_before_keying_and_event_creation(self):
+        hub = RunEventHub(clock=lambda: NOW)
+
+        hub.open_run("  run_one  ")
+        event = hub.publish(
+            "run_one", RunEventType.QUEUED, lifecycle("queued")
+        )
+
+        self.assertEqual(event.run_id, "run_one")
+        self.assertEqual(
+            hub.subscribe(" run_one ", last_event_id=None).replay,
+            (event,),
+        )
+        with self.assertRaises(ValueError):
+            hub.open_run("run_one")
+
 
 class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
     async def test_hub_failures_are_logged_and_not_raised(self):
@@ -283,6 +393,52 @@ class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
             result = publisher.open_run("run_one")
 
         self.assertIsNone(result)
+
+    async def test_terminal_publish_failure_does_not_mark_run_terminal(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        publisher = RunEventPublisher(hub)
+
+        with self.assertLogs("datespot_agent.api.events", level="WARNING"):
+            event = publisher.terminal(
+                "run_one",
+                RunEventType.COMPLETED,
+                status_response(RunJobStatus.QUEUED),
+            )
+
+        self.assertIsNone(event)
+        queued = hub.publish(
+            "run_one", RunEventType.QUEUED, lifecycle("queued")
+        )
+        self.assertEqual(queued.sequence, 1)
+
+    async def test_invalid_publisher_payloads_are_isolated_and_logged(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        publisher = RunEventPublisher(hub)
+        invalid_status = status_response(RunJobStatus.QUEUED)
+        invalid_status.status = "invalid"
+
+        calls = (
+            lambda: publisher.lifecycle(
+                "run_one", RunEventType.QUEUED, invalid_status
+            ),
+            lambda: publisher.progress(
+                "run_one", ProgressStage.CANDIDATE_SEARCH, " "
+            ),
+            lambda: publisher.report_saved("run_one", " "),
+        )
+        for call in calls:
+            with self.subTest(call=call):
+                with self.assertLogs(
+                    "datespot_agent.api.events", level="WARNING"
+                ):
+                    self.assertIsNone(call())
+
+        self.assertEqual(
+            hub.subscribe("run_one", last_event_id=None).latest_sequence,
+            0,
+        )
 
 
 if __name__ == "__main__":
