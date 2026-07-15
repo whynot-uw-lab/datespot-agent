@@ -7,6 +7,7 @@ import base64
 import logging
 from collections import deque
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import ConfigDict, Field
@@ -141,13 +142,22 @@ class BrowserStreamSubscription:
         self._wake.set()
 
 
+class _PageLifecycle(str, Enum):
+    WAITING = "waiting"
+    ATTACHED = "attached"
+    DETACHED = "detached"
+
+
 @dataclass(slots=True)
 class _RunStreamState:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     page: Page | None = None
     session: CDPSession | None = None
+    frame_listener: object | None = None
     subscribers: set[BrowserStreamSubscription] = field(default_factory=set)
     started: bool = False
+    stopping: bool = False
+    lifecycle: _PageLifecycle = _PageLifecycle.WAITING
 
 
 class CdpStreamManager:
@@ -157,6 +167,7 @@ class CdpStreamManager:
         self._states: dict[str, _RunStreamState] = {}
         self._frame_tasks: set[asyncio.Task[None]] = set()
         self._closed = False
+        self._close_task: asyncio.Task[None] | None = None
 
     def _state(self, run_id: str) -> _RunStreamState:
         state = self._states.get(run_id)
@@ -167,7 +178,11 @@ class CdpStreamManager:
 
     def has_page(self, run_id: str) -> bool:
         state = self._states.get(run_id.strip())
-        return state is not None and state.page is not None
+        return (
+            state is not None
+            and state.lifecycle is _PageLifecycle.ATTACHED
+            and state.page is not None
+        )
 
     async def attach_page(self, run_id: str, page: Page) -> None:
         normalized = run_id.strip()
@@ -175,25 +190,47 @@ class CdpStreamManager:
             return
         state = self._state(normalized)
         async with state.lock:
+            if state.lifecycle is _PageLifecycle.DETACHED:
+                return
             if state.page is not None and state.page is not page:
                 await self._stop_locked(state)
+                if state.session is not None:
+                    LOGGER.warning("기존 CDP session 정리 전 page 교체 무시")
+                    return
             state.page = page
+            state.lifecycle = _PageLifecycle.ATTACHED
             if state.subscribers and not state.started:
                 await self._start_locked(normalized, state)
 
     async def detach_page(self, run_id: str) -> None:
+        cleanup_task = asyncio.create_task(
+            self._detach_page(run_id),
+            name=f"datespot-cdp-detach-{run_id.strip()}",
+        )
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            await cleanup_task
+            raise
+
+    async def _detach_page(self, run_id: str) -> None:
         normalized = run_id.strip()
-        state = self._states.get(normalized)
-        if state is None:
+        if not normalized:
             return
+        state = self._state(normalized)
+        cancelled: asyncio.CancelledError | None = None
         async with state.lock:
+            state.lifecycle = _PageLifecycle.DETACHED
             state.page = None
-            await self._stop_locked(state)
+            try:
+                await self._stop_locked(state)
+            except asyncio.CancelledError as error:
+                cancelled = error
             for subscription in tuple(state.subscribers):
                 subscription._finish(BrowserStreamControl.ended())
             state.subscribers.clear()
-        if self._states.get(normalized) is state:
-            self._states.pop(normalized, None)
+        if cancelled is not None:
+            raise cancelled
 
     async def subscribe(self, run_id: str) -> BrowserStreamSubscription:
         normalized = run_id.strip()
@@ -204,25 +241,64 @@ class CdpStreamManager:
         state = self._state(normalized)
         subscription = BrowserStreamSubscription(self, normalized)
         async with state.lock:
+            if state.lifecycle is _PageLifecycle.DETACHED:
+                subscription._finish(BrowserStreamControl.ended())
+                return subscription
             state.subscribers.add(subscription)
-            if state.page is None:
+            if state.lifecycle is _PageLifecycle.WAITING:
                 subscription._offer_control(BrowserStreamControl.waiting())
-            elif state.started:
+            elif state.started and not state.stopping:
                 subscription._offer_control(BrowserStreamControl.ready())
             else:
                 await self._start_locked(normalized, state)
         return subscription
 
     async def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
+        if self._close_task is not None and self._close_task.done():
+            self._close_task.result()
+            if any(
+                state.session is not None for state in self._states.values()
+            ):
+                self._close_task = None
+            else:
+                return
+        if self._close_task is None:
+            self._closed = True
+            self._close_task = asyncio.create_task(
+                self._close_all(),
+                name="datespot-cdp-stream-close",
+            )
+        try:
+            await asyncio.shield(self._close_task)
+        except asyncio.CancelledError:
+            await self._close_task
+            raise
+
+    async def _close_all(self) -> None:
         for run_id in tuple(self._states):
             await self.detach_page(run_id)
-        if self._frame_tasks:
-            await asyncio.gather(*tuple(self._frame_tasks), return_exceptions=True)
+        while self._frame_tasks:
+            await asyncio.gather(
+                *tuple(self._frame_tasks),
+                return_exceptions=True,
+            )
 
     async def _unsubscribe(
+        self,
+        run_id: str,
+        subscription: BrowserStreamSubscription,
+    ) -> None:
+        cleanup_task = asyncio.create_task(
+            self._unsubscribe_locked(run_id, subscription),
+            name=f"datespot-cdp-unsubscribe-{run_id}",
+        )
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            await cleanup_task
+            raise
+
+    async def _unsubscribe_locked(
         self,
         run_id: str,
         subscription: BrowserStreamSubscription,
@@ -234,8 +310,6 @@ class CdpStreamManager:
             state.subscribers.discard(subscription)
             if not state.subscribers:
                 await self._stop_locked(state)
-                if state.page is None and self._states.get(run_id) is state:
-                    self._states.pop(run_id, None)
 
     async def _start_locked(
         self,
@@ -243,14 +317,34 @@ class CdpStreamManager:
         state: _RunStreamState,
     ) -> None:
         page = state.page
-        if page is None or state.started:
+        if (
+            page is None
+            or state.lifecycle is not _PageLifecycle.ATTACHED
+            or (state.started and not state.stopping)
+        ):
             return
+        if state.session is not None:
+            await self._stop_locked(state)
+            if state.session is not None:
+                for subscription in tuple(state.subscribers):
+                    subscription._finish(BrowserStreamControl.unavailable())
+                state.subscribers.clear()
+                return
         session: CDPSession | None = None
         try:
             session = await page.context.new_cdp_session(page)
             state.session = session
+            state.stopping = False
 
-            def on_frame(params: dict[str, object]) -> asyncio.Task[None]:
+            def on_frame(
+                params: dict[str, object],
+            ) -> asyncio.Task[None] | None:
+                if (
+                    state.session is not session
+                    or state.stopping
+                    or state.lifecycle is not _PageLifecycle.ATTACHED
+                ):
+                    return None
                 task = asyncio.create_task(
                     self._handle_frame(run_id, session, params),
                     name=f"datespot-cdp-frame-{run_id}",
@@ -259,22 +353,21 @@ class CdpStreamManager:
                 task.add_done_callback(self._frame_tasks.discard)
                 return task
 
+            state.frame_listener = on_frame
             session.on("Page.screencastFrame", on_frame)
-            await session.send("Page.startScreencast", SCREENCAST_OPTIONS)
             state.started = True
+            await session.send("Page.startScreencast", SCREENCAST_OPTIONS)
             for subscription in tuple(state.subscribers):
                 subscription._offer_control(BrowserStreamControl.ready())
         except BaseException as error:
             cancelled = isinstance(error, asyncio.CancelledError)
             if not cancelled:
                 LOGGER.warning("CDP screencast 시작 실패")
-            state.session = None
-            state.started = False
             if session is not None:
                 try:
-                    await asyncio.shield(session.detach())
-                except Exception:
-                    LOGGER.warning("CDP session 시작 실패 후 정리 실패")
+                    await self._stop_locked(state)
+                except asyncio.CancelledError:
+                    cancelled = True
             for subscription in tuple(state.subscribers):
                 subscription._finish(BrowserStreamControl.unavailable())
             state.subscribers.clear()
@@ -283,20 +376,58 @@ class CdpStreamManager:
 
     async def _stop_locked(self, state: _RunStreamState) -> None:
         session = state.session
-        started = state.started
-        state.session = None
-        state.started = False
         if session is None:
             return
+        state.stopping = True
+        listener = state.frame_listener
+        if listener is not None:
+            try:
+                session.remove_listener("Page.screencastFrame", listener)
+                state.frame_listener = None
+            except Exception:
+                LOGGER.warning("CDP frame listener 제거 실패")
+        cleanup_task = asyncio.create_task(
+            self._cleanup_session(session, state.started),
+            name="datespot-cdp-session-cleanup",
+        )
+        cancelled: asyncio.CancelledError | None = None
+        try:
+            stop_succeeded, detach_succeeded = await asyncio.shield(
+                cleanup_task
+            )
+        except asyncio.CancelledError as error:
+            cancelled = error
+            stop_succeeded, detach_succeeded = await cleanup_task
+
+        if stop_succeeded:
+            state.started = False
+        if detach_succeeded:
+            state.session = None
+            state.frame_listener = None
+            state.started = False
+            state.stopping = False
+        if cancelled is not None:
+            raise cancelled
+
+    @staticmethod
+    async def _cleanup_session(
+        session: CDPSession,
+        started: bool,
+    ) -> tuple[bool, bool]:
+        stop_succeeded = not started
         if started:
             try:
                 await session.send("Page.stopScreencast")
+                stop_succeeded = True
             except Exception:
                 LOGGER.warning("CDP screencast 종료 실패")
         try:
             await session.detach()
+            detach_succeeded = True
         except Exception:
+            detach_succeeded = False
             LOGGER.warning("CDP session 정리 실패")
+        return stop_succeeded, detach_succeeded
 
     async def _handle_frame(
         self,
@@ -306,16 +437,14 @@ class CdpStreamManager:
     ) -> None:
         session_id = params.get("sessionId")
         failed = False
+        frame: bytes | None = None
+        acked = False
         try:
             raw_data = params.get("data")
             if not isinstance(raw_data, str):
-                return
-            frame = base64.b64decode(raw_data, validate=True)
-            state = self._states.get(run_id)
-            if state is None or state.session is not session or not state.started:
-                return
-            for subscription in tuple(state.subscribers):
-                subscription._offer_frame(frame)
+                failed = True
+            else:
+                frame = base64.b64decode(raw_data, validate=True)
         except Exception:
             failed = True
             LOGGER.warning("CDP frame 처리 실패")
@@ -326,11 +455,27 @@ class CdpStreamManager:
                         "Page.screencastFrameAck",
                         {"sessionId": session_id},
                     )
+                    acked = True
                 except Exception:
                     failed = True
                     LOGGER.warning("CDP frame ACK 실패")
+            else:
+                failed = True
         if failed:
             await self._fail_stream(run_id, session)
+            return
+        state = self._states.get(run_id)
+        if (
+            acked
+            and frame is not None
+            and state is not None
+            and state.session is session
+            and state.started
+            and not state.stopping
+            and state.lifecycle is _PageLifecycle.ATTACHED
+        ):
+            for subscription in tuple(state.subscribers):
+                subscription._offer_frame(frame)
 
     async def _fail_stream(
         self,
@@ -338,10 +483,14 @@ class CdpStreamManager:
         session: CDPSession,
     ) -> None:
         state = self._states.get(run_id)
-        if state is None:
+        if (
+            state is None
+            or state.session is not session
+            or state.stopping
+        ):
             return
         async with state.lock:
-            if state.session is not session:
+            if state.session is not session or state.stopping:
                 return
             await self._stop_locked(state)
             for subscription in tuple(state.subscribers):
