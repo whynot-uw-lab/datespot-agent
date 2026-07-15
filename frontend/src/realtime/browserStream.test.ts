@@ -71,4 +71,29 @@ describe("connectBrowserStream", () => {
     expect(onState).toHaveBeenCalledWith("waiting");
     expect(onState).toHaveBeenCalledWith("ready");
   });
+
+  it("revokes the last frame when the remote stream ends", () => {
+    const socket = new FakeSocket();
+    const revokeObjectURL = vi.fn();
+    const onFrame = vi.fn();
+    connectBrowserStream({
+      runId: "run-1",
+      socketFactory: () => socket,
+      createObjectURL: () => "blob:last",
+      revokeObjectURL,
+      onFrame,
+      onState: vi.fn(),
+    });
+    socket.onmessage?.(
+      new MessageEvent("message", { data: new Uint8Array([1]).buffer }),
+    );
+    socket.onmessage?.(
+      new MessageEvent("message", {
+        data: JSON.stringify({ type: "ended" }),
+      }),
+    );
+
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:last");
+    expect(onFrame).toHaveBeenLastCalledWith(undefined);
+  });
 });

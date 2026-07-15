@@ -52,12 +52,21 @@ describe("reduceRunEvent", () => {
         reportAvailable: false,
       }),
     );
+    const retained = reduceRunEvent(
+      snapshot,
+      event(6, "progress", {
+        stage: "candidate_search",
+        message: "재생된 진행",
+      }),
+    );
 
     expect(reset.awaitingSnapshot).toBe(true);
     expect(snapshot.awaitingSnapshot).toBe(false);
     expect(snapshot.progressItems).toEqual([]);
     expect(snapshot.status).toBe("running");
     expect(snapshot.latestSequence).toBe(8);
+    expect(retained.progressItems).toHaveLength(1);
+    expect(retained.progressItems[0].data.message).toBe("재생된 진행");
   });
 
   it("collects place results and marks terminal status", () => {

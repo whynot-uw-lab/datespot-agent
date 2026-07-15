@@ -19,11 +19,15 @@ const wait = (milliseconds: number, signal: AbortSignal) =>
     }, { once: true });
   });
 
-export const useRunEvents = (runId: string) => {
+export const useRunEvents = (runId: string, enabled = true) => {
   const [projection, dispatch] = useReducer(reduceRunEvent, undefined, createRunProjection);
   const [connectionState, setConnectionState] = useState<EventConnectionState>("connecting");
 
   useEffect(() => {
+    if (!enabled) {
+      setConnectionState("ended");
+      return;
+    }
     const controller = new AbortController();
     let active = true;
     const consume = async () => {
@@ -62,7 +66,7 @@ export const useRunEvents = (runId: string) => {
       active = false;
       controller.abort();
     };
-  }, [runId]);
+  }, [enabled, runId]);
 
   return { projection: projection as RunProjection, connectionState };
 };

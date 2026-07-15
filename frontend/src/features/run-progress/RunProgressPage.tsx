@@ -51,8 +51,8 @@ export const RunProgressPage = () => {
     queryFn: () => getRun(runId),
     enabled: Boolean(runId),
   });
-  const { projection, connectionState } = useRunEvents(runId);
   const snapshotTerminal = snapshotQuery.data?.status === "completed" || snapshotQuery.data?.status === "failed";
+  const { projection, connectionState } = useRunEvents(runId, !snapshotTerminal);
   const terminal = projection.terminal || snapshotTerminal;
   const reportAvailable = projection.reportAvailable || snapshotQuery.data?.reportAvailable;
   const browser = useBrowserStream(runId, !terminal);
@@ -70,6 +70,8 @@ export const RunProgressPage = () => {
   if (snapshotQuery.isError) return <main className="error-page"><p>{snapshotQuery.error.message}</p><Link to="/app/">새 탐색으로</Link></main>;
   const run = snapshotQuery.data;
   if (!run) return null;
+  const effectiveStatus = projection.terminal ? projection.status : run.status;
+  const failed = effectiveStatus === "failed";
 
   return (
     <main className="run-page">
@@ -109,15 +111,23 @@ export const RunProgressPage = () => {
             </section>
           ) : null}
           {terminal ? (
-            <div className={`terminal-card ${run.status === "failed" ? "is-failed" : ""}`}>
-              <strong>{run.status === "failed" ? "탐색을 완료하지 못함" : "탐색 완료"}</strong>
-              <span>{reportQuery.isLoading ? "최종 리포트 불러오는 중…" : "결과가 준비됨"}</span>
+            <div className={`terminal-card ${failed ? "is-failed" : ""}`}>
+              <strong>{failed ? "탐색을 완료하지 못함" : "탐색 완료"}</strong>
+              <span>{reportQuery.isLoading ? "최종 리포트 불러오는 중…" : reportQuery.isError ? "리포트 확인 필요" : reportAvailable ? "결과가 준비됨" : "저장된 결과 없음"}</span>
             </div>
           ) : null}
         </aside>
       </div>
 
       {reportQuery.data ? <div className="inline-report page-shell"><ReportView report={reportQuery.data} /></div> : null}
+      {reportQuery.isError ? (
+        <div className="error-surface terminal-error page-shell" role="alert">
+          <p>{reportQuery.error.message}</p>
+          <button className="secondary-button" type="button" onClick={() => reportQuery.refetch()}>
+            리포트 다시 불러오기
+          </button>
+        </div>
+      ) : null}
       {terminal && !reportAvailable ? <div className="error-surface terminal-error page-shell">저장된 결과를 사용할 수 없음. <Link to="/app/">새 탐색 시작</Link></div> : null}
     </main>
   );

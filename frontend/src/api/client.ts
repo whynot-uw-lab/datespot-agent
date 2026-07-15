@@ -3,6 +3,7 @@ export class AppError extends Error {
     message: string,
     readonly status = 0,
     readonly code = "unknown_error",
+    readonly fieldErrors: Record<string, string> = {},
   ) {
     super(message);
     this.name = "AppError";
@@ -19,11 +20,24 @@ export interface ReportFilters {
 }
 
 interface ErrorEnvelope {
-  detail?: {
-    code?: string;
-    message?: string;
-  };
+  detail?: unknown;
 }
+
+const validationErrors = (detail: unknown): Record<string, string> => {
+  if (!Array.isArray(detail)) return {};
+  const fields: Record<string, string> = {};
+  for (const issue of detail) {
+    if (typeof issue !== "object" || issue === null) continue;
+    const { loc, msg } = issue as { loc?: unknown; msg?: unknown };
+    if (!Array.isArray(loc) || typeof msg !== "string") continue;
+    const path = loc
+      .filter((part) => part !== "body")
+      .map(String)
+      .join(".");
+    if (path) fields[path] = msg;
+  }
+  return fields;
+};
 
 export const requestJson = async <T>(
   url: string,
@@ -53,10 +67,23 @@ export const requestJson = async <T>(
   } catch {
     // Non-JSON failures use the public fallback below.
   }
+  const fields = validationErrors(envelope.detail);
+  if (response.status === 422 && Object.keys(fields).length) {
+    throw new AppError(
+      "입력값을 확인해 주세요",
+      response.status,
+      "validation_error",
+      fields,
+    );
+  }
+  const publicDetail =
+    typeof envelope.detail === "object" && envelope.detail !== null
+      ? (envelope.detail as { code?: string; message?: string })
+      : undefined;
   throw new AppError(
-    envelope.detail?.message ?? "요청을 처리할 수 없음",
+    publicDetail?.message ?? "요청을 처리할 수 없음",
     response.status,
-    envelope.detail?.code ?? "request_failed",
+    publicDetail?.code ?? "request_failed",
   );
 };
 

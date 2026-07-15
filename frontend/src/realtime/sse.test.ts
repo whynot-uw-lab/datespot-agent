@@ -52,4 +52,25 @@ describe("streamRunEvents", () => {
       }),
     ).rejects.toThrow("실시간 진행 연결에 실패함");
   });
+
+  it("treats a terminal snapshot as a terminal stream", async () => {
+    const snapshot = [
+      "event: snapshot",
+      'data: {"runId":"run-1","sequence":4,"occurredAt":"2026-07-15T00:00:00Z","type":"snapshot","data":{"status":"completed","reportAvailable":true}}',
+      "",
+      "",
+    ].join("\n");
+
+    await expect(
+      streamRunEvents({
+        runId: "run-1",
+        fetcher: vi.fn().mockResolvedValue(
+          new Response(snapshot, {
+            headers: { "Content-Type": "text/event-stream" },
+          }),
+        ),
+        onEvent: vi.fn(),
+      }),
+    ).resolves.toMatchObject({ terminal: true });
+  });
 });

@@ -14,7 +14,7 @@ interface BrowserStreamOptions {
   socketFactory?: (url: string) => BrowserSocket;
   createObjectURL?: (blob: Blob) => string;
   revokeObjectURL?: (url: string) => void;
-  onFrame: (url: string) => void;
+  onFrame: (url: string | undefined) => void;
   onState: (state: BrowserStreamState) => void;
 }
 
@@ -35,17 +35,35 @@ export const connectBrowserStream = ({
   const socket = socketFactory(url);
   let currentFrame: string | undefined;
   let closedByClient = false;
+  const releaseFrame = () => {
+    if (!currentFrame) return;
+    revokeObjectURL(currentFrame);
+    currentFrame = undefined;
+    onFrame(undefined);
+  };
   socket.binaryType = "arraybuffer";
   socket.onopen = () => onState("waiting");
-  socket.onerror = () => onState("error");
+  socket.onerror = () => {
+    releaseFrame();
+    onState("error");
+  };
   socket.onclose = (event) => {
+    releaseFrame();
     if (closedByClient) return;
     onState(event.code === 1000 || event.code === 4409 ? "ended" : "error");
   };
   socket.onmessage = (message) => {
     if (typeof message.data === "string") {
-      const control = JSON.parse(message.data) as { type?: string };
+      let control: { type?: string };
+      try {
+        control = JSON.parse(message.data) as { type?: string };
+      } catch {
+        releaseFrame();
+        onState("error");
+        return;
+      }
       if (["waiting", "ready", "ended", "error"].includes(control.type ?? "")) {
+        if (control.type === "ended" || control.type === "error") releaseFrame();
         onState(control.type as BrowserStreamState);
       }
       return;
@@ -63,10 +81,7 @@ export const connectBrowserStream = ({
   return {
     close: () => {
       closedByClient = true;
-      if (currentFrame) {
-        revokeObjectURL(currentFrame);
-        currentFrame = undefined;
-      }
+      releaseFrame();
       socket.close();
     },
   };

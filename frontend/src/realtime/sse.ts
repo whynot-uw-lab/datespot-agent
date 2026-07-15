@@ -47,7 +47,13 @@ export const streamRunEvents = async ({
         cursor = Number(message.id);
         sessionStorage.setItem(lastEventKey(runId), message.id);
       }
-      terminal = parsed.type === "completed" || parsed.type === "failed";
+      const snapshotStatus = String(parsed.data.status ?? "");
+      terminal =
+        terminal ||
+        parsed.type === "completed" ||
+        parsed.type === "failed" ||
+        (parsed.type === "snapshot" &&
+          (snapshotStatus === "completed" || snapshotStatus === "failed"));
     },
   });
   const reader = response.body.getReader();

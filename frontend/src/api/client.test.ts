@@ -50,6 +50,32 @@ describe("requestJson", () => {
       message: "저장 리포트를 찾을 수 없음",
     });
   });
+
+  it("maps FastAPI validation locations to field errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({
+          detail: [
+            { loc: ["body", "location"], msg: "지역을 입력해 주세요" },
+            { loc: ["body", "scoring", "photo"], msg: "사진 기준을 입력해 주세요" },
+          ],
+        }), { status: 422, headers: { "Content-Type": "application/json" } }),
+      ),
+    );
+
+    const error = await requestJson("/runs").catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({
+      status: 422,
+      code: "validation_error",
+      fieldErrors: {
+        location: "지역을 입력해 주세요",
+        "scoring.photo": "사진 기준을 입력해 주세요",
+      },
+    });
+  });
 });
 
 describe("buildReportQuery", () => {

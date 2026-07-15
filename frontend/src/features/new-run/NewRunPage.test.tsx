@@ -62,4 +62,30 @@ describe("NewRunPage", () => {
       weights: { photoPercent: 70, reviewPercent: 30 },
     });
   });
+
+  it("connects backend validation errors to their fields", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        detail: [{ loc: ["body", "location"], msg: "지역을 입력해 주세요" }],
+      }), { status: 422, headers: { "Content-Type": "application/json" } }),
+    ));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/app/"]}><NewRunPage /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText("어디에서 만날까요?"), "   ");
+    await user.type(screen.getByLabelText("어떤 장소를 찾을까요?"), "일식");
+    await user.click(screen.getByRole("button", { name: "장소 탐색 시작" }));
+
+    const location = screen.getByLabelText("어디에서 만날까요?");
+    expect(await screen.findByText("지역을 입력해 주세요")).toHaveAttribute("id", "location-error");
+    expect(location).toHaveAttribute("aria-describedby", "location-error");
+    expect(location).toHaveAttribute("aria-invalid", "true");
+  });
 });

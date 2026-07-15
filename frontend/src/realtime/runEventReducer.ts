@@ -21,6 +21,8 @@ export interface RunEvent {
 
 export interface RunProjection {
   latestSequence: number;
+  lastAppliedSequence: number;
+  resetReplayUntil: number | null;
   progressItems: RunEvent[];
   placeResults: PlaceResult[];
   awaitingSnapshot: boolean;
@@ -31,6 +33,8 @@ export interface RunProjection {
 
 export const createRunProjection = (): RunProjection => ({
   latestSequence: 0,
+  lastAppliedSequence: 0,
+  resetReplayUntil: null,
   progressItems: [],
   placeResults: [],
   awaitingSnapshot: false,
@@ -48,6 +52,7 @@ export const reduceRunEvent = (
     return {
       ...state,
       latestSequence,
+      resetReplayUntil: latestSequence,
       awaitingSnapshot: true,
     };
   }
@@ -56,6 +61,8 @@ export const reduceRunEvent = (
     return {
       ...createRunProjection(),
       latestSequence: event.sequence,
+      lastAppliedSequence: 0,
+      resetReplayUntil: state.resetReplayUntil,
       awaitingSnapshot: false,
       status: String(event.data.status ?? "running"),
       reportAvailable: Boolean(event.data.reportAvailable),
@@ -63,13 +70,30 @@ export const reduceRunEvent = (
     };
   }
 
-  if (event.sequence <= state.latestSequence) {
+  if (event.type === "snapshot") {
+    const status = String(event.data.status ?? state.status);
+    return {
+      ...state,
+      latestSequence: Math.max(state.latestSequence, event.sequence),
+      lastAppliedSequence: Math.max(state.lastAppliedSequence, event.sequence),
+      status,
+      terminal: status === "completed" || status === "failed",
+      reportAvailable: Boolean(event.data.reportAvailable),
+    };
+  }
+
+  if (event.sequence <= state.lastAppliedSequence) {
     return state;
   }
 
   const next: RunProjection = {
     ...state,
-    latestSequence: event.sequence,
+    latestSequence: Math.max(state.latestSequence, event.sequence),
+    lastAppliedSequence: event.sequence,
+    resetReplayUntil:
+      state.resetReplayUntil !== null && event.sequence >= state.resetReplayUntil
+        ? null
+        : state.resetReplayUntil,
   };
 
   if (event.type === "progress") {
@@ -86,15 +110,6 @@ export const reduceRunEvent = (
       ...next,
       status: event.type,
       terminal: event.type === "completed" || event.type === "failed",
-      reportAvailable: Boolean(event.data.reportAvailable),
-    };
-  }
-  if (event.type === "snapshot") {
-    const status = String(event.data.status ?? next.status);
-    return {
-      ...next,
-      status,
-      terminal: status === "completed" || status === "failed",
       reportAvailable: Boolean(event.data.reportAvailable),
     };
   }
