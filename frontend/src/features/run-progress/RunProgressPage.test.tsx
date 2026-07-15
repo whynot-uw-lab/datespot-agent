@@ -25,10 +25,14 @@ const realtimeState = vi.hoisted(() => ({
     },
   },
   browser: { state: "ready", frameUrl: "blob:map" },
+  eventEnabled: true,
 }));
 
 vi.mock("../../realtime/hooks", () => ({
-  useRunEvents: () => realtimeState.events,
+  useRunEvents: (_runId: string, enabled: boolean) => {
+    realtimeState.eventEnabled = enabled;
+    return realtimeState.events;
+  },
   useBrowserStream: () => realtimeState.browser,
 }));
 
@@ -39,6 +43,7 @@ afterEach(() => {
   realtimeState.events.projection.status = "running";
   realtimeState.events.projection.terminal = false;
   realtimeState.events.projection.reportAvailable = false;
+  realtimeState.eventEnabled = true;
 });
 
 const snapshot = {
@@ -120,5 +125,18 @@ describe("RunProgressPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("저장 리포트가 손상됨");
     expect(screen.getByRole("button", { name: "리포트 다시 불러오기" })).toBeInTheDocument();
+  });
+
+  it("does not enable SSE when the run snapshot cannot be found", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        detail: { code: "run_not_found", message: "실행을 찾을 수 없음" },
+      }), { status: 404, headers: { "Content-Type": "application/json" } }),
+    ));
+
+    renderPage();
+
+    expect(await screen.findByText("실행을 찾을 수 없음")).toBeInTheDocument();
+    expect(realtimeState.eventEnabled).toBe(false);
   });
 });

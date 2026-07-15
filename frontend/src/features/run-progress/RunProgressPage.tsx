@@ -52,7 +52,10 @@ export const RunProgressPage = () => {
     enabled: Boolean(runId),
   });
   const snapshotTerminal = snapshotQuery.data?.status === "completed" || snapshotQuery.data?.status === "failed";
-  const { projection, connectionState } = useRunEvents(runId, !snapshotTerminal);
+  const { projection, connectionState } = useRunEvents(
+    runId,
+    snapshotQuery.isSuccess && !snapshotTerminal,
+  );
   const terminal = projection.terminal || snapshotTerminal;
   const reportAvailable = projection.reportAvailable || snapshotQuery.data?.reportAvailable;
   const browser = useBrowserStream(runId, !terminal);
