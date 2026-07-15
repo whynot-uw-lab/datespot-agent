@@ -15,11 +15,13 @@ from fastapi import (
     FastAPI,
     Header,
     HTTPException,
+    Query,
     Request,
     WebSocket,
     status,
 )
 from fastapi.sse import EventSourceResponse, ServerSentEvent
+from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
 from datespot_agent.api.coordinator import RunCoordinator
@@ -31,6 +33,8 @@ from datespot_agent.api.events import (
 )
 from datespot_agent.api.models import (
     HealthResponse,
+    ReportPage,
+    ReportQuery,
     RunAccepted,
     RunJobStatus,
     RunStatusResponse,
@@ -38,6 +42,13 @@ from datespot_agent.api.models import (
 from datespot_agent.api.runtime import AppRuntime, create_runtime
 from datespot_agent.browser.stream import BrowserStreamControl
 from datespot_agent.models import RunConfig, RunReport
+from datespot_agent.reporting import (
+    InvalidReportCursorError,
+    InvalidRunIdError,
+    ReportCatalogConflictError,
+    ReportCatalogUnavailableError,
+    ReportCorruptError,
+)
 
 
 RuntimeFactory = Callable[[], AppRuntime | Awaitable[AppRuntime]]
@@ -142,6 +153,48 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
 
     def coordinator(request: Request) -> RunCoordinator:
         return request.app.state.runtime.coordinator
+
+    def report_query(
+        limit: Annotated[str | None, Query()] = None,
+        report_status: Annotated[
+            str | None,
+            Query(alias="status"),
+        ] = None,
+        location: Annotated[str | None, Query()] = None,
+        search_keyword: Annotated[
+            str | None,
+            Query(alias="searchKeyword"),
+        ] = None,
+        date_from: Annotated[
+            str | None,
+            Query(alias="dateFrom"),
+        ] = None,
+        date_to: Annotated[
+            str | None,
+            Query(alias="dateTo"),
+        ] = None,
+        cursor: Annotated[str | None, Query()] = None,
+    ) -> ReportQuery:
+        values = {
+            name: value
+            for name, value in (
+                ("limit", limit),
+                ("status", report_status),
+                ("location", location),
+                ("search_keyword", search_keyword),
+                ("date_from", date_from),
+                ("date_to", date_to),
+                ("cursor", cursor),
+            )
+            if value is not None
+        }
+        try:
+            return ReportQuery.model_validate(values)
+        except ValidationError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_detail("invalid_filter", "리포트 조회 조건이 올바르지 않음"),
+            ) from error
 
     async def prepare_run_events(
         run_id: str,
@@ -285,6 +338,64 @@ def create_app(runtime_factory: RuntimeFactory = create_runtime) -> FastAPI:
             status_code=status.HTTP_409_CONFLICT,
             detail=_detail(code, message),
         )
+
+    @app.get("/reports", response_model=ReportPage)
+    def list_reports(
+        request: Request,
+        query: ReportQuery = Depends(report_query),
+    ) -> ReportPage:
+        try:
+            return request.app.state.runtime.report_catalog.list_reports(query)
+        except InvalidReportCursorError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_detail("invalid_cursor", "리포트 페이지 cursor가 올바르지 않음"),
+            ) from error
+        except ReportCatalogUnavailableError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=_detail(
+                    "report_catalog_unavailable",
+                    "저장 리포트 카탈로그를 사용할 수 없음",
+                ),
+            ) from error
+
+    @app.get("/reports/{run_id}", response_model=RunReport)
+    def get_persisted_report(run_id: str, request: Request) -> RunReport:
+        try:
+            report = request.app.state.runtime.report_catalog.get_report(run_id)
+        except InvalidRunIdError as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=_detail("invalid_run_id", "run_id가 올바르지 않음"),
+            ) from error
+        except ReportCatalogConflictError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=_detail(
+                    "report_catalog_conflict",
+                    "동일한 실행의 저장 리포트가 중복됨",
+                ),
+            ) from error
+        except ReportCorruptError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=_detail("report_corrupt", "저장 리포트가 손상됨"),
+            ) from error
+        except ReportCatalogUnavailableError as error:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=_detail(
+                    "report_catalog_unavailable",
+                    "저장 리포트 카탈로그를 사용할 수 없음",
+                ),
+            ) from error
+        if report is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=_detail("report_not_found", "저장 리포트를 찾을 수 없음"),
+            )
+        return report
 
     @app.websocket("/runs/{run_id}/browser-stream")
     async def browser_stream(websocket: WebSocket, run_id: str) -> None:

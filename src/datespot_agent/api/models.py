@@ -7,6 +7,11 @@ from enum import Enum
 from typing import Literal
 
 from datespot_agent.models import CamelModel, RunConfig
+from datespot_agent.reporting.catalog import (
+    ReportPage,
+    ReportQuery,
+    ReportSummary,
+)
 
 
 class RunJobStatus(str, Enum):

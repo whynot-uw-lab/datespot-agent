@@ -20,7 +20,7 @@ from datespot_agent.browser import (
 )
 from datespot_agent.config import Settings
 from datespot_agent.graph import GraphRunService
-from datespot_agent.reporting import JsonReportStore
+from datespot_agent.reporting import JsonReportCatalog, JsonReportStore
 
 
 class _CoordinatorProbe:
@@ -168,6 +168,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             event_hub,
             client,
             stream_manager,
+            JsonReportCatalog(),
         )
 
         await runtime.start()
@@ -202,6 +203,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             event_hub,
             client,
             stream_manager,
+            JsonReportCatalog(),
         )
 
         with self.assertRaisesRegex(RuntimeError, "coordinator stop failed"):
@@ -225,6 +227,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             event_hub,
             client,
             stream_manager,
+            JsonReportCatalog(),
         )
 
         with self.assertRaisesRegex(RuntimeError, "browser cleanup failed"):
@@ -248,6 +251,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             event_hub,
             client,
             stream_manager,
+            JsonReportCatalog(),
         )
 
         with self.assertRaisesRegex(RuntimeError, "stream cleanup failed"):
@@ -271,6 +275,7 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
             event_hub,
             client,
             stream_manager,
+            JsonReportCatalog(),
         )
 
         with self.assertRaisesRegex(RuntimeError, "event hub cleanup failed"):
@@ -327,6 +332,8 @@ class ApiRuntimeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsInstance(report_store, JsonReportStore)
         self.assertEqual(report_store.root, root / "reports")
+        self.assertIsInstance(runtime.report_catalog, JsonReportCatalog)
+        self.assertEqual(runtime.report_catalog.root, root / "reports")
         self.assertIs(runner._photo_agent._client, runtime.openai_client)
         self.assertIs(runner._review_agent._client, runtime.openai_client)
         self.assertEqual(runner._photo_agent._model, settings.model)

@@ -21,7 +21,7 @@ from datespot_agent.browser import (
 )
 from datespot_agent.config import Settings, get_settings
 from datespot_agent.graph import GraphRunService
-from datespot_agent.reporting import JsonReportStore
+from datespot_agent.reporting import JsonReportCatalog, JsonReportStore
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class AppRuntime:
     event_hub: RunEventHub
     openai_client: AsyncOpenAI
     stream_manager: CdpStreamManager
+    report_catalog: JsonReportCatalog
 
     async def start(self) -> None:
         await self.coordinator.start()
@@ -104,9 +105,11 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             log=logger.info,
             event_publisher=event_publisher,
         )
+        report_store = JsonReportStore(reports_root)
+        report_catalog = JsonReportCatalog(reports_root)
         coordinator = RunCoordinator(
             runner,
-            JsonReportStore(reports_root),
+            report_store,
             event_publisher=event_publisher,
         )
         return AppRuntime(
@@ -115,6 +118,7 @@ async def create_runtime(settings: Settings | None = None) -> AppRuntime:
             event_hub,
             client,
             stream_manager,
+            report_catalog,
         )
     except BaseException:
         try:
