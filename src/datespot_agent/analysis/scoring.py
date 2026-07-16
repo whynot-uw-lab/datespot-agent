@@ -8,6 +8,7 @@ from datespot_agent.analysis.errors import AnalysisInputError
 from datespot_agent.models import (
     PhotoAnalysis,
     PlaceDetail,
+    PlaceEvidence,
     PlaceResult,
     ReviewAnalysis,
     Weights,
@@ -46,6 +47,23 @@ class PlaceScoringService:
             "review_score": review.review_score if review else None,
             "photo_reason": photo.reason if photo else None,
             "review_reason": review.reason if review else None,
+            "photo_digest": photo.digest if photo else None,
+            "review_digest": review.digest if review else None,
+            "evidence": PlaceEvidence(
+                place_url=(
+                    "https://map.naver.com/p/entry/place/"
+                    f"{detail.place_id}"
+                ),
+                photo_urls=[
+                    url for url in detail.photo_urls if url.strip()
+                ][:5],
+                reviews=[
+                    review_text
+                    for review_text in detail.reviews
+                    if review_text.strip()
+                ][:50],
+                source_review_count=detail.review_count,
+            ),
         }
 
         weighted_total = Decimal(0)

@@ -10,12 +10,18 @@ from datespot_agent.api.events import (
     ProgressStatus,
     RunEvent,
     RunEventHub,
+    RunPlaceResultData,
     RunEventPublisher,
     RunProgressData,
     RunEventType,
 )
 from datespot_agent.api.models import RunJobStatus, RunStatusResponse
-from datespot_agent.models import PlaceResult, RunConfig
+from datespot_agent.models import (
+    AnalysisDigest,
+    PlaceEvidence,
+    PlaceResult,
+    RunConfig,
+)
 
 
 NOW = datetime(2026, 7, 15, 1, 2, 3, tzinfo=timezone.utc)
@@ -93,6 +99,15 @@ class RunEventModelTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(ValidationError):
                     RunEvent.model_validate(value)
+
+        with self.assertRaises(ValidationError):
+            RunEvent.model_validate(
+                {
+                    **valid,
+                    "type": RunEventType.PLACE_RESULT,
+                    "data": {"status": "analyzed", "name": "점수 누락"},
+                }
+            )
 
     def test_progress_stage_has_the_public_stage_values(self):
         self.assertEqual(
@@ -238,17 +253,20 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
         hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")
         live = hub.subscribe("run_one", last_event_id=None)
-        result = PlaceResult(
-            status="analyzed",
-            name="원본 장소",
-            final_score=7.5,
-        )
+        result = {
+            "status": "analyzed",
+            "name": "원본 장소",
+            "finalScore": 7.5,
+        }
 
         published = hub.publish("run_one", RunEventType.PLACE_RESULT, result)
         delivered = await anext(live)
-        result.name = "입력 변경"
-        published.data.name = "반환값 변경"
-        delivered.data.name = "구독값 변경"
+        result["name"] = "입력 변경"
+        self.assertIsInstance(published.data, RunPlaceResultData)
+        with self.assertRaises(ValidationError):
+            published.data.name = "반환값 변경"
+        with self.assertRaises(ValidationError):
+            delivered.data.name = "구독값 변경"
 
         replayed = hub.subscribe("run_one", last_event_id=None).replay[0]
         self.assertEqual(replayed.data.name, "원본 장소")
@@ -412,6 +430,42 @@ class RunEventHubTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RunEventPublisherTests(unittest.IsolatedAsyncioTestCase):
+    async def test_place_result_publisher_excludes_report_only_evidence(self):
+        hub = RunEventHub(clock=lambda: NOW)
+        hub.open_run("run_one")
+        publisher = RunEventPublisher(hub)
+        digest = AnalysisDigest(
+            summary="요약",
+            strengths=["강점"],
+            cautions=["주의"],
+        )
+        result = PlaceResult(
+            status="analyzed",
+            place_id="place-1",
+            name="우니도",
+            final_score=8.5,
+            photo_digest=digest,
+            review_digest=digest,
+            evidence=PlaceEvidence(
+                place_url="https://map.naver.com/p/entry/place/place-1",
+                photo_urls=["https://images.example/one.jpg"],
+                reviews=["SSE에 포함되면 안 되는 원문 리뷰"],
+                source_review_count=1,
+            ),
+        )
+
+        event = publisher.place_result("run_one", result)
+
+        self.assertIsNotNone(event)
+        assert event is not None
+        payload = event.model_dump(mode="json", by_alias=True)["data"]
+        self.assertEqual(payload["placeId"], "place-1")
+        self.assertEqual(payload["finalScore"], 8.5)
+        self.assertNotIn("photoDigest", payload)
+        self.assertNotIn("reviewDigest", payload)
+        self.assertNotIn("evidence", payload)
+        self.assertNotIn("원문 리뷰", str(payload))
+
     async def test_progress_publisher_keeps_structured_analysis_fields(self):
         hub = RunEventHub(clock=lambda: NOW)
         hub.open_run("run_one")

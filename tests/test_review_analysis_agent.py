@@ -9,7 +9,7 @@ from datespot_agent.analysis import (
     AnalysisResponseError,
     ReviewAnalysisAgent,
 )
-from datespot_agent.models import PlaceDetail, ReviewAnalysis
+from datespot_agent.models import AnalysisDigest, PlaceDetail, ReviewAnalysis
 
 
 class FakeResponses:
@@ -27,7 +27,15 @@ class FakeResponses:
 
 class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_uses_criteria_and_at_most_fifty_reviews(self):
-        parsed = ReviewAnalysis(review_score=8, reason="조용함 언급")
+        parsed = ReviewAnalysis(
+            review_score=8,
+            reason="조용함 언급",
+            digest=AnalysisDigest(
+                summary="조용하고 대화하기 좋다는 평가가 많음",
+                strengths=["대화하기 좋음"],
+                cautions=["대기 가능성"],
+            ),
+        )
         responses = FakeResponses(parsed=parsed)
         client = SimpleNamespace(responses=responses)
         agent = ReviewAnalysisAgent(client, model="gpt-5.4-nano", max_output_tokens=700)
@@ -56,6 +64,9 @@ class ReviewAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("점수에 반영", text)
         self.assertIn("통과 여부를 판정하지 않는다", text)
         self.assertIn("관찰 근거와 감점 요인만", text)
+        self.assertIn("summary", text)
+        self.assertIn("strengths", text)
+        self.assertIn("cautions", text)
         self.assertIn("50. 리뷰 49", text)
         self.assertNotIn("리뷰 50", text)
         self.assertEqual(

@@ -5,7 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 from pydantic import ValidationError
 
+import datespot_agent.models as models
 from datespot_agent.models import (
+    AnalysisDigest,
     CandidatePlace,
     GraphState,
     PhotoAnalysis,
@@ -84,6 +86,85 @@ class RunConfigTests(unittest.TestCase):
 
 
 class PlaceAndAnalysisModelTests(unittest.TestCase):
+    def test_analysis_digest_and_place_evidence_validate_and_serialize(self):
+        digest_model = getattr(models, "AnalysisDigest", None)
+        evidence_model = getattr(models, "PlaceEvidence", None)
+
+        self.assertIsNotNone(digest_model)
+        self.assertIsNotNone(evidence_model)
+
+        digest = digest_model(
+            summary="차분한 룸 좌석",
+            strengths=["프라이빗한 좌석", "대화하기 좋은 구조"],
+            cautions=["혼잡 시간대 소음 가능성"],
+        )
+        evidence = evidence_model(
+            place_url="https://map.naver.com/p/entry/place/1720070048",
+            photo_urls=["https://example.com/interior.jpg"],
+            reviews=[" ", "조용해서 대화하기 좋아요"],
+            source_review_count=128,
+        )
+
+        payload = evidence.model_dump(mode="json", by_alias=True)
+        self.assertEqual(digest.strengths, ["프라이빗한 좌석", "대화하기 좋은 구조"])
+        self.assertEqual(payload["provider"], "naver_map")
+        self.assertEqual(
+            payload["placeUrl"],
+            "https://map.naver.com/p/entry/place/1720070048",
+        )
+        self.assertEqual(payload["photoUrls"], ["https://example.com/interior.jpg"])
+        self.assertEqual(payload["reviews"], ["조용해서 대화하기 좋아요"])
+        self.assertEqual(payload["sourceReviewCount"], 128)
+        tuple_reviews = evidence_model.model_validate(
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1720070048",
+                "reviews": (" ", "튜플 리뷰"),
+            }
+        )
+        self.assertEqual(tuple_reviews.reviews, ["튜플 리뷰"])
+
+        invalid_digest_payloads = (
+            {"summary": " ", "strengths": [], "cautions": []},
+            {
+                "summary": "요약",
+                "strengths": ["1", "2", "3", "4", "5"],
+                "cautions": [],
+            },
+            {"summary": "요약", "strengths": [" "], "cautions": []},
+        )
+        for invalid in invalid_digest_payloads:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValidationError):
+                    digest_model.model_validate(invalid)
+
+        invalid_evidence_payloads = (
+            {"placeUrl": "https://example.com/place/1"},
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1",
+                "photoUrls": [f"https://example.com/{index}.jpg" for index in range(6)],
+            },
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1",
+                "photoUrls": ["ftp://example.com/one.jpg"],
+            },
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1",
+                "photoUrls": ["https://"],
+            },
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1",
+                "photoUrls": ["https:// example"],
+            },
+            {
+                "placeUrl": "https://map.naver.com/p/entry/place/1",
+                "reviews": [f"리뷰 {index}" for index in range(51)],
+            },
+        )
+        for invalid in invalid_evidence_payloads:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValidationError):
+                    evidence_model.model_validate(invalid)
+
     def test_distance_is_not_part_of_place_detail(self):
         with self.assertRaises(ValidationError):
             PlaceDetail.model_validate(
@@ -113,9 +194,21 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
             ["https://example.com/1.jpg"],
         )
 
-    def test_analysis_models_require_integer_score_and_reason_only(self):
-        photo = PhotoAnalysis(photo_score=7, reason="차분함")
-        review = ReviewAnalysis(review_score=8, reason="소음 근거가 있음")
+    def test_analysis_models_require_score_reason_and_digest(self):
+        self.assertIn("digest", PhotoAnalysis.model_fields)
+        self.assertIn("digest", ReviewAnalysis.model_fields)
+
+        digest = AnalysisDigest(
+            summary="차분하고 대화하기 좋은 편",
+            strengths=["차분한 조명"],
+            cautions=["혼잡도 확인 제한"],
+        )
+        photo = PhotoAnalysis(photo_score=7, reason="차분함", digest=digest)
+        review = ReviewAnalysis(
+            review_score=8,
+            reason="소음 근거가 있음",
+            digest=digest,
+        )
 
         self.assertNotIn("matched", photo.model_dump())
         self.assertNotIn("matched", review.model_dump())
@@ -123,13 +216,24 @@ class PlaceAndAnalysisModelTests(unittest.TestCase):
         for score in (-1, 11, 7.5):
             with self.subTest(score=score):
                 with self.assertRaises(ValidationError):
-                    PhotoAnalysis(photo_score=score, reason="근거")
+                    PhotoAnalysis(photo_score=score, reason="근거", digest=digest)
+
+        with self.assertRaises(ValidationError):
+            PhotoAnalysis(photo_score=7, reason="근거")
 
     def test_identifying_fields_and_reasons_cannot_be_blank(self):
         with self.assertRaises(ValidationError):
             CandidatePlace(place_id=" ", name="우니도")
         with self.assertRaises(ValidationError):
-            ReviewAnalysis(review_score=8, reason=" ")
+            ReviewAnalysis(
+                review_score=8,
+                reason=" ",
+                digest=AnalysisDigest(
+                    summary="요약",
+                    strengths=[],
+                    cautions=[],
+                ),
+            )
 
 
 class ResultAndReportModelTests(unittest.TestCase):

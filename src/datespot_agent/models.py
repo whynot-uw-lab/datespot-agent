@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -60,6 +62,48 @@ class CandidatePlace(CamelModel):
     name: str = Field(min_length=1)
 
 
+class AnalysisDigest(CamelModel):
+    summary: str = Field(min_length=1)
+    strengths: list[str] = Field(default_factory=list, max_length=4)
+    cautions: list[str] = Field(default_factory=list, max_length=4)
+
+    @field_validator("strengths", "cautions")
+    @classmethod
+    def validate_points(cls, values: list[str]) -> list[str]:
+        if any(not value.strip() for value in values):
+            raise ValueError("분석 요약 항목은 빈 문자열일 수 없다")
+        return values
+
+
+class PlaceEvidence(CamelModel):
+    provider: Literal["naver_map"] = "naver_map"
+    place_url: str = Field(
+        min_length=1,
+        pattern=r"^https://map\.naver\.com/",
+    )
+    photo_urls: list[str] = Field(default_factory=list, max_length=5)
+    reviews: list[str] = Field(default_factory=list, max_length=50)
+    source_review_count: int = Field(default=0, ge=0)
+
+    @field_validator("photo_urls")
+    @classmethod
+    def validate_photo_urls(cls, values: list[str]) -> list[str]:
+        for value in values:
+            parsed = urlparse(value)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.netloc
+                or any(character.isspace() for character in value)
+            ):
+                raise ValueError("사진 URL은 http(s) URL이어야 한다")
+        return values
+
+    @field_validator("reviews")
+    @classmethod
+    def normalize_reviews(cls, values: list[str]) -> list[str]:
+        return [review for review in values if review]
+
+
 class PlaceDetail(CamelModel):
     place_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -73,11 +117,13 @@ class PlaceDetail(CamelModel):
 class PhotoAnalysis(CamelModel):
     photo_score: int = Field(ge=0, le=10)
     reason: str = Field(min_length=1)
+    digest: AnalysisDigest
 
 
 class ReviewAnalysis(CamelModel):
     review_score: int = Field(ge=0, le=10)
     reason: str = Field(min_length=1)
+    digest: AnalysisDigest
 
 
 class RunStatus(str, Enum):
@@ -103,6 +149,9 @@ class PlaceResult(CamelModel):
     final_score: float | None = Field(default=None, ge=0, le=10, multiple_of=0.1)
     photo_reason: str | None = None
     review_reason: str | None = None
+    photo_digest: AnalysisDigest | None = None
+    review_digest: AnalysisDigest | None = None
+    evidence: PlaceEvidence | None = None
     failure_reason: str | None = None
 
     @model_validator(mode="after")

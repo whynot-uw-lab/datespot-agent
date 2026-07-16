@@ -9,7 +9,7 @@ from datespot_agent.analysis import (
     AnalysisResponseError,
     PhotoAnalysisAgent,
 )
-from datespot_agent.models import PhotoAnalysis, PlaceDetail
+from datespot_agent.models import AnalysisDigest, PhotoAnalysis, PlaceDetail
 
 
 class FakeResponses:
@@ -27,7 +27,15 @@ class FakeResponses:
 
 class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
     async def test_analyze_uses_criteria_and_at_most_five_photos(self):
-        parsed = PhotoAnalysis(photo_score=8, reason="차분한 조명")
+        parsed = PhotoAnalysis(
+            photo_score=8,
+            reason="차분한 조명",
+            digest=AnalysisDigest(
+                summary="차분한 조명과 여유 있는 좌석",
+                strengths=["따뜻한 조명"],
+                cautions=["혼잡도 확인 제한"],
+            ),
+        )
         responses = FakeResponses(parsed=parsed)
         client = SimpleNamespace(responses=responses)
         agent = PhotoAnalysisAgent(client, model="gpt-5.4-nano", max_output_tokens=700)
@@ -55,6 +63,9 @@ class PhotoAnalysisAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("점수에 반영", content[0]["text"])
         self.assertIn("통과 여부를 판정하지 않는다", content[0]["text"])
         self.assertIn("관찰 근거와 감점 요인만", content[0]["text"])
+        self.assertIn("summary", content[0]["text"])
+        self.assertIn("strengths", content[0]["text"])
+        self.assertIn("cautions", content[0]["text"])
         self.assertEqual(len(content[1:]), 5)
         self.assertTrue(all(block["type"] == "input_image" for block in content[1:]))
         self.assertEqual(

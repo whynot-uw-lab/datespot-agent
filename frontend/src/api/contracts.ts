@@ -12,6 +12,20 @@ export interface ScoringCriteria {
   review: string;
 }
 
+export interface AnalysisDigest {
+  summary: string;
+  strengths: string[];
+  cautions: string[];
+}
+
+export interface PlaceEvidence {
+  provider: "naver_map";
+  placeUrl: string;
+  photoUrls: string[];
+  reviews: string[];
+  sourceReviewCount: number;
+}
+
 export interface RunConfig {
   location: string;
   searchKeyword: string;
@@ -47,6 +61,9 @@ interface PlaceResultBase {
   reviewScore?: number | null;
   photoReason?: string | null;
   reviewReason?: string | null;
+  photoDigest?: AnalysisDigest | null;
+  reviewDigest?: AnalysisDigest | null;
+  evidence?: PlaceEvidence | null;
 }
 
 export interface AnalyzedPlaceResult extends PlaceResultBase {

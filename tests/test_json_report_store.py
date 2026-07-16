@@ -6,7 +6,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from datespot_agent.models import RunConfig, RunReport, RunStatus
+from datespot_agent.models import (
+    AnalysisDigest,
+    PlaceEvidence,
+    PlaceResult,
+    RunConfig,
+    RunReport,
+    RunStatus,
+)
 from datespot_agent.reporting import JsonReportStore, ReportStorageError
 
 
@@ -67,6 +74,46 @@ class JsonReportStoreTests(unittest.TestCase):
             self.assertNotIn(r"\uc11c\uc6b8", payload)
             self.assertTrue(payload.endswith("\n"))
             self.assertEqual(RunReport.model_validate_json(payload), report)
+
+    def test_save_round_trips_report_digests_and_source_evidence(self):
+        digest = AnalysisDigest(
+            summary="차분하고 대화하기 좋은 분위기",
+            strengths=["좌석 간격"],
+            cautions=["주말 대기"],
+        )
+        report = make_report().model_copy(
+            update={
+                "results": [
+                    PlaceResult(
+                        status="analyzed",
+                        place_id="place-1",
+                        name="우니도",
+                        final_score=8.5,
+                        photo_digest=digest,
+                        review_digest=digest,
+                        evidence=PlaceEvidence(
+                            place_url=(
+                                "https://map.naver.com/p/entry/place/place-1"
+                            ),
+                            photo_urls=["https://images.example/interior.jpg"],
+                            reviews=["조용해서 대화하기 좋아요"],
+                            source_review_count=128,
+                        ),
+                    )
+                ]
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = JsonReportStore(Path(directory)).save(report)
+            restored = RunReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+        result = restored.results[0]
+        self.assertEqual(result.photo_digest, digest)
+        self.assertIsNotNone(result.evidence)
+        assert result.evidence is not None
+        self.assertEqual(result.evidence.reviews, ["조용해서 대화하기 좋아요"])
+        self.assertEqual(result.evidence.source_review_count, 128)
 
     def test_save_creates_parent_directories(self):
         with tempfile.TemporaryDirectory() as directory:

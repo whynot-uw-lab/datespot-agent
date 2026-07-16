@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from datespot_agent.graph import GraphRunService
 from datespot_agent.models import (
+    AnalysisDigest,
     CandidatePlace,
     PhotoAnalysis,
     PlaceDetail,
@@ -78,12 +79,28 @@ class EmptyReviewBrowserService(SuccessfulBrowserService):
 
 class PhotoAgent:
     async def analyze(self, detail, criteria):
-        return PhotoAnalysis(photo_score=8, reason="차분함")
+        return PhotoAnalysis(
+            photo_score=8,
+            reason="차분함",
+            digest=AnalysisDigest(
+                summary="차분한 내부",
+                strengths=["차분한 분위기"],
+                cautions=["혼잡도 확인 제한"],
+            ),
+        )
 
 
 class ReviewAgent:
     async def analyze(self, detail, criteria):
-        return ReviewAnalysis(review_score=9, reason="조용함")
+        return ReviewAnalysis(
+            review_score=9,
+            reason="조용함",
+            digest=AnalysisDigest(
+                summary="대화하기 좋다는 평가",
+                strengths=["조용함"],
+                cautions=["대기 정보 부족"],
+            ),
+        )
 
 
 class ScoringService:

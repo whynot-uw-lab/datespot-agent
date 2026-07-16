@@ -1,5 +1,3 @@
-import type { PlaceResult } from "../api/contracts";
-
 export type RunEventType =
   | "snapshot"
   | "queued"
@@ -40,6 +38,20 @@ export interface RunProgressData {
   durationMs?: number;
   score?: number;
   photoUrls?: string[];
+}
+
+export interface RunPlaceResultData {
+  status: "analyzed" | "failed";
+  placeId?: string | null;
+  name: string;
+  category?: string | null;
+  address?: string | null;
+  photoScore?: number | null;
+  reviewScore?: number | null;
+  finalScore?: number | null;
+  photoReason?: string | null;
+  reviewReason?: string | null;
+  failureReason?: string | null;
 }
 
 const optionalNumber = (value: unknown): number | undefined =>
@@ -85,7 +97,7 @@ export interface RunProjection {
   lastAppliedSequence: number;
   resetReplayUntil: number | null;
   progressItems: RunEvent[];
-  placeResults: PlaceResult[];
+  placeResults: RunPlaceResultData[];
   awaitingSnapshot: boolean;
   status: string;
   terminal: boolean;
@@ -163,7 +175,10 @@ export const reduceRunEvent = (
   if (event.type === "place_result") {
     return {
       ...next,
-      placeResults: [...next.placeResults, event.data as unknown as PlaceResult],
+      placeResults: [
+        ...next.placeResults,
+        event.data as unknown as RunPlaceResultData,
+      ],
     };
   }
   if (["queued", "running", "completed", "failed"].includes(event.type)) {

@@ -41,7 +41,9 @@ def build_review_prompt(detail: PlaceDetail, criteria: str, reviews: list[str]) 
         "review_score는 0~10 정수다. "
         "평가 기준은 점수를 산정하는 관점일 뿐 통과 여부를 판정하지 않는다. "
         "직접 근거가 부족하거나 상반되면 낮은 점수에 반영한다. "
-        "reason에는 관찰 근거와 감점 요인만 작성하고 이진 판정이나 추천 결론을 넣지 않는다.\n\n"
+        "reason에는 관찰 근거와 감점 요인만 작성하고 이진 판정이나 추천 결론을 넣지 않는다. "
+        "digest.summary에는 핵심 판단을 1~2문장으로, digest.strengths에는 반복 확인된 장점을 최대 4개, "
+        "digest.cautions에는 부정 근거나 근거 부족을 최대 4개로 작성한다.\n\n"
         f"리뷰 목록:\n{numbered}"
     )
 

@@ -36,7 +36,9 @@ def build_photo_prompt(detail: PlaceDetail, criteria: str) -> str:
         "photo_score는 0~10 정수다. "
         "평가 기준은 점수를 산정하는 관점일 뿐 통과 여부를 판정하지 않는다. "
         "확인할 수 없거나 상반되는 조건은 낮은 점수에 반영한다. "
-        "reason에는 관찰 근거와 감점 요인만 작성하고 이진 판정이나 추천 결론을 넣지 않는다."
+        "reason에는 관찰 근거와 감점 요인만 작성하고 이진 판정이나 추천 결론을 넣지 않는다. "
+        "digest.summary에는 핵심 판단을 1~2문장으로, digest.strengths에는 확인된 장점을 최대 4개, "
+        "digest.cautions에는 감점 요인이나 확인 한계를 최대 4개로 작성한다."
     )
 
 

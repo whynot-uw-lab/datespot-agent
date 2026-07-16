@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from datespot_agent.api.models import RunJobStatus, RunStatusResponse
-from datespot_agent.models import CamelModel, PlaceResult
+from datespot_agent.models import CamelModel, PlaceResult, PlaceResultStatus
 from datespot_agent.observability import log_event
 
 
@@ -104,6 +104,52 @@ class RunReportSavedData(_FrozenCamelModel):
     report_url: str = Field(min_length=1)
 
 
+class RunPlaceResultData(_FrozenCamelModel):
+    """SSE에 공개해도 되는 장소 처리 결과만 보관함."""
+
+    status: PlaceResultStatus
+    place_id: str | None = Field(default=None, min_length=1)
+    name: str = Field(min_length=1)
+    category: str | None = None
+    address: str | None = None
+    photo_score: int | None = Field(default=None, ge=0, le=10)
+    review_score: int | None = Field(default=None, ge=0, le=10)
+    final_score: float | None = Field(default=None, ge=0, le=10, multiple_of=0.1)
+    photo_reason: str | None = None
+    review_reason: str | None = None
+    failure_reason: str | None = None
+
+    @model_validator(mode="after")
+    def validate_status_fields(self) -> RunPlaceResultData:
+        if (
+            self.status is PlaceResultStatus.ANALYZED
+            and self.final_score is None
+        ):
+            raise ValueError("분석 완료 이벤트에는 final_score가 필요하다")
+        if (
+            self.status is PlaceResultStatus.FAILED
+            and not self.failure_reason
+        ):
+            raise ValueError("실패 이벤트에는 failure_reason이 필요하다")
+        return self
+
+    @classmethod
+    def from_result(cls, result: PlaceResult) -> RunPlaceResultData:
+        return cls(
+            status=result.status,
+            place_id=result.place_id,
+            name=result.name,
+            category=result.category,
+            address=result.address,
+            photo_score=result.photo_score,
+            review_score=result.review_score,
+            final_score=result.final_score,
+            photo_reason=result.photo_reason,
+            review_reason=result.review_reason,
+            failure_reason=result.failure_reason,
+        )
+
+
 class RunBrowserData(_FrozenCamelModel):
     pass
 
@@ -116,7 +162,7 @@ RunEventPayload: TypeAlias = (
     RunStatusResponse
     | RunLifecycleData
     | RunProgressData
-    | PlaceResult
+    | RunPlaceResultData
     | RunReportSavedData
     | RunBrowserData
     | RunReplayResetData
@@ -144,7 +190,7 @@ class RunEvent(_FrozenCamelModel):
             RunEventType.QUEUED: RunLifecycleData,
             RunEventType.RUNNING: RunLifecycleData,
             RunEventType.PROGRESS: RunProgressData,
-            RunEventType.PLACE_RESULT: PlaceResult,
+            RunEventType.PLACE_RESULT: RunPlaceResultData,
             RunEventType.BROWSER_READY: RunBrowserData,
             RunEventType.BROWSER_CLOSED: RunBrowserData,
             RunEventType.REPORT_SAVED: RunReportSavedData,
@@ -465,7 +511,9 @@ class RunEventPublisher:
             run_id,
             RunEventType.PLACE_RESULT.value,
             lambda: self._hub.publish(
-                run_id, RunEventType.PLACE_RESULT, result.model_copy(deep=True)
+                run_id,
+                RunEventType.PLACE_RESULT,
+                RunPlaceResultData.from_result(result),
             ),
         )
 
@@ -552,6 +600,7 @@ __all__ = [
     "RunEventSubscription",
     "RunEventType",
     "RunLifecycleData",
+    "RunPlaceResultData",
     "RunProgressData",
     "RunReplayResetData",
     "RunReportSavedData",
