@@ -214,6 +214,10 @@ test("new search flows through live progress into saved report", async ({ page }
     "href",
     "https://map.naver.com/p/entry/place/place-1",
   );
+  await expect(page.getByRole("heading", {
+    name: "실제 내부 사진",
+    includeHidden: true,
+  })).toBeHidden();
   await page.getByRole("button", { name: "상세 근거 보기" }).click();
   const reportPhoto = page.getByRole("button", { name: "오스테리아 오르조 내부 사진 1 확대" });
   await expect(reportPhoto).toBeVisible();
